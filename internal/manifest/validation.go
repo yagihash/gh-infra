@@ -14,28 +14,33 @@ func (r *Repository) Validate() error {
 		return fmt.Errorf("metadata.owner is required for %q", r.Metadata.Name)
 	}
 	if r.Spec.Visibility != nil {
-		if err := validateOneOf("visibility", *r.Spec.Visibility, "public", "private", "internal"); err != nil {
+		if err := validateOneOf("visibility", *r.Spec.Visibility,
+			VisibilityPublic, VisibilityPrivate, VisibilityInternal); err != nil {
 			return fmt.Errorf("%s: %w", r.Metadata.Name, err)
 		}
 	}
 	if f := r.Spec.Features; f != nil {
 		if f.SquashMergeCommitTitle != nil {
-			if err := validateOneOf("squash_merge_commit_title", *f.SquashMergeCommitTitle, "PR_TITLE", "COMMIT_OR_PR_TITLE"); err != nil {
+			if err := validateOneOf("squash_merge_commit_title", *f.SquashMergeCommitTitle,
+				SquashMergeCommitTitlePRTitle, SquashMergeCommitTitleCommitOrPRTitle); err != nil {
 				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
 			}
 		}
 		if f.SquashMergeCommitMessage != nil {
-			if err := validateOneOf("squash_merge_commit_message", *f.SquashMergeCommitMessage, "COMMIT_MESSAGES", "PR_BODY", "BLANK"); err != nil {
+			if err := validateOneOf("squash_merge_commit_message", *f.SquashMergeCommitMessage,
+				SquashMergeCommitMessageCommitMessages, SquashMergeCommitMessagePRBody, SquashMergeCommitMessageBlank); err != nil {
 				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
 			}
 		}
 		if f.MergeCommitTitle != nil {
-			if err := validateOneOf("merge_commit_title", *f.MergeCommitTitle, "MERGE_MESSAGE", "PR_TITLE"); err != nil {
+			if err := validateOneOf("merge_commit_title", *f.MergeCommitTitle,
+				MergeCommitTitleMergeMessage, MergeCommitTitlePRTitle); err != nil {
 				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
 			}
 		}
 		if f.MergeCommitMessage != nil {
-			if err := validateOneOf("merge_commit_message", *f.MergeCommitMessage, "PR_TITLE", "PR_BODY", "BLANK"); err != nil {
+			if err := validateOneOf("merge_commit_message", *f.MergeCommitMessage,
+				MergeCommitMessagePRTitle, MergeCommitMessagePRBody, MergeCommitMessageBlank); err != nil {
 				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
 			}
 		}
@@ -70,9 +75,10 @@ func (fs *FileSet) Validate() error {
 		return fmt.Errorf("FileSet %q: spec.files is required", fs.Metadata.Name)
 	}
 	if fs.Spec.OnDrift == "" {
-		fs.Spec.OnDrift = "warn"
+		fs.Spec.OnDrift = OnDriftWarn
 	}
-	if err := validateOneOf("on_drift", fs.Spec.OnDrift, "warn", "overwrite", "skip"); err != nil {
+	if err := validateOneOf("on_drift", fs.Spec.OnDrift,
+		OnDriftWarn, OnDriftOverwrite, OnDriftSkip); err != nil {
 		return fmt.Errorf("FileSet %q: %w", fs.Metadata.Name, err)
 	}
 	for i, f := range fs.Spec.Files {

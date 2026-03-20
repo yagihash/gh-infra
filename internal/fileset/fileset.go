@@ -97,7 +97,7 @@ func (p *Processor) planFile(fileSetName, repo string, file manifest.FileEntry, 
 
 	// Content differs — drift detected
 	switch onDrift {
-	case "skip":
+	case manifest.OnDriftSkip:
 		return FileChange{
 			FileSet: fileSetName,
 			Target:  repo,
@@ -109,7 +109,7 @@ func (p *Processor) planFile(fileSetName, repo string, file manifest.FileEntry, 
 			OnDrift: onDrift,
 			Drifted: true,
 		}
-	case "warn":
+	case manifest.OnDriftWarn:
 		return FileChange{
 			FileSet: fileSetName,
 			Target:  repo,

@@ -1,5 +1,55 @@
 package manifest
 
+const (
+	// APIVersion is the current API version for all manifest resources.
+	APIVersion = "gh-infra/v1"
+
+	// Kind constants for YAML document routing.
+	KindRepository    = "Repository"
+	KindRepositorySet = "RepositorySet"
+	KindFileSet       = "FileSet"
+
+	// Visibility values for repository visibility.
+	VisibilityPublic   = "public"
+	VisibilityPrivate  = "private"
+	VisibilityInternal = "internal"
+
+	// OnDrift values for FileSet drift handling.
+	OnDriftWarn      = "warn"
+	OnDriftOverwrite = "overwrite"
+	OnDriftSkip      = "skip"
+
+	// ManagedBy values for repository management mode.
+	ManagedBySelf = "self"
+
+	// Resource type identifiers used in plan changes.
+	ResourceRepository       = "Repository"
+	ResourceBranchProtection = "BranchProtection"
+	ResourceSecret           = "Secret"
+	ResourceVariable         = "Variable"
+
+	// Squash merge commit title options.
+	SquashMergeCommitTitlePRTitle         = "PR_TITLE"
+	SquashMergeCommitTitleCommitOrPRTitle = "COMMIT_OR_PR_TITLE"
+
+	// Squash merge commit message options.
+	SquashMergeCommitMessageCommitMessages = "COMMIT_MESSAGES"
+	SquashMergeCommitMessagePRBody         = "PR_BODY"
+	SquashMergeCommitMessageBlank          = "BLANK"
+
+	// Merge commit title options.
+	MergeCommitTitleMergeMessage = "MERGE_MESSAGE"
+	MergeCommitTitlePRTitle      = "PR_TITLE"
+
+	// Merge commit message options.
+	MergeCommitMessagePRTitle = "PR_TITLE"
+	MergeCommitMessagePRBody  = "PR_BODY"
+	MergeCommitMessageBlank   = "BLANK"
+
+	// DefaultMaxRepoList is the maximum number of repos to list in import.
+	DefaultMaxRepoList = "1000"
+)
+
 // Document represents a single YAML document with kind routing.
 type Document struct {
 	APIVersion string `yaml:"apiVersion"`

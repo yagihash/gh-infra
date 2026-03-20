@@ -75,19 +75,19 @@ func parseFileAll(path string) (*ParseResult, error) {
 	result := &ParseResult{}
 
 	switch doc.Kind {
-	case "Repository":
+	case KindRepository:
 		repos, err := parseRepository(data, path)
 		if err != nil {
 			return nil, err
 		}
 		result.Repositories = repos
-	case "RepositorySet":
+	case KindRepositorySet:
 		repos, err := parseRepositorySet(data, path)
 		if err != nil {
 			return nil, err
 		}
 		result.Repositories = repos
-	case "FileSet":
+	case KindFileSet:
 		fs, err := parseFileSet(data, path)
 		if err != nil {
 			return nil, err
@@ -121,7 +121,7 @@ func parseRepositorySet(data []byte, path string) ([]*Repository, error) {
 	for _, entry := range set.Repositories {
 		repo := &Repository{
 			APIVersion: set.APIVersion,
-			Kind:       "Repository",
+			Kind:       KindRepository,
 			Metadata: RepositoryMetadata{
 				Name:  entry.Name,
 				Owner: set.Metadata.Owner,

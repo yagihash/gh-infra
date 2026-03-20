@@ -48,13 +48,13 @@ func (e *Executor) applyChange(c plan.Change, repo *manifest.Repository) ApplyRe
 	var err error
 
 	switch {
-	case c.Resource == "Repository":
+	case c.Resource == manifest.ResourceRepository:
 		err = e.applyRepoSetting(c, repo)
-	case strings.HasPrefix(c.Resource, "BranchProtection"):
+	case strings.HasPrefix(c.Resource, manifest.ResourceBranchProtection):
 		err = e.applyBranchProtection(c, repo)
-	case c.Resource == "Secret":
+	case c.Resource == manifest.ResourceSecret:
 		err = e.applySecret(c, repo)
-	case c.Resource == "Variable":
+	case c.Resource == manifest.ResourceVariable:
 		err = e.applyVariable(c, repo)
 	default:
 		err = fmt.Errorf("unknown resource type: %s", c.Resource)
@@ -169,8 +169,8 @@ func (e *Executor) applyBranchProtection(c plan.Change, repo *manifest.Repositor
 	// Find the matching branch protection rule from desired state
 	var pattern string
 	// Extract pattern from resource name like "BranchProtection[main]"
-	if strings.HasPrefix(c.Resource, "BranchProtection[") {
-		pattern = strings.TrimSuffix(strings.TrimPrefix(c.Resource, "BranchProtection["), "]")
+	if strings.HasPrefix(c.Resource, manifest.ResourceBranchProtection+"[") {
+		pattern = strings.TrimSuffix(strings.TrimPrefix(c.Resource, manifest.ResourceBranchProtection+"["), "]")
 	}
 
 	var bp *manifest.BranchProtection

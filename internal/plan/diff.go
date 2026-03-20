@@ -39,7 +39,7 @@ func diffRepoSettings(name string, desired *manifest.Repository, current *state.
 	if desired.Spec.Description != nil && *desired.Spec.Description != current.Description {
 		changes = append(changes, Change{
 			Type:     ChangeUpdate,
-			Resource: "Repository",
+			Resource: manifest.ResourceRepository,
 			Name:     name,
 			Field:    "description",
 			OldValue: current.Description,
@@ -50,7 +50,7 @@ func diffRepoSettings(name string, desired *manifest.Repository, current *state.
 	if desired.Spec.Homepage != nil && *desired.Spec.Homepage != current.Homepage {
 		changes = append(changes, Change{
 			Type:     ChangeUpdate,
-			Resource: "Repository",
+			Resource: manifest.ResourceRepository,
 			Name:     name,
 			Field:    "homepage",
 			OldValue: current.Homepage,
@@ -61,7 +61,7 @@ func diffRepoSettings(name string, desired *manifest.Repository, current *state.
 	if desired.Spec.Visibility != nil && *desired.Spec.Visibility != current.Visibility {
 		changes = append(changes, Change{
 			Type:     ChangeUpdate,
-			Resource: "Repository",
+			Resource: manifest.ResourceRepository,
 			Name:     name,
 			Field:    "visibility",
 			OldValue: current.Visibility,
@@ -73,7 +73,7 @@ func diffRepoSettings(name string, desired *manifest.Repository, current *state.
 		if !stringSliceEqual(desired.Spec.Topics, current.Topics) {
 			changes = append(changes, Change{
 				Type:     ChangeUpdate,
-				Resource: "Repository",
+				Resource: manifest.ResourceRepository,
 				Name:     name,
 				Field:    "topics",
 				OldValue: current.Topics,
@@ -97,7 +97,7 @@ func diffFeatures(name string, desired *manifest.Repository, current *state.Repo
 		if desiredVal != nil && *desiredVal != currentVal {
 			changes = append(changes, Change{
 				Type:     ChangeUpdate,
-				Resource: "Repository",
+				Resource: manifest.ResourceRepository,
 				Name:     name,
 				Field:    field,
 				OldValue: currentVal,
@@ -119,7 +119,7 @@ func diffFeatures(name string, desired *manifest.Repository, current *state.Repo
 		if desiredVal != nil && *desiredVal != currentVal {
 			changes = append(changes, Change{
 				Type:     ChangeUpdate,
-				Resource: "Repository",
+				Resource: manifest.ResourceRepository,
 				Name:     name,
 				Field:    field,
 				OldValue: currentVal,
@@ -141,7 +141,7 @@ func diffBranchProtection(name string, desired *manifest.Repository, current *st
 
 	for _, dbp := range desired.Spec.BranchProtection {
 		cbp, exists := current.BranchProtection[dbp.Pattern]
-		resource := fmt.Sprintf("BranchProtection[%s]", dbp.Pattern)
+		resource := fmt.Sprintf("%s[%s]", manifest.ResourceBranchProtection, dbp.Pattern)
 
 		if !exists {
 			changes = append(changes, Change{
@@ -269,7 +269,7 @@ func diffSecrets(name string, desired *manifest.Repository, current *state.Repos
 		if !currentSet[ds.Name] {
 			changes = append(changes, Change{
 				Type:     ChangeCreate,
-				Resource: "Secret",
+				Resource: manifest.ResourceSecret,
 				Name:     name,
 				Field:    ds.Name,
 				NewValue: "(new)",
@@ -280,7 +280,7 @@ func diffSecrets(name string, desired *manifest.Repository, current *state.Repos
 		if forceSecrets {
 			changes = append(changes, Change{
 				Type:     ChangeUpdate,
-				Resource: "Secret",
+				Resource: manifest.ResourceSecret,
 				Name:     name,
 				Field:    ds.Name,
 				OldValue: "(exists)",
@@ -300,7 +300,7 @@ func diffVariables(name string, desired *manifest.Repository, current *state.Rep
 		if !exists {
 			changes = append(changes, Change{
 				Type:     ChangeCreate,
-				Resource: "Variable",
+				Resource: manifest.ResourceVariable,
 				Name:     name,
 				Field:    dv.Name,
 				NewValue: dv.Value,
@@ -308,7 +308,7 @@ func diffVariables(name string, desired *manifest.Repository, current *state.Rep
 		} else if cv != dv.Value {
 			changes = append(changes, Change{
 				Type:     ChangeUpdate,
-				Resource: "Variable",
+				Resource: manifest.ResourceVariable,
 				Name:     name,
 				Field:    dv.Name,
 				OldValue: cv,

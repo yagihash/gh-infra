@@ -29,7 +29,7 @@ func fetchAllChanges(repos []*manifest.Repository, filterRepo string, fetcher *s
 		if filterRepo != "" && repo.Metadata.FullName() != filterRepo {
 			continue
 		}
-		if repo.Metadata.ManagedBy == "self" {
+		if repo.Metadata.ManagedBy == manifest.ManagedBySelf {
 			fmt.Fprintf(os.Stderr, "  ⚠ %s: managed_by=self, skipping\n", repo.Metadata.FullName())
 			continue
 		}

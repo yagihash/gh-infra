@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/babarot/gh-infra/internal/gh"
+	"github.com/babarot/gh-infra/internal/manifest"
 	"github.com/babarot/gh-infra/internal/state"
 	goyaml "github.com/goccy/go-yaml"
 	"github.com/spf13/cobra"
@@ -61,7 +62,7 @@ func importSingleRepo(owner, name string, fetcher *state.Fetcher) error {
 }
 
 func importAllRepos(owner string, runner gh.Runner, fetcher *state.Fetcher) error {
-	out, err := runner.Run("repo", "list", owner, "--json", "name", "--limit", "1000")
+	out, err := runner.Run("repo", "list", owner, "--json", "name", "--limit", manifest.DefaultMaxRepoList)
 	if err != nil {
 		return fmt.Errorf("list repos for %s: %w", owner, err)
 	}

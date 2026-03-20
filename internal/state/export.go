@@ -7,8 +7,8 @@ import (
 // ToManifest converts current state to a manifest Repository for export (import command).
 func ToManifest(r *Repository) *manifest.Repository {
 	repo := &manifest.Repository{
-		APIVersion: "gh-infra/v1",
-		Kind:       "Repository",
+		APIVersion: manifest.APIVersion,
+		Kind:       manifest.KindRepository,
 		Metadata: manifest.RepositoryMetadata{
 			Name:  r.Name,
 			Owner: r.Owner,
