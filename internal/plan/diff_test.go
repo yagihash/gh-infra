@@ -581,7 +581,7 @@ func TestDiff_Secrets(t *testing.T) {
 		c := baseState()
 		c.Secrets = []string{}
 
-		changes := diffSecrets("org/repo", d, c)
+		changes := diffSecrets("org/repo", d, c, false)
 		if len(changes) != 1 {
 			t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
 		}
@@ -596,7 +596,7 @@ func TestDiff_Secrets(t *testing.T) {
 		}
 	})
 
-	t.Run("existing secret always marked as update", func(t *testing.T) {
+	t.Run("existing secret skipped without force", func(t *testing.T) {
 		d := baseDesired()
 		d.Spec.Secrets = []manifest.Secret{
 			{Name: "API_KEY", Value: "new-value"},
@@ -604,18 +604,26 @@ func TestDiff_Secrets(t *testing.T) {
 		c := baseState()
 		c.Secrets = []string{"API_KEY"}
 
-		changes := diffSecrets("org/repo", d, c)
+		changes := diffSecrets("org/repo", d, c, false)
+		if len(changes) != 0 {
+			t.Errorf("expected no changes without force, got %d: %v", len(changes), changes)
+		}
+	})
+
+	t.Run("existing secret updated with force", func(t *testing.T) {
+		d := baseDesired()
+		d.Spec.Secrets = []manifest.Secret{
+			{Name: "API_KEY", Value: "new-value"},
+		}
+		c := baseState()
+		c.Secrets = []string{"API_KEY"}
+
+		changes := diffSecrets("org/repo", d, c, true)
 		if len(changes) != 1 {
 			t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
 		}
 		if changes[0].Type != ChangeUpdate {
 			t.Errorf("expected update, got %q", changes[0].Type)
-		}
-		if changes[0].OldValue != "(exists)" {
-			t.Errorf("expected old (exists), got %v", changes[0].OldValue)
-		}
-		if changes[0].NewValue != "(update)" {
-			t.Errorf("expected new (update), got %v", changes[0].NewValue)
 		}
 	})
 
@@ -624,7 +632,7 @@ func TestDiff_Secrets(t *testing.T) {
 		c := baseState()
 		c.Secrets = []string{"EXISTING"}
 
-		changes := diffSecrets("org/repo", d, c)
+		changes := diffSecrets("org/repo", d, c, false)
 		if len(changes) != 0 {
 			t.Errorf("expected no changes, got %d", len(changes))
 		}

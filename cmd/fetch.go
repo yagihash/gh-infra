@@ -22,7 +22,7 @@ type repoResult struct {
 }
 
 // fetchAllChanges fetches current state and computes diffs for all repos in parallel.
-func fetchAllChanges(repos []*manifest.Repository, filterRepo string, fetcher *state.Fetcher) ([]plan.Change, []*manifest.Repository, error) {
+func fetchAllChanges(repos []*manifest.Repository, filterRepo string, fetcher *state.Fetcher, diffOpts ...plan.DiffOptions) ([]plan.Change, []*manifest.Repository, error) {
 	// Filter repos first
 	var targets []*manifest.Repository
 	for _, repo := range repos {
@@ -59,7 +59,7 @@ func fetchAllChanges(repos []*manifest.Repository, filterRepo string, fetcher *s
 				return
 			}
 
-			changes := plan.Diff(r, current)
+			changes := plan.Diff(r, current, diffOpts...)
 			results[idx] = repoResult{index: idx, repo: r, changes: changes}
 		}(i, repo)
 	}

@@ -10,14 +10,16 @@ import (
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/manifest"
 	"github.com/babarot/gh-infra/internal/output"
+	"github.com/babarot/gh-infra/internal/plan"
 	"github.com/babarot/gh-infra/internal/state"
 	"github.com/spf13/cobra"
 )
 
 func newApplyCmd() *cobra.Command {
 	var (
-		repo        string
-		autoApprove bool
+		repo         string
+		autoApprove  bool
+		forceSecrets bool
 	)
 
 	cmd := &cobra.Command{
@@ -29,17 +31,18 @@ func newApplyCmd() *cobra.Command {
 			if len(args) > 0 {
 				path = args[0]
 			}
-			return runApply(path, repo, autoApprove)
+			return runApply(path, repo, autoApprove, forceSecrets)
 		},
 	}
 
 	cmd.Flags().StringVarP(&repo, "repo", "r", "", "Target specific repository only")
 	cmd.Flags().BoolVar(&autoApprove, "auto-approve", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVar(&forceSecrets, "force-secrets", false, "Always re-set all secrets (even if they already exist)")
 
 	return cmd
 }
 
-func runApply(path, filterRepo string, autoApprove bool) error {
+func runApply(path, filterRepo string, autoApprove, forceSecrets bool) error {
 	repos, err := manifest.ParsePath(path)
 	if err != nil {
 		return err
@@ -58,7 +61,8 @@ func runApply(path, filterRepo string, autoApprove bool) error {
 	fmt.Fprintf(os.Stderr, "Reading desired state from %s ...\n", path)
 	fmt.Fprintf(os.Stderr, "Fetching current state from GitHub API ...\n\n")
 
-	allChanges, targetRepos, err := fetchAllChanges(repos, filterRepo, fetcher)
+	diffOpts := plan.DiffOptions{ForceSecrets: forceSecrets}
+	allChanges, targetRepos, err := fetchAllChanges(repos, filterRepo, fetcher, diffOpts)
 	if err != nil {
 		return err
 	}

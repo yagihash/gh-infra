@@ -9,15 +9,25 @@ import (
 	"github.com/babarot/gh-infra/internal/state"
 )
 
+// DiffOptions controls diff behavior.
+type DiffOptions struct {
+	ForceSecrets bool // Always re-set existing secrets
+}
+
 // Diff compares desired state with current state and returns changes.
-func Diff(desired *manifest.Repository, current *state.Repository) []Change {
+func Diff(desired *manifest.Repository, current *state.Repository, opts ...DiffOptions) []Change {
+	var opt DiffOptions
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+
 	var changes []Change
 	name := desired.Metadata.FullName()
 
 	changes = append(changes, diffRepoSettings(name, desired, current)...)
 	changes = append(changes, diffFeatures(name, desired, current)...)
 	changes = append(changes, diffBranchProtection(name, desired, current)...)
-	changes = append(changes, diffSecrets(name, desired, current)...)
+	changes = append(changes, diffSecrets(name, desired, current, opt.ForceSecrets)...)
 	changes = append(changes, diffVariables(name, desired, current)...)
 
 	return changes
@@ -247,7 +257,7 @@ func diffBranchProtection(name string, desired *manifest.Repository, current *st
 	return changes
 }
 
-func diffSecrets(name string, desired *manifest.Repository, current *state.Repository) []Change {
+func diffSecrets(name string, desired *manifest.Repository, current *state.Repository, forceSecrets bool) []Change {
 	var changes []Change
 
 	currentSet := make(map[string]bool)
@@ -264,15 +274,17 @@ func diffSecrets(name string, desired *manifest.Repository, current *state.Repos
 				Field:    ds.Name,
 				NewValue: "(new)",
 			})
-		} else {
-			// Secrets are opaque; we always mark as update since we can't compare values
+		}
+		// Existing secrets are opaque (can't compare values), so we skip by default.
+		// Use `apply --force-secrets` to always re-set all secrets.
+		if forceSecrets {
 			changes = append(changes, Change{
 				Type:     ChangeUpdate,
 				Resource: "Secret",
 				Name:     name,
 				Field:    ds.Name,
 				OldValue: "(exists)",
-				NewValue: "(update)",
+				NewValue: "(force update)",
 			})
 		}
 	}
