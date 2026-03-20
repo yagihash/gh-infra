@@ -1,6 +1,7 @@
 package manifest
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -21,7 +22,6 @@ func TestValidateRepository(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "",
 		},
 		{
 			name: "missing name fails",
@@ -51,48 +51,35 @@ func TestValidateRepository(t *testing.T) {
 			name: "valid visibility public passes",
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
-				Spec: RepositorySpec{
-					Visibility: StringPtr("public"),
-				},
+				Spec:     RepositorySpec{Visibility: StringPtr("public")},
 			},
-			wantErr: "",
 		},
 		{
 			name: "valid visibility private passes",
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
-				Spec: RepositorySpec{
-					Visibility: StringPtr("private"),
-				},
+				Spec:     RepositorySpec{Visibility: StringPtr("private")},
 			},
-			wantErr: "",
 		},
 		{
 			name: "valid visibility internal passes",
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
-				Spec: RepositorySpec{
-					Visibility: StringPtr("internal"),
-				},
+				Spec:     RepositorySpec{Visibility: StringPtr("internal")},
 			},
-			wantErr: "",
 		},
 		{
 			name: "nil visibility passes",
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
-				Spec:     RepositorySpec{},
 			},
-			wantErr: "",
 		},
 		{
 			name: "empty branch protection pattern fails",
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					BranchProtection: []BranchProtection{
-						{Pattern: ""},
-					},
+					BranchProtection: []BranchProtection{{Pattern: ""}},
 				},
 			},
 			wantErr: "branch_protection.pattern is required",
@@ -108,13 +95,110 @@ func TestValidateRepository(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "",
+		},
+		// Commit message settings validation
+		{
+			name: "valid squash_merge_commit_title",
+			repo: &Repository{
+				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
+				Spec: RepositorySpec{
+					Features: &Features{SquashMergeCommitTitle: StringPtr("PR_TITLE")},
+				},
+			},
+		},
+		{
+			name: "invalid squash_merge_commit_title",
+			repo: &Repository{
+				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
+				Spec: RepositorySpec{
+					Features: &Features{SquashMergeCommitTitle: StringPtr("INVALID")},
+				},
+			},
+			wantErr: "invalid squash_merge_commit_title",
+		},
+		{
+			name: "valid squash_merge_commit_message",
+			repo: &Repository{
+				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
+				Spec: RepositorySpec{
+					Features: &Features{SquashMergeCommitMessage: StringPtr("PR_BODY")},
+				},
+			},
+		},
+		{
+			name: "invalid squash_merge_commit_message",
+			repo: &Repository{
+				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
+				Spec: RepositorySpec{
+					Features: &Features{SquashMergeCommitMessage: StringPtr("NOPE")},
+				},
+			},
+			wantErr: "invalid squash_merge_commit_message",
+		},
+		{
+			name: "valid merge_commit_title",
+			repo: &Repository{
+				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
+				Spec: RepositorySpec{
+					Features: &Features{MergeCommitTitle: StringPtr("MERGE_MESSAGE")},
+				},
+			},
+		},
+		{
+			name: "invalid merge_commit_title",
+			repo: &Repository{
+				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
+				Spec: RepositorySpec{
+					Features: &Features{MergeCommitTitle: StringPtr("BAD")},
+				},
+			},
+			wantErr: "invalid merge_commit_title",
+		},
+		{
+			name: "valid merge_commit_message",
+			repo: &Repository{
+				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
+				Spec: RepositorySpec{
+					Features: &Features{MergeCommitMessage: StringPtr("PR_BODY")},
+				},
+			},
+		},
+		{
+			name: "invalid merge_commit_message",
+			repo: &Repository{
+				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
+				Spec: RepositorySpec{
+					Features: &Features{MergeCommitMessage: StringPtr("WRONG")},
+				},
+			},
+			wantErr: "invalid merge_commit_message",
+		},
+		// Secrets/variables validation
+		{
+			name: "empty secret name fails",
+			repo: &Repository{
+				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
+				Spec: RepositorySpec{
+					Secrets: []Secret{{Name: "", Value: "v"}},
+				},
+			},
+			wantErr: "secrets[].name is required",
+		},
+		{
+			name: "empty variable name fails",
+			repo: &Repository{
+				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
+				Spec: RepositorySpec{
+					Variables: []Variable{{Name: "", Value: "v"}},
+				},
+			},
+			wantErr: "variables[].name is required",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateRepository(tt.repo, "test.yaml")
+			err := tt.repo.Validate()
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Errorf("expected no error, got: %v", err)
@@ -124,9 +208,123 @@ func TestValidateRepository(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error containing %q, got nil", tt.wantErr)
 			}
-			if !contains(err.Error(), tt.wantErr) {
+			if !strings.Contains(err.Error(), tt.wantErr) {
 				t.Errorf("error = %q, want it to contain %q", err.Error(), tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestValidateFileSet(t *testing.T) {
+	tests := []struct {
+		name    string
+		fs      *FileSet
+		wantErr string
+	}{
+		{
+			name: "valid fileset",
+			fs: &FileSet{
+				Metadata: FileSetMetadata{Name: "common"},
+				Spec: FileSetSpec{
+					Targets: []FileSetTarget{{Name: "org/repo"}},
+					Files:   []FileEntry{{Path: "LICENSE", Content: "MIT"}},
+					OnDrift: "overwrite",
+				},
+			},
+		},
+		{
+			name: "missing name",
+			fs: &FileSet{
+				Spec: FileSetSpec{
+					Targets: []FileSetTarget{{Name: "org/repo"}},
+					Files:   []FileEntry{{Path: "LICENSE"}},
+				},
+			},
+			wantErr: "metadata.name is required",
+		},
+		{
+			name: "missing targets",
+			fs: &FileSet{
+				Metadata: FileSetMetadata{Name: "common"},
+				Spec: FileSetSpec{
+					Files: []FileEntry{{Path: "LICENSE"}},
+				},
+			},
+			wantErr: "spec.targets is required",
+		},
+		{
+			name: "missing files",
+			fs: &FileSet{
+				Metadata: FileSetMetadata{Name: "common"},
+				Spec: FileSetSpec{
+					Targets: []FileSetTarget{{Name: "org/repo"}},
+				},
+			},
+			wantErr: "spec.files is required",
+		},
+		{
+			name: "invalid on_drift",
+			fs: &FileSet{
+				Metadata: FileSetMetadata{Name: "common"},
+				Spec: FileSetSpec{
+					Targets: []FileSetTarget{{Name: "org/repo"}},
+					Files:   []FileEntry{{Path: "LICENSE"}},
+					OnDrift: "delete",
+				},
+			},
+			wantErr: "invalid on_drift",
+		},
+		{
+			name: "default on_drift is warn",
+			fs: &FileSet{
+				Metadata: FileSetMetadata{Name: "common"},
+				Spec: FileSetSpec{
+					Targets: []FileSetTarget{{Name: "org/repo"}},
+					Files:   []FileEntry{{Path: "LICENSE"}},
+				},
+			},
+		},
+		{
+			name: "empty file path fails",
+			fs: &FileSet{
+				Metadata: FileSetMetadata{Name: "common"},
+				Spec: FileSetSpec{
+					Targets: []FileSetTarget{{Name: "org/repo"}},
+					Files:   []FileEntry{{Path: ""}},
+				},
+			},
+			wantErr: "files[0].path is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.fs.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("expected no error, got: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want it to contain %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateOneOf(t *testing.T) {
+	if err := validateOneOf("field", "a", "a", "b", "c"); err != nil {
+		t.Errorf("expected no error, got: %v", err)
+	}
+	err := validateOneOf("field", "d", "a", "b", "c")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "must be one of: a, b, c") {
+		t.Errorf("unexpected error: %v", err)
 	}
 }

@@ -1,25 +1,95 @@
 package manifest
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
-func validateRepository(repo *Repository, source string) error {
-	if repo.Metadata.Name == "" {
-		return fmt.Errorf("%s: metadata.name is required", source)
+// Validate checks that the Repository has valid field values.
+func (r *Repository) Validate() error {
+	if r.Metadata.Name == "" {
+		return fmt.Errorf("metadata.name is required")
 	}
-	if repo.Metadata.Owner == "" {
-		return fmt.Errorf("%s: metadata.owner is required for %q", source, repo.Metadata.Name)
+	if r.Metadata.Owner == "" {
+		return fmt.Errorf("metadata.owner is required for %q", r.Metadata.Name)
 	}
-	if repo.Spec.Visibility != nil {
-		switch *repo.Spec.Visibility {
-		case "public", "private", "internal":
-		default:
-			return fmt.Errorf("%s: invalid visibility %q for %q", source, *repo.Spec.Visibility, repo.Metadata.Name)
+	if r.Spec.Visibility != nil {
+		if err := validateOneOf("visibility", *r.Spec.Visibility, "public", "private", "internal"); err != nil {
+			return fmt.Errorf("%s: %w", r.Metadata.Name, err)
 		}
 	}
-	for _, bp := range repo.Spec.BranchProtection {
+	if f := r.Spec.Features; f != nil {
+		if f.SquashMergeCommitTitle != nil {
+			if err := validateOneOf("squash_merge_commit_title", *f.SquashMergeCommitTitle, "PR_TITLE", "COMMIT_OR_PR_TITLE"); err != nil {
+				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
+			}
+		}
+		if f.SquashMergeCommitMessage != nil {
+			if err := validateOneOf("squash_merge_commit_message", *f.SquashMergeCommitMessage, "COMMIT_MESSAGES", "PR_BODY", "BLANK"); err != nil {
+				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
+			}
+		}
+		if f.MergeCommitTitle != nil {
+			if err := validateOneOf("merge_commit_title", *f.MergeCommitTitle, "MERGE_MESSAGE", "PR_TITLE"); err != nil {
+				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
+			}
+		}
+		if f.MergeCommitMessage != nil {
+			if err := validateOneOf("merge_commit_message", *f.MergeCommitMessage, "PR_TITLE", "PR_BODY", "BLANK"); err != nil {
+				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
+			}
+		}
+	}
+	for _, bp := range r.Spec.BranchProtection {
 		if bp.Pattern == "" {
-			return fmt.Errorf("%s: branch_protection.pattern is required for %q", source, repo.Metadata.Name)
+			return fmt.Errorf("%s: branch_protection.pattern is required", r.Metadata.Name)
+		}
+	}
+	for _, s := range r.Spec.Secrets {
+		if s.Name == "" {
+			return fmt.Errorf("%s: secrets[].name is required", r.Metadata.Name)
+		}
+	}
+	for _, v := range r.Spec.Variables {
+		if v.Name == "" {
+			return fmt.Errorf("%s: variables[].name is required", r.Metadata.Name)
 		}
 	}
 	return nil
 }
+
+// Validate checks that the FileSet has valid field values.
+func (fs *FileSet) Validate() error {
+	if fs.Metadata.Name == "" {
+		return fmt.Errorf("FileSet metadata.name is required")
+	}
+	if len(fs.Spec.Targets) == 0 {
+		return fmt.Errorf("FileSet %q: spec.targets is required", fs.Metadata.Name)
+	}
+	if len(fs.Spec.Files) == 0 {
+		return fmt.Errorf("FileSet %q: spec.files is required", fs.Metadata.Name)
+	}
+	if fs.Spec.OnDrift == "" {
+		fs.Spec.OnDrift = "warn"
+	}
+	if err := validateOneOf("on_drift", fs.Spec.OnDrift, "warn", "overwrite", "skip"); err != nil {
+		return fmt.Errorf("FileSet %q: %w", fs.Metadata.Name, err)
+	}
+	for i, f := range fs.Spec.Files {
+		if f.Path == "" {
+			return fmt.Errorf("FileSet %q: files[%d].path is required", fs.Metadata.Name, i)
+		}
+	}
+	return nil
+}
+
+// validateOneOf checks that value is one of the allowed values.
+func validateOneOf(field, value string, allowed ...string) error {
+	for _, a := range allowed {
+		if value == a {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid %s %q (must be one of: %s)", field, value, strings.Join(allowed, ", "))
+}
+

@@ -105,8 +105,8 @@ func parseRepository(data []byte, path string) ([]*Repository, error) {
 	if err := yaml.Unmarshal(data, &repo); err != nil {
 		return nil, fmt.Errorf("parse Repository in %s: %w", path, err)
 	}
-	if err := validateRepository(&repo, path); err != nil {
-		return nil, err
+	if err := repo.Validate(); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	return []*Repository{&repo}, nil
 }
@@ -128,8 +128,8 @@ func parseRepositorySet(data []byte, path string) ([]*Repository, error) {
 			},
 			Spec: mergeSpecs(set.Defaults, entry.Spec),
 		}
-		if err := validateRepository(repo, path); err != nil {
-			return nil, err
+		if err := repo.Validate(); err != nil {
+			return nil, fmt.Errorf("%s: %w", path, err)
 		}
 		repos = append(repos, repo)
 	}
@@ -142,33 +142,14 @@ func parseFileSet(data []byte, path string) (*FileSet, error) {
 		return nil, fmt.Errorf("parse FileSet in %s: %w", path, err)
 	}
 
-	if fs.Metadata.Name == "" {
-		return nil, fmt.Errorf("%s: FileSet metadata.name is required", path)
-	}
-	if len(fs.Spec.Targets) == 0 {
-		return nil, fmt.Errorf("%s: FileSet spec.targets is required", path)
-	}
-	if len(fs.Spec.Files) == 0 {
-		return nil, fmt.Errorf("%s: FileSet spec.files is required", path)
-	}
-
-	// Default on_drift
-	if fs.Spec.OnDrift == "" {
-		fs.Spec.OnDrift = "warn"
-	}
-	switch fs.Spec.OnDrift {
-	case "warn", "overwrite", "skip":
-	default:
-		return nil, fmt.Errorf("%s: invalid on_drift %q (must be warn, overwrite, or skip)", path, fs.Spec.OnDrift)
+	if err := fs.Validate(); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 
 	// Resolve source files to content
 	dir := filepath.Dir(path)
 	for i := range fs.Spec.Files {
 		entry := &fs.Spec.Files[i]
-		if entry.Path == "" {
-			return nil, fmt.Errorf("%s: FileSet file entry missing path", path)
-		}
 		if entry.Source != "" && entry.Content == "" {
 			srcPath := entry.Source
 			if !filepath.IsAbs(srcPath) {
