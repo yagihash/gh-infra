@@ -21,25 +21,25 @@ type FileState struct {
 
 // FileChange represents a planned change for a file.
 type FileChange struct {
-	FileSet  string // FileSet name
-	Target   string // owner/repo
-	Path     string
-	Type     ChangeType
-	Current  string // current content (if exists)
-	Desired  string // desired content
-	SHA      string // current SHA (for updates)
-	OnDrift  string // warn, overwrite, skip
-	Drifted  bool   // file exists but content differs
+	FileSet string // FileSet name
+	Target  string // owner/repo
+	Path    string
+	Type    ChangeType
+	Current string // current content (if exists)
+	Desired string // desired content
+	SHA     string // current SHA (for updates)
+	OnDrift string // warn, overwrite, skip
+	Drifted bool   // file exists but content differs
 }
 
 type ChangeType string
 
 const (
-	FileCreate  ChangeType = "create"
-	FileUpdate  ChangeType = "update"
-	FileNoOp    ChangeType = "noop"
-	FileDrift   ChangeType = "drift"
-	FileSkip    ChangeType = "skip"
+	FileCreate ChangeType = "create"
+	FileUpdate ChangeType = "update"
+	FileNoOp   ChangeType = "noop"
+	FileDrift  ChangeType = "drift"
+	FileSkip   ChangeType = "skip"
 )
 
 // Processor handles FileSet plan and apply operations.

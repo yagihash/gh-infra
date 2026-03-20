@@ -25,28 +25,28 @@ func (m RepositoryMetadata) FullName() string {
 }
 
 type RepositorySpec struct {
-	Description      *string           `yaml:"description,omitempty"`
-	Homepage         *string           `yaml:"homepage,omitempty"`
-	Visibility       *string           `yaml:"visibility,omitempty"`
-	Topics           []string          `yaml:"topics,omitempty"`
-	Features         *Features         `yaml:"features,omitempty"`
+	Description      *string            `yaml:"description,omitempty"`
+	Homepage         *string            `yaml:"homepage,omitempty"`
+	Visibility       *string            `yaml:"visibility,omitempty"`
+	Topics           []string           `yaml:"topics,omitempty"`
+	Features         *Features          `yaml:"features,omitempty"`
 	BranchProtection []BranchProtection `yaml:"branch_protection,omitempty"`
-	Secrets          []Secret          `yaml:"secrets,omitempty"`
-	Variables        []Variable        `yaml:"variables,omitempty"`
+	Secrets          []Secret           `yaml:"secrets,omitempty"`
+	Variables        []Variable         `yaml:"variables,omitempty"`
 }
 
 type Features struct {
-	Issues                  *bool   `yaml:"issues,omitempty"`
-	Projects                *bool   `yaml:"projects,omitempty"`
-	Wiki                    *bool   `yaml:"wiki,omitempty"`
-	Discussions             *bool   `yaml:"discussions,omitempty"`
-	MergeCommit             *bool   `yaml:"merge_commit,omitempty"`
-	SquashMerge             *bool   `yaml:"squash_merge,omitempty"`
-	RebaseMerge             *bool   `yaml:"rebase_merge,omitempty"`
-	AutoDeleteHeadBranches  *bool   `yaml:"auto_delete_head_branches,omitempty"`
-	MergeCommitTitle        *string `yaml:"merge_commit_title,omitempty"`
-	MergeCommitMessage      *string `yaml:"merge_commit_message,omitempty"`
-	SquashMergeCommitTitle  *string `yaml:"squash_merge_commit_title,omitempty"`
+	Issues                   *bool   `yaml:"issues,omitempty"`
+	Projects                 *bool   `yaml:"projects,omitempty"`
+	Wiki                     *bool   `yaml:"wiki,omitempty"`
+	Discussions              *bool   `yaml:"discussions,omitempty"`
+	MergeCommit              *bool   `yaml:"merge_commit,omitempty"`
+	SquashMerge              *bool   `yaml:"squash_merge,omitempty"`
+	RebaseMerge              *bool   `yaml:"rebase_merge,omitempty"`
+	AutoDeleteHeadBranches   *bool   `yaml:"auto_delete_head_branches,omitempty"`
+	MergeCommitTitle         *string `yaml:"merge_commit_title,omitempty"`
+	MergeCommitMessage       *string `yaml:"merge_commit_message,omitempty"`
+	SquashMergeCommitTitle   *string `yaml:"squash_merge_commit_title,omitempty"`
 	SquashMergeCommitMessage *string `yaml:"squash_merge_commit_message,omitempty"`
 }
 
@@ -79,11 +79,11 @@ type Variable struct {
 
 // RepositorySet represents multiple repositories with shared defaults.
 type RepositorySet struct {
-	APIVersion   string               `yaml:"apiVersion"`
-	Kind         string               `yaml:"kind"`
-	Metadata     RepositorySetMetadata `yaml:"metadata"`
+	APIVersion   string                 `yaml:"apiVersion"`
+	Kind         string                 `yaml:"kind"`
+	Metadata     RepositorySetMetadata  `yaml:"metadata"`
 	Defaults     *RepositorySetDefaults `yaml:"defaults,omitempty"`
-	Repositories []RepositorySetEntry  `yaml:"repositories"`
+	Repositories []RepositorySetEntry   `yaml:"repositories"`
 }
 
 type RepositorySetMetadata struct {
@@ -135,7 +135,5 @@ type ParseResult struct {
 	FileSets     []*FileSet
 }
 
-// Helper functions for pointer creation
-func StringPtr(s string) *string { return &s }
-func BoolPtr(b bool) *bool      { return &b }
-func IntPtr(i int) *int          { return &i }
+// Ptr returns a pointer to the given value.
+func Ptr[T any](v T) *T { return &v }

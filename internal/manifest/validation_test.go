@@ -16,7 +16,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Visibility: StringPtr("public"),
+					Visibility: Ptr("public"),
 					BranchProtection: []BranchProtection{
 						{Pattern: "main"},
 					},
@@ -42,7 +42,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Visibility: StringPtr("secret"),
+					Visibility: Ptr("secret"),
 				},
 			},
 			wantErr: "invalid visibility",
@@ -51,21 +51,21 @@ func TestValidateRepository(t *testing.T) {
 			name: "valid visibility public passes",
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
-				Spec:     RepositorySpec{Visibility: StringPtr("public")},
+				Spec:     RepositorySpec{Visibility: Ptr("public")},
 			},
 		},
 		{
 			name: "valid visibility private passes",
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
-				Spec:     RepositorySpec{Visibility: StringPtr("private")},
+				Spec:     RepositorySpec{Visibility: Ptr("private")},
 			},
 		},
 		{
 			name: "valid visibility internal passes",
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
-				Spec:     RepositorySpec{Visibility: StringPtr("internal")},
+				Spec:     RepositorySpec{Visibility: Ptr("internal")},
 			},
 		},
 		{
@@ -102,7 +102,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{SquashMergeCommitTitle: StringPtr("PR_TITLE")},
+					Features: &Features{SquashMergeCommitTitle: Ptr("PR_TITLE")},
 				},
 			},
 		},
@@ -111,7 +111,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{SquashMergeCommitTitle: StringPtr("INVALID")},
+					Features: &Features{SquashMergeCommitTitle: Ptr("INVALID")},
 				},
 			},
 			wantErr: "invalid squash_merge_commit_title",
@@ -121,7 +121,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{SquashMergeCommitMessage: StringPtr("PR_BODY")},
+					Features: &Features{SquashMergeCommitMessage: Ptr("PR_BODY")},
 				},
 			},
 		},
@@ -130,7 +130,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{SquashMergeCommitMessage: StringPtr("NOPE")},
+					Features: &Features{SquashMergeCommitMessage: Ptr("NOPE")},
 				},
 			},
 			wantErr: "invalid squash_merge_commit_message",
@@ -140,7 +140,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{MergeCommitTitle: StringPtr("MERGE_MESSAGE")},
+					Features: &Features{MergeCommitTitle: Ptr("MERGE_MESSAGE")},
 				},
 			},
 		},
@@ -149,7 +149,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{MergeCommitTitle: StringPtr("BAD")},
+					Features: &Features{MergeCommitTitle: Ptr("BAD")},
 				},
 			},
 			wantErr: "invalid merge_commit_title",
@@ -159,7 +159,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{MergeCommitMessage: StringPtr("PR_BODY")},
+					Features: &Features{MergeCommitMessage: Ptr("PR_BODY")},
 				},
 			},
 		},
@@ -168,7 +168,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{MergeCommitMessage: StringPtr("WRONG")},
+					Features: &Features{MergeCommitMessage: Ptr("WRONG")},
 				},
 			},
 			wantErr: "invalid merge_commit_message",

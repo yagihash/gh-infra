@@ -73,10 +73,10 @@ func (f *Fetcher) fetchRepoSettings(owner, name string) (*Repository, error) {
 	}
 
 	var raw struct {
-		Description        string `json:"description"`
-		HomepageURL        string `json:"homepageUrl"`
-		Visibility         string `json:"visibility"`
-		RepositoryTopics   []struct {
+		Description      string `json:"description"`
+		HomepageURL      string `json:"homepageUrl"`
+		Visibility       string `json:"visibility"`
+		RepositoryTopics []struct {
 			Name string `json:"name"`
 		} `json:"repositoryTopics"`
 		HasIssuesEnabled      bool `json:"hasIssuesEnabled"`
@@ -200,8 +200,8 @@ func (f *Fetcher) fetchBranchProtectionRule(owner, name, branch string) (*Branch
 	var raw struct {
 		RequiredPullRequestReviews *struct {
 			RequiredApprovingReviewCount int  `json:"required_approving_review_count"`
-			DismissStaleReviews         bool `json:"dismiss_stale_reviews"`
-			RequireCodeOwnerReviews     bool `json:"require_code_owner_reviews"`
+			DismissStaleReviews          bool `json:"dismiss_stale_reviews"`
+			RequireCodeOwnerReviews      bool `json:"require_code_owner_reviews"`
 		} `json:"required_pull_request_reviews"`
 		RequiredStatusChecks *struct {
 			Strict   bool     `json:"strict"`

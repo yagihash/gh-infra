@@ -14,39 +14,39 @@ func ToManifest(r *Repository) *manifest.Repository {
 			Owner: r.Owner,
 		},
 		Spec: manifest.RepositorySpec{
-			Description: manifest.StringPtr(r.Description),
-			Visibility:  manifest.StringPtr(r.Visibility),
+			Description: manifest.Ptr(r.Description),
+			Visibility:  manifest.Ptr(r.Visibility),
 			Topics:      r.Topics,
 			Features: &manifest.Features{
-				Issues:                 manifest.BoolPtr(r.Features.Issues),
-				Projects:               manifest.BoolPtr(r.Features.Projects),
-				Wiki:                   manifest.BoolPtr(r.Features.Wiki),
-				Discussions:            manifest.BoolPtr(r.Features.Discussions),
-				MergeCommit:            manifest.BoolPtr(r.Features.MergeCommit),
-				SquashMerge:            manifest.BoolPtr(r.Features.SquashMerge),
-				RebaseMerge:            manifest.BoolPtr(r.Features.RebaseMerge),
-				AutoDeleteHeadBranches:   manifest.BoolPtr(r.Features.AutoDeleteHeadBranches),
-			MergeCommitTitle:         manifest.StringPtr(r.Features.MergeCommitTitle),
-			MergeCommitMessage:       manifest.StringPtr(r.Features.MergeCommitMessage),
-			SquashMergeCommitTitle:   manifest.StringPtr(r.Features.SquashMergeCommitTitle),
-			SquashMergeCommitMessage: manifest.StringPtr(r.Features.SquashMergeCommitMessage),
+				Issues:                   manifest.Ptr(r.Features.Issues),
+				Projects:                 manifest.Ptr(r.Features.Projects),
+				Wiki:                     manifest.Ptr(r.Features.Wiki),
+				Discussions:              manifest.Ptr(r.Features.Discussions),
+				MergeCommit:              manifest.Ptr(r.Features.MergeCommit),
+				SquashMerge:              manifest.Ptr(r.Features.SquashMerge),
+				RebaseMerge:              manifest.Ptr(r.Features.RebaseMerge),
+				AutoDeleteHeadBranches:   manifest.Ptr(r.Features.AutoDeleteHeadBranches),
+				MergeCommitTitle:         manifest.Ptr(r.Features.MergeCommitTitle),
+				MergeCommitMessage:       manifest.Ptr(r.Features.MergeCommitMessage),
+				SquashMergeCommitTitle:   manifest.Ptr(r.Features.SquashMergeCommitTitle),
+				SquashMergeCommitMessage: manifest.Ptr(r.Features.SquashMergeCommitMessage),
 			},
 		},
 	}
 
 	if r.Homepage != "" {
-		repo.Spec.Homepage = manifest.StringPtr(r.Homepage)
+		repo.Spec.Homepage = manifest.Ptr(r.Homepage)
 	}
 
 	for _, bp := range r.BranchProtection {
 		mbp := manifest.BranchProtection{
 			Pattern:                 bp.Pattern,
-			RequiredReviews:         manifest.IntPtr(bp.RequiredReviews),
-			DismissStaleReviews:     manifest.BoolPtr(bp.DismissStaleReviews),
-			RequireCodeOwnerReviews: manifest.BoolPtr(bp.RequireCodeOwnerReviews),
-			EnforceAdmins:           manifest.BoolPtr(bp.EnforceAdmins),
-			AllowForcePushes:        manifest.BoolPtr(bp.AllowForcePushes),
-			AllowDeletions:          manifest.BoolPtr(bp.AllowDeletions),
+			RequiredReviews:         manifest.Ptr(bp.RequiredReviews),
+			DismissStaleReviews:     manifest.Ptr(bp.DismissStaleReviews),
+			RequireCodeOwnerReviews: manifest.Ptr(bp.RequireCodeOwnerReviews),
+			EnforceAdmins:           manifest.Ptr(bp.EnforceAdmins),
+			AllowForcePushes:        manifest.Ptr(bp.AllowForcePushes),
+			AllowDeletions:          manifest.Ptr(bp.AllowDeletions),
 		}
 		if bp.RequireStatusChecks != nil {
 			mbp.RequireStatusChecks = &manifest.StatusChecks{

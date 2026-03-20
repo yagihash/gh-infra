@@ -234,10 +234,10 @@ func (e *Executor) applyBranchProtectionViaAPI(owner, name string, bp *manifest.
 
 func buildBranchProtectionPayload(bp *manifest.BranchProtection) map[string]any {
 	payload := map[string]any{
-		"enforce_admins":   derefBool(bp.EnforceAdmins),
-		"restrictions":     nil,
+		"enforce_admins":     derefBool(bp.EnforceAdmins),
+		"restrictions":       nil,
 		"allow_force_pushes": derefBool(bp.AllowForcePushes),
-		"allow_deletions":  derefBool(bp.AllowDeletions),
+		"allow_deletions":    derefBool(bp.AllowDeletions),
 	}
 
 	if bp.RequiredReviews != nil || bp.DismissStaleReviews != nil || bp.RequireCodeOwnerReviews != nil {

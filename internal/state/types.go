@@ -11,8 +11,8 @@ type Repository struct {
 	Features    Features
 
 	BranchProtection map[string]*BranchProtection // pattern → protection
-	Secrets          []string                      // names only (values are opaque)
-	Variables        map[string]string             // name → value
+	Secrets          []string                     // names only (values are opaque)
+	Variables        map[string]string            // name → value
 }
 
 func (r *Repository) FullName() string {

@@ -10,9 +10,9 @@ var (
 
 func NewRootCmd(version, revision string) *cobra.Command {
 	root := &cobra.Command{
-		Use:   "gh-infra",
-		Short: "Declarative GitHub infrastructure management",
-		Long:  "Manage GitHub repository settings, branch protection, secrets, and more via YAML.",
+		Use:           "gh-infra",
+		Short:         "Declarative GitHub infrastructure management",
+		Long:          "Manage GitHub repository settings, branch protection, secrets, and more via YAML.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Version:       version + " (" + revision + ")",

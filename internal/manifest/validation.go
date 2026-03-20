@@ -92,4 +92,3 @@ func validateOneOf(field, value string, allowed ...string) error {
 	}
 	return fmt.Errorf("invalid %s %q (must be one of: %s)", field, value, strings.Join(allowed, ", "))
 }
-

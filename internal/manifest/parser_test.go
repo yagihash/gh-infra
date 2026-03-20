@@ -754,14 +754,14 @@ spec:
 
 func TestMergeFeatures_MergeCommitTitleMessage(t *testing.T) {
 	base := &Features{
-		Issues:             BoolPtr(true),
-		MergeCommitTitle:   StringPtr("MERGE_MESSAGE"),
-		MergeCommitMessage: StringPtr("PR_BODY"),
+		Issues:             Ptr(true),
+		MergeCommitTitle:   Ptr("MERGE_MESSAGE"),
+		MergeCommitMessage: Ptr("PR_BODY"),
 	}
 	override := &Features{
-		MergeCommitTitle:          StringPtr("PR_TITLE"),
-		SquashMergeCommitTitle:    StringPtr("PR_TITLE"),
-		SquashMergeCommitMessage:  StringPtr("BLANK"),
+		MergeCommitTitle:         Ptr("PR_TITLE"),
+		SquashMergeCommitTitle:   Ptr("PR_TITLE"),
+		SquashMergeCommitMessage: Ptr("BLANK"),
 	}
 
 	result := mergeFeatures(base, override)
@@ -789,7 +789,7 @@ func TestMergeFeatures_MergeCommitTitleMessage(t *testing.T) {
 
 func TestMergeFeatures_NilBase(t *testing.T) {
 	override := &Features{
-		MergeCommitTitle: StringPtr("PR_TITLE"),
+		MergeCommitTitle: Ptr("PR_TITLE"),
 	}
 	result := mergeFeatures(nil, override)
 	if result != override {
@@ -799,7 +799,7 @@ func TestMergeFeatures_NilBase(t *testing.T) {
 
 func TestMergeFeatures_NilOverride(t *testing.T) {
 	base := &Features{
-		MergeCommitTitle: StringPtr("MERGE_MESSAGE"),
+		MergeCommitTitle: Ptr("MERGE_MESSAGE"),
 	}
 	result := mergeFeatures(base, nil)
 	if result != base {
