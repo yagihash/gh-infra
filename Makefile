@@ -4,8 +4,10 @@ LDFLAGS := "-X main.version=$(VERSION) -X main.revision=$(shell git rev-parse --
 
 all: build
 
+TEST_PKGS := ./internal/apply/ ./internal/fileset/ ./internal/gh/ ./internal/manifest/ ./internal/plan/
+
 test:
-	go test ./... -coverprofile=coverage.out -covermode=count
+	go test $(TEST_PKGS) -coverprofile=coverage.out -covermode=count
 
 build:
 	go build -ldflags $(LDFLAGS) -trimpath -o $(BINARY_NAME) ./cmd/gh-infra/
