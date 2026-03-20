@@ -732,6 +732,119 @@ func TestDiff_FullIntegration(t *testing.T) {
 	})
 }
 
+// ---------------------------------------------------------------------------
+// Change.String() tests
+// ---------------------------------------------------------------------------
+
+func TestChange_String(t *testing.T) {
+	tests := []struct {
+		name string
+		c    Change
+		want string
+	}{
+		{
+			name: "create",
+			c:    Change{Type: ChangeCreate, Field: "description", NewValue: "new"},
+			want: "+ description",
+		},
+		{
+			name: "delete",
+			c:    Change{Type: ChangeDelete, Field: "homepage", OldValue: "old"},
+			want: "- homepage",
+		},
+		{
+			name: "update",
+			c:    Change{Type: ChangeUpdate, Field: "visibility", OldValue: "public", NewValue: "private"},
+			want: "~ visibility: public → private",
+		},
+		{
+			name: "noop returns empty",
+			c:    Change{Type: ChangeNoOp, Field: "description"},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.c.String()
+			if got != tt.want {
+				t.Errorf("Change.String() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Result.HasChanges() tests
+// ---------------------------------------------------------------------------
+
+func TestResult_HasChanges(t *testing.T) {
+	t.Run("with changes", func(t *testing.T) {
+		r := &Result{
+			Changes: []Change{
+				{Type: ChangeNoOp},
+				{Type: ChangeUpdate, Field: "description"},
+			},
+		}
+		if !r.HasChanges() {
+			t.Error("expected HasChanges() = true")
+		}
+	})
+
+	t.Run("all noop", func(t *testing.T) {
+		r := &Result{
+			Changes: []Change{
+				{Type: ChangeNoOp},
+				{Type: ChangeNoOp},
+			},
+		}
+		if r.HasChanges() {
+			t.Error("expected HasChanges() = false")
+		}
+	})
+
+	t.Run("empty", func(t *testing.T) {
+		r := &Result{}
+		if r.HasChanges() {
+			t.Error("expected HasChanges() = false for empty result")
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Result.Summary() tests
+// ---------------------------------------------------------------------------
+
+func TestResult_Summary(t *testing.T) {
+	r := &Result{
+		Changes: []Change{
+			{Type: ChangeCreate},
+			{Type: ChangeCreate},
+			{Type: ChangeUpdate},
+			{Type: ChangeDelete},
+			{Type: ChangeNoOp},
+		},
+	}
+
+	creates, updates, deletes := r.Summary()
+	if creates != 2 {
+		t.Errorf("creates = %d, want 2", creates)
+	}
+	if updates != 1 {
+		t.Errorf("updates = %d, want 1", updates)
+	}
+	if deletes != 1 {
+		t.Errorf("deletes = %d, want 1", deletes)
+	}
+}
+
+func TestResult_Summary_Empty(t *testing.T) {
+	r := &Result{}
+	creates, updates, deletes := r.Summary()
+	if creates != 0 || updates != 0 || deletes != 0 {
+		t.Errorf("expected all zeros, got creates=%d updates=%d deletes=%d", creates, updates, deletes)
+	}
+}
+
 func TestStringSliceEqual(t *testing.T) {
 	tests := []struct {
 		name string

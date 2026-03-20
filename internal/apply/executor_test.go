@@ -333,3 +333,174 @@ func TestApplySkipsNoOp(t *testing.T) {
 		t.Fatalf("expected 0 calls for noop, got %d", len(mock.Called))
 	}
 }
+
+func TestApplyBranchProtection(t *testing.T) {
+	mock := &gh.MockRunner{}
+	exec := NewExecutor(mock)
+
+	reviews := 2
+	enforceAdmins := true
+	repo := newTestRepo("myorg", "myrepo")
+	repo.Spec.BranchProtection = []manifest.BranchProtection{
+		{
+			Pattern:         "main",
+			RequiredReviews: &reviews,
+			EnforceAdmins:   &enforceAdmins,
+			RequireStatusChecks: &manifest.StatusChecks{
+				Strict:   true,
+				Contexts: []string{"ci/test"},
+			},
+		},
+	}
+
+	changes := []plan.Change{
+		{
+			Type:     plan.ChangeCreate,
+			Resource: "BranchProtection[main]",
+			Name:     "myorg/myrepo",
+			Field:    "branch_protection",
+		},
+	}
+
+	results := exec.Apply(changes, []*manifest.Repository{repo})
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	// The applyBranchProtection method ultimately calls applyBranchProtectionViaAPI
+	// which uses "api repos/{owner}/{repo}/branches/{pattern}/protection --method PUT ..."
+	// Check that at least one call was made with the correct endpoint
+	found := false
+	for _, call := range mock.Called {
+		joined := strings.Join(call, " ")
+		if strings.Contains(joined, "repos/myorg/myrepo/branches/main/protection") &&
+			strings.Contains(joined, "PUT") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected API call to branch protection endpoint with PUT, got calls: %v", mock.Called)
+	}
+}
+
+func TestBuildBranchProtectionPayload(t *testing.T) {
+	reviews := 2
+	dismissStale := true
+	codeOwners := true
+	enforceAdmins := true
+	allowForce := false
+	allowDel := false
+
+	bp := &manifest.BranchProtection{
+		Pattern:                 "main",
+		RequiredReviews:         &reviews,
+		DismissStaleReviews:     &dismissStale,
+		RequireCodeOwnerReviews: &codeOwners,
+		EnforceAdmins:           &enforceAdmins,
+		AllowForcePushes:        &allowForce,
+		AllowDeletions:          &allowDel,
+		RequireStatusChecks: &manifest.StatusChecks{
+			Strict:   true,
+			Contexts: []string{"ci/test", "ci/lint"},
+		},
+	}
+
+	payload := buildBranchProtectionPayload(bp)
+
+	// Check enforce_admins
+	if payload["enforce_admins"] != true {
+		t.Errorf("enforce_admins = %v, want true", payload["enforce_admins"])
+	}
+	if payload["allow_force_pushes"] != false {
+		t.Errorf("allow_force_pushes = %v, want false", payload["allow_force_pushes"])
+	}
+	if payload["allow_deletions"] != false {
+		t.Errorf("allow_deletions = %v, want false", payload["allow_deletions"])
+	}
+
+	// Check reviews
+	reviewsPayload, ok := payload["required_pull_request_reviews"].(map[string]any)
+	if !ok {
+		t.Fatalf("required_pull_request_reviews is not a map, got %T", payload["required_pull_request_reviews"])
+	}
+	if reviewsPayload["required_approving_review_count"] != 2 {
+		t.Errorf("required_approving_review_count = %v, want 2", reviewsPayload["required_approving_review_count"])
+	}
+	if reviewsPayload["dismiss_stale_reviews"] != true {
+		t.Errorf("dismiss_stale_reviews = %v, want true", reviewsPayload["dismiss_stale_reviews"])
+	}
+	if reviewsPayload["require_code_owner_reviews"] != true {
+		t.Errorf("require_code_owner_reviews = %v, want true", reviewsPayload["require_code_owner_reviews"])
+	}
+
+	// Check status checks
+	scPayload, ok := payload["required_status_checks"].(map[string]any)
+	if !ok {
+		t.Fatalf("required_status_checks is not a map, got %T", payload["required_status_checks"])
+	}
+	if scPayload["strict"] != true {
+		t.Errorf("strict = %v, want true", scPayload["strict"])
+	}
+	contexts, ok := scPayload["contexts"].([]string)
+	if !ok {
+		t.Fatalf("contexts is not []string, got %T", scPayload["contexts"])
+	}
+	if len(contexts) != 2 || contexts[0] != "ci/test" || contexts[1] != "ci/lint" {
+		t.Errorf("contexts = %v, want [ci/test ci/lint]", contexts)
+	}
+}
+
+func TestBuildBranchProtectionPayload_NilReviews(t *testing.T) {
+	bp := &manifest.BranchProtection{
+		Pattern: "main",
+	}
+
+	payload := buildBranchProtectionPayload(bp)
+
+	if payload["required_pull_request_reviews"] != nil {
+		t.Errorf("expected nil required_pull_request_reviews, got %v", payload["required_pull_request_reviews"])
+	}
+	if payload["required_status_checks"] != nil {
+		t.Errorf("expected nil required_status_checks, got %v", payload["required_status_checks"])
+	}
+}
+
+func TestUpdateRepoField(t *testing.T) {
+	mock := &gh.MockRunner{}
+	exec := NewExecutor(mock)
+
+	err := exec.updateRepoField("myorg/myrepo", "merge_commit_title", "PR_TITLE")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(mock.Called) != 1 {
+		t.Fatalf("expected 1 call, got %d", len(mock.Called))
+	}
+	args := mock.Called[0]
+	expected := []string{"api", "repos/myorg/myrepo", "--method", "PATCH", "-f", "merge_commit_title=PR_TITLE"}
+	if strings.Join(args, " ") != strings.Join(expected, " ") {
+		t.Errorf("args: got %v, want %v", args, expected)
+	}
+}
+
+func TestDerefBool(t *testing.T) {
+	tests := []struct {
+		name string
+		val  *bool
+		want bool
+	}{
+		{"nil returns false", nil, false},
+		{"true returns true", boolPtr(true), true},
+		{"false returns false", boolPtr(false), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := derefBool(tt.val)
+			if got != tt.want {
+				t.Errorf("derefBool() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func boolPtr(b bool) *bool { return &b }

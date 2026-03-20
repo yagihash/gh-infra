@@ -465,3 +465,344 @@ func searchSubstring(s, substr string) bool {
 	}
 	return false
 }
+
+func TestParseFileSet_Valid(t *testing.T) {
+	dir := t.TempDir()
+	content := `
+apiVersion: v1
+kind: FileSet
+metadata:
+  name: ci-configs
+spec:
+  targets:
+    - org/repo-a
+    - name: org/repo-b
+      overrides:
+        - path: .github/ci.yml
+          content: "custom ci"
+  files:
+    - path: .github/ci.yml
+      content: "name: CI"
+    - path: .github/lint.yml
+      content: "name: Lint"
+  on_drift: overwrite
+`
+	path := filepath.Join(dir, "fileset.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := ParseAll(path)
+	if err != nil {
+		t.Fatalf("ParseAll returned error: %v", err)
+	}
+	if len(result.FileSets) != 1 {
+		t.Fatalf("expected 1 fileset, got %d", len(result.FileSets))
+	}
+
+	fs := result.FileSets[0]
+	if fs.Metadata.Name != "ci-configs" {
+		t.Errorf("name = %q, want %q", fs.Metadata.Name, "ci-configs")
+	}
+	if len(fs.Spec.Targets) != 2 {
+		t.Fatalf("targets count = %d, want 2", len(fs.Spec.Targets))
+	}
+	if fs.Spec.Targets[0].Name != "org/repo-a" {
+		t.Errorf("targets[0].name = %q, want %q", fs.Spec.Targets[0].Name, "org/repo-a")
+	}
+	if fs.Spec.Targets[1].Name != "org/repo-b" {
+		t.Errorf("targets[1].name = %q, want %q", fs.Spec.Targets[1].Name, "org/repo-b")
+	}
+	if len(fs.Spec.Targets[1].Overrides) != 1 {
+		t.Fatalf("targets[1].overrides count = %d, want 1", len(fs.Spec.Targets[1].Overrides))
+	}
+	if len(fs.Spec.Files) != 2 {
+		t.Fatalf("files count = %d, want 2", len(fs.Spec.Files))
+	}
+	if fs.Spec.Files[0].Content != "name: CI" {
+		t.Errorf("files[0].content = %q, want %q", fs.Spec.Files[0].Content, "name: CI")
+	}
+	if fs.Spec.OnDrift != "overwrite" {
+		t.Errorf("on_drift = %q, want %q", fs.Spec.OnDrift, "overwrite")
+	}
+}
+
+func TestParseFileSet_DefaultOnDrift(t *testing.T) {
+	dir := t.TempDir()
+	content := `
+apiVersion: v1
+kind: FileSet
+metadata:
+  name: test
+spec:
+  targets:
+    - org/repo
+  files:
+    - path: file.txt
+      content: hello
+`
+	path := filepath.Join(dir, "fileset.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := ParseAll(path)
+	if err != nil {
+		t.Fatalf("ParseAll returned error: %v", err)
+	}
+	if result.FileSets[0].Spec.OnDrift != "warn" {
+		t.Errorf("default on_drift = %q, want %q", result.FileSets[0].Spec.OnDrift, "warn")
+	}
+}
+
+func TestParseFileSet_SourceFile(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create source file
+	sourceContent := "source file content here"
+	if err := os.WriteFile(filepath.Join(dir, "template.txt"), []byte(sourceContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	yamlContent := `
+apiVersion: v1
+kind: FileSet
+metadata:
+  name: templates
+spec:
+  targets:
+    - org/repo
+  files:
+    - path: .github/template.txt
+      source: template.txt
+`
+	path := filepath.Join(dir, "fileset.yaml")
+	if err := os.WriteFile(path, []byte(yamlContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := ParseAll(path)
+	if err != nil {
+		t.Fatalf("ParseAll returned error: %v", err)
+	}
+
+	fs := result.FileSets[0]
+	if fs.Spec.Files[0].Content != sourceContent {
+		t.Errorf("content = %q, want %q", fs.Spec.Files[0].Content, sourceContent)
+	}
+	if fs.Spec.Files[0].Source != "" {
+		t.Errorf("source should be cleared after resolution, got %q", fs.Spec.Files[0].Source)
+	}
+}
+
+func TestParseFileSet_MissingName(t *testing.T) {
+	dir := t.TempDir()
+	content := `
+apiVersion: v1
+kind: FileSet
+metadata:
+  name: ""
+spec:
+  targets:
+    - org/repo
+  files:
+    - path: file.txt
+      content: hello
+`
+	path := filepath.Join(dir, "fs.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := ParseAll(path)
+	if err == nil {
+		t.Fatal("expected error for missing name, got nil")
+	}
+	if !contains(err.Error(), "metadata.name is required") {
+		t.Errorf("error = %q, want it to contain 'metadata.name is required'", err.Error())
+	}
+}
+
+func TestParseFileSet_MissingTargets(t *testing.T) {
+	dir := t.TempDir()
+	content := `
+apiVersion: v1
+kind: FileSet
+metadata:
+  name: test
+spec:
+  files:
+    - path: file.txt
+      content: hello
+`
+	path := filepath.Join(dir, "fs.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := ParseAll(path)
+	if err == nil {
+		t.Fatal("expected error for missing targets, got nil")
+	}
+	if !contains(err.Error(), "spec.targets is required") {
+		t.Errorf("error = %q, want it to contain 'spec.targets is required'", err.Error())
+	}
+}
+
+func TestParseFileSet_MissingFiles(t *testing.T) {
+	dir := t.TempDir()
+	content := `
+apiVersion: v1
+kind: FileSet
+metadata:
+  name: test
+spec:
+  targets:
+    - org/repo
+`
+	path := filepath.Join(dir, "fs.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := ParseAll(path)
+	if err == nil {
+		t.Fatal("expected error for missing files, got nil")
+	}
+	if !contains(err.Error(), "spec.files is required") {
+		t.Errorf("error = %q, want it to contain 'spec.files is required'", err.Error())
+	}
+}
+
+func TestParseFileSet_InvalidOnDrift(t *testing.T) {
+	dir := t.TempDir()
+	content := `
+apiVersion: v1
+kind: FileSet
+metadata:
+  name: test
+spec:
+  targets:
+    - org/repo
+  files:
+    - path: file.txt
+      content: hello
+  on_drift: invalid
+`
+	path := filepath.Join(dir, "fs.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := ParseAll(path)
+	if err == nil {
+		t.Fatal("expected error for invalid on_drift, got nil")
+	}
+	if !contains(err.Error(), "invalid on_drift") {
+		t.Errorf("error = %q, want it to contain 'invalid on_drift'", err.Error())
+	}
+}
+
+func TestParseAll_RepoAndFileSet(t *testing.T) {
+	dir := t.TempDir()
+
+	repoYAML := `
+apiVersion: v1
+kind: Repository
+metadata:
+  name: my-repo
+  owner: org
+spec:
+  visibility: public
+`
+	fileSetYAML := `
+apiVersion: v1
+kind: FileSet
+metadata:
+  name: shared-files
+spec:
+  targets:
+    - org/my-repo
+  files:
+    - path: .editorconfig
+      content: "root = true"
+`
+	if err := os.WriteFile(filepath.Join(dir, "repo.yaml"), []byte(repoYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "fileset.yaml"), []byte(fileSetYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := ParseAll(dir)
+	if err != nil {
+		t.Fatalf("ParseAll returned error: %v", err)
+	}
+	if len(result.Repositories) != 1 {
+		t.Errorf("expected 1 repository, got %d", len(result.Repositories))
+	}
+	if len(result.FileSets) != 1 {
+		t.Errorf("expected 1 fileset, got %d", len(result.FileSets))
+	}
+	if result.Repositories[0].Metadata.Name != "my-repo" {
+		t.Errorf("repo name = %q, want %q", result.Repositories[0].Metadata.Name, "my-repo")
+	}
+	if result.FileSets[0].Metadata.Name != "shared-files" {
+		t.Errorf("fileset name = %q, want %q", result.FileSets[0].Metadata.Name, "shared-files")
+	}
+}
+
+func TestMergeFeatures_MergeCommitTitleMessage(t *testing.T) {
+	base := &Features{
+		Issues:             BoolPtr(true),
+		MergeCommitTitle:   StringPtr("MERGE_MESSAGE"),
+		MergeCommitMessage: StringPtr("PR_BODY"),
+	}
+	override := &Features{
+		MergeCommitTitle:          StringPtr("PR_TITLE"),
+		SquashMergeCommitTitle:    StringPtr("PR_TITLE"),
+		SquashMergeCommitMessage:  StringPtr("BLANK"),
+	}
+
+	result := mergeFeatures(base, override)
+
+	// base values preserved
+	if result.Issues == nil || *result.Issues != true {
+		t.Errorf("issues = %v, want true (from base)", result.Issues)
+	}
+	// overridden
+	if result.MergeCommitTitle == nil || *result.MergeCommitTitle != "PR_TITLE" {
+		t.Errorf("merge_commit_title = %v, want PR_TITLE", result.MergeCommitTitle)
+	}
+	// base preserved when not overridden
+	if result.MergeCommitMessage == nil || *result.MergeCommitMessage != "PR_BODY" {
+		t.Errorf("merge_commit_message = %v, want PR_BODY (from base)", result.MergeCommitMessage)
+	}
+	// new from override
+	if result.SquashMergeCommitTitle == nil || *result.SquashMergeCommitTitle != "PR_TITLE" {
+		t.Errorf("squash_merge_commit_title = %v, want PR_TITLE", result.SquashMergeCommitTitle)
+	}
+	if result.SquashMergeCommitMessage == nil || *result.SquashMergeCommitMessage != "BLANK" {
+		t.Errorf("squash_merge_commit_message = %v, want BLANK", result.SquashMergeCommitMessage)
+	}
+}
+
+func TestMergeFeatures_NilBase(t *testing.T) {
+	override := &Features{
+		MergeCommitTitle: StringPtr("PR_TITLE"),
+	}
+	result := mergeFeatures(nil, override)
+	if result != override {
+		t.Error("expected override returned when base is nil")
+	}
+}
+
+func TestMergeFeatures_NilOverride(t *testing.T) {
+	base := &Features{
+		MergeCommitTitle: StringPtr("MERGE_MESSAGE"),
+	}
+	result := mergeFeatures(base, nil)
+	if result != base {
+		t.Error("expected base returned when override is nil")
+	}
+}

@@ -1,9 +1,11 @@
 package fileset
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/babarot/gh-infra/internal/gh"
@@ -414,5 +416,163 @@ func TestCountChanges(t *testing.T) {
 	}
 	if drifts != 3 {
 		t.Errorf("drifts: got %d, want 3", drifts)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// PrintPlan tests
+// ---------------------------------------------------------------------------
+
+func TestPrintPlan(t *testing.T) {
+	var buf bytes.Buffer
+	changes := []FileChange{
+		{FileSet: "ci", Target: "org/repo-a", Path: ".github/ci.yml", Type: FileCreate},
+		{FileSet: "ci", Target: "org/repo-a", Path: ".github/lint.yml", Type: FileUpdate},
+		{FileSet: "ci", Target: "org/repo-b", Path: ".github/ci.yml", Type: FileDrift, OnDrift: "warn"},
+		{FileSet: "ci", Target: "org/repo-b", Path: ".github/skip.yml", Type: FileSkip, OnDrift: "skip"},
+		{FileSet: "ci", Target: "org/repo-c", Path: ".github/ci.yml", Type: FileNoOp},
+	}
+
+	PrintPlan(&buf, changes)
+	output := buf.String()
+
+	// Check create line
+	if !strings.Contains(output, "+ .github/ci.yml") {
+		t.Errorf("expected create marker for ci.yml, got:\n%s", output)
+	}
+	if !strings.Contains(output, "(new file)") {
+		t.Errorf("expected '(new file)' in output, got:\n%s", output)
+	}
+	// Check update line
+	if !strings.Contains(output, "~ .github/lint.yml") {
+		t.Errorf("expected update marker for lint.yml, got:\n%s", output)
+	}
+	if !strings.Contains(output, "(content changed)") {
+		t.Errorf("expected '(content changed)' in output, got:\n%s", output)
+	}
+	// Check drift line
+	if !strings.Contains(output, "drift detected") {
+		t.Errorf("expected 'drift detected' in output, got:\n%s", output)
+	}
+	// Check skip line
+	if !strings.Contains(output, "skip") {
+		t.Errorf("expected 'skip' in output, got:\n%s", output)
+	}
+	// Check grouping headers
+	if !strings.Contains(output, "org/repo-a") {
+		t.Errorf("expected group header org/repo-a, got:\n%s", output)
+	}
+	if !strings.Contains(output, "org/repo-b") {
+		t.Errorf("expected group header org/repo-b, got:\n%s", output)
+	}
+}
+
+func TestPrintPlan_AllNoOp(t *testing.T) {
+	var buf bytes.Buffer
+	changes := []FileChange{
+		{FileSet: "ci", Target: "org/repo", Path: "a.txt", Type: FileNoOp},
+	}
+
+	PrintPlan(&buf, changes)
+	if buf.Len() != 0 {
+		t.Errorf("expected empty output for all no-op, got:\n%s", buf.String())
+	}
+}
+
+func TestPrintPlan_Empty(t *testing.T) {
+	var buf bytes.Buffer
+	PrintPlan(&buf, []FileChange{})
+	if buf.Len() != 0 {
+		t.Errorf("expected empty output for empty changes, got:\n%s", buf.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// PrintApplyResults tests
+// ---------------------------------------------------------------------------
+
+func TestPrintApplyResults(t *testing.T) {
+	var buf bytes.Buffer
+	results := []FileApplyResult{
+		{
+			Change: FileChange{Target: "org/repo", Path: "a.txt", Type: FileCreate},
+			Err:    nil,
+		},
+		{
+			Change: FileChange{Target: "org/repo", Path: "b.txt", Type: FileUpdate},
+			Err:    fmt.Errorf("permission denied"),
+		},
+		{
+			Change:  FileChange{Target: "org/repo", Path: "c.txt", OnDrift: "warn"},
+			Skipped: true,
+		},
+	}
+
+	PrintApplyResults(&buf, results)
+	output := buf.String()
+
+	if !strings.Contains(output, "✓") {
+		t.Errorf("expected success marker in output, got:\n%s", output)
+	}
+	if !strings.Contains(output, "✗") {
+		t.Errorf("expected error marker in output, got:\n%s", output)
+	}
+	if !strings.Contains(output, "permission denied") {
+		t.Errorf("expected error message in output, got:\n%s", output)
+	}
+	if !strings.Contains(output, "⚠") {
+		t.Errorf("expected skip/drift marker in output, got:\n%s", output)
+	}
+	if !strings.Contains(output, "skipped") {
+		t.Errorf("expected 'skipped' in output, got:\n%s", output)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// PrintSummary tests
+// ---------------------------------------------------------------------------
+
+func TestPrintSummary(t *testing.T) {
+	var buf bytes.Buffer
+	results := []FileApplyResult{
+		{Change: FileChange{}, Err: nil},
+		{Change: FileChange{}, Err: nil},
+		{Change: FileChange{}, Err: fmt.Errorf("error")},
+		{Change: FileChange{}, Skipped: true},
+	}
+
+	PrintSummary(&buf, results)
+	output := buf.String()
+
+	if !strings.Contains(output, "2 changes applied") {
+		t.Errorf("expected '2 changes applied', got:\n%s", output)
+	}
+	if !strings.Contains(output, "1 failed") {
+		t.Errorf("expected '1 failed', got:\n%s", output)
+	}
+	if !strings.Contains(output, "1 skipped") {
+		t.Errorf("expected '1 skipped', got:\n%s", output)
+	}
+}
+
+func TestPrintSummary_AllSuccess(t *testing.T) {
+	var buf bytes.Buffer
+	results := []FileApplyResult{
+		{Change: FileChange{}, Err: nil},
+		{Change: FileChange{}, Err: nil},
+	}
+
+	PrintSummary(&buf, results)
+	output := buf.String()
+
+	if !strings.Contains(output, "2 changes applied") {
+		t.Errorf("expected '2 changes applied', got:\n%s", output)
+	}
+	// Should not contain "failed" or "skipped"
+	if strings.Contains(output, "failed") {
+		t.Errorf("should not contain 'failed', got:\n%s", output)
+	}
+	if strings.Contains(output, "skipped") {
+		t.Errorf("should not contain 'skipped', got:\n%s", output)
 	}
 }
