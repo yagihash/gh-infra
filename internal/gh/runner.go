@@ -6,8 +6,15 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
+	retry "github.com/avast/retry-go/v4"
 	"github.com/babarot/gh-infra/internal/logger"
+)
+
+const (
+	defaultMaxRetries = 3
+	defaultRetryDelay = 1 * time.Second
 )
 
 // Runner abstracts gh command execution for testability.
@@ -15,14 +22,16 @@ type Runner interface {
 	Run(args ...string) ([]byte, error)
 }
 
-// GHRunner executes gh commands as subprocesses.
+// GHRunner executes gh commands as subprocesses with automatic retry.
 type GHRunner struct {
-	DryRun bool
+	DryRun     bool
+	MaxRetries uint
 }
 
 func NewRunner(dryRun bool) *GHRunner {
 	return &GHRunner{
-		DryRun: dryRun,
+		DryRun:     dryRun,
+		MaxRetries: defaultMaxRetries,
 	}
 }
 
@@ -34,6 +43,23 @@ func (r *GHRunner) Run(args ...string) ([]byte, error) {
 		return nil, nil
 	}
 
+	out, err := retry.DoWithData(
+		func() ([]byte, error) {
+			return r.exec(args, cmdStr)
+		},
+		retry.Attempts(r.MaxRetries),
+		retry.Delay(defaultRetryDelay),
+		retry.DelayType(retry.BackOffDelay),
+		retry.RetryIf(isRetryable),
+		retry.OnRetry(func(n uint, err error) {
+			logger.Warn("retrying", "attempt", n+1, "cmd", cmdStr, "err", err)
+		}),
+	)
+
+	return out, err
+}
+
+func (r *GHRunner) exec(args []string, cmdStr string) ([]byte, error) {
 	logger.Debug("exec", "cmd", cmdStr)
 
 	cmd := exec.Command("gh", args...)
@@ -61,8 +87,9 @@ func (r *GHRunner) Run(args ...string) ([]byte, error) {
 		return outBuf.Bytes(), nil
 	}
 
+	// Non-retryable: gh not installed
 	if errors.Is(runErr, exec.ErrNotFound) {
-		return nil, ErrNotInstalled
+		return nil, retry.Unrecoverable(ErrNotInstalled)
 	}
 
 	stderr := strings.TrimSpace(errBuf.String())
@@ -70,9 +97,10 @@ func (r *GHRunner) Run(args ...string) ([]byte, error) {
 
 	logger.Warn("command failed", "cmd", cmdStr, "exit", exitCode, "stderr", truncate(stderr, 500))
 
+	// Non-retryable: auth issue
 	if strings.Contains(stderr, "not logged in") ||
 		strings.Contains(stderr, "gh auth login") {
-		return nil, ErrNotAuthed
+		return nil, retry.Unrecoverable(ErrNotAuthed)
 	}
 
 	apiErr := tryParseAPIError(stderr)
@@ -88,15 +116,42 @@ func (r *GHRunner) Run(args ...string) ([]byte, error) {
 		logger.Debug("api error", "status", apiErr.Status, "message", apiErr.Message)
 		switch apiErr.Status {
 		case 404:
-			return nil, fmt.Errorf("%w: %w", ErrNotFound, exitErr)
+			return nil, retry.Unrecoverable(fmt.Errorf("%w: %w", ErrNotFound, exitErr))
 		case 401:
-			return nil, fmt.Errorf("%w: %w", ErrUnauthorized, exitErr)
+			return nil, retry.Unrecoverable(fmt.Errorf("%w: %w", ErrUnauthorized, exitErr))
 		case 403:
-			return nil, fmt.Errorf("%w: %w", ErrForbidden, exitErr)
+			// Rate limit is retryable; other 403s are not
+			if strings.Contains(apiErr.Message, "rate limit") ||
+				strings.Contains(apiErr.Message, "abuse detection") {
+				return nil, exitErr // retryable
+			}
+			return nil, retry.Unrecoverable(fmt.Errorf("%w: %w", ErrForbidden, exitErr))
+		case 422:
+			return nil, retry.Unrecoverable(exitErr)
 		}
 	}
 
+	// Other errors (network timeout, TLS handshake, etc.) are retryable
 	return nil, exitErr
+}
+
+// isRetryable determines whether an error should trigger a retry.
+func isRetryable(err error) bool {
+	// Unrecoverable errors are never retried (handled by retry-go internally)
+	// All other errors (network, timeout, etc.) are retried
+	var exitErr *ExitError
+	if errors.As(err, &exitErr) {
+		stderr := strings.ToLower(exitErr.Stderr)
+		return strings.Contains(stderr, "timeout") ||
+			strings.Contains(stderr, "connection reset") ||
+			strings.Contains(stderr, "connection refused") ||
+			strings.Contains(stderr, "tls handshake") ||
+			strings.Contains(stderr, "rate limit") ||
+			strings.Contains(stderr, "abuse detection") ||
+			strings.Contains(stderr, "eof") ||
+			strings.Contains(stderr, "broken pipe")
+	}
+	return false
 }
 
 func truncate(s string, max int) string {
