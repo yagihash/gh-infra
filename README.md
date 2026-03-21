@@ -30,7 +30,7 @@ sequenceDiagram
     participant C as gh-infra
     participant G as GitHub API
 
-    rect rgb(40, 40, 40)
+    rect rgba(128, 128, 128, 0.1)
     note right of Y: plan
     Y->>C: Parse desired state
     C->>G: Fetch current state (gh repo view, gh api)
@@ -39,7 +39,7 @@ sequenceDiagram
     C-->>Y: Show changes
     end
 
-    rect rgb(40, 40, 40)
+    rect rgba(128, 128, 128, 0.1)
     note right of Y: apply
     C->>G: gh repo edit, gh api PUT, gh secret set...
     G-->>C: OK
