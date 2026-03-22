@@ -132,6 +132,16 @@ apply:
 
 ## YAML DSL Reference
 
+### Available Kinds
+
+| Kind | Scope | Description |
+|------|-------|-------------|
+| `Repository` | 1 repo | Manage a single repository's settings, features, branch protection, secrets, and variables |
+| `RepositorySet` | N repos | Manage multiple repositories with shared defaults. Per-repo overrides supported |
+| `FileSet` | N repos | Distribute files to repositories. Atomic commits via Git Data API, with optional PR strategy |
+
+All resources use `apiVersion: gh-infra/v1` and are identified by `kind`.
+
 ### Repository
 
 Manages a single GitHub repository's settings.
@@ -254,6 +264,19 @@ repositories:
       description: "The AI-native RSS reader"
       topics: [rss, self-hosted, ai, typescript]
 ```
+
+#### RepositorySet vs multiple Repository files
+
+You can achieve similar results with separate `Repository` files — one per repo. The trade-off:
+
+| | RepositorySet | Multiple Repository files |
+|---|---|---|
+| Shared defaults | `defaults` block — write once | Repeated in each file |
+| Adding a repo | Add 3 lines | Create a new file with full spec |
+| Per-repo git blame | Harder (all in one file) | Clean (one file per repo) |
+| YAML anchors | Work within the file | Cannot cross file boundaries (YAML spec limitation) |
+
+Use RepositorySet when you have many repos with identical settings. Use separate files when each repo has distinct configuration or you want independent change tracking.
 
 ### FileSet
 
