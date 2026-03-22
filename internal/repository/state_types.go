@@ -2,15 +2,16 @@ package repository
 
 // CurrentState represents the current state of a GitHub repository.
 type CurrentState struct {
-	Owner       string
-	Name        string
-	IsNew       bool // true if the repository does not exist yet
-	Description string
-	Archived    bool
-	Homepage    string
-	Visibility  string
-	Topics      []string
-	Features    CurrentFeatures
+	Owner         string
+	Name          string
+	IsNew         bool // true if the repository does not exist yet
+	Description   string
+	Archived      bool
+	Homepage      string
+	Visibility    string
+	Topics        []string
+	Features      CurrentFeatures
+	MergeStrategy CurrentMergeStrategy
 
 	BranchProtection map[string]*CurrentBranchProtection // pattern → protection
 	Secrets          []string                            // names only (values are opaque)
@@ -22,13 +23,16 @@ func (r *CurrentState) FullName() string {
 }
 
 type CurrentFeatures struct {
-	Issues                   bool
-	Projects                 bool
-	Wiki                     bool
-	Discussions              bool
-	MergeCommit              bool
-	SquashMerge              bool
-	RebaseMerge              bool
+	Issues      bool
+	Projects    bool
+	Wiki        bool
+	Discussions bool
+}
+
+type CurrentMergeStrategy struct {
+	AllowMergeCommit         bool
+	AllowSquashMerge         bool
+	AllowRebaseMerge         bool
 	AutoDeleteHeadBranches   bool
 	MergeCommitTitle         string
 	MergeCommitMessage       string

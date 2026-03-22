@@ -19,27 +19,27 @@ func (r *Repository) Validate() error {
 			return fmt.Errorf("%s: %w", r.Metadata.Name, err)
 		}
 	}
-	if f := r.Spec.Features; f != nil {
-		if f.SquashMergeCommitTitle != nil {
-			if err := validateOneOf("squash_merge_commit_title", *f.SquashMergeCommitTitle,
+	if ms := r.Spec.MergeStrategy; ms != nil {
+		if ms.SquashMergeCommitTitle != nil {
+			if err := validateOneOf("squash_merge_commit_title", *ms.SquashMergeCommitTitle,
 				SquashMergeCommitTitlePRTitle, SquashMergeCommitTitleCommitOrPRTitle); err != nil {
 				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
 			}
 		}
-		if f.SquashMergeCommitMessage != nil {
-			if err := validateOneOf("squash_merge_commit_message", *f.SquashMergeCommitMessage,
+		if ms.SquashMergeCommitMessage != nil {
+			if err := validateOneOf("squash_merge_commit_message", *ms.SquashMergeCommitMessage,
 				SquashMergeCommitMessageCommitMessages, SquashMergeCommitMessagePRBody, SquashMergeCommitMessageBlank); err != nil {
 				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
 			}
 		}
-		if f.MergeCommitTitle != nil {
-			if err := validateOneOf("merge_commit_title", *f.MergeCommitTitle,
+		if ms.MergeCommitTitle != nil {
+			if err := validateOneOf("merge_commit_title", *ms.MergeCommitTitle,
 				MergeCommitTitleMergeMessage, MergeCommitTitlePRTitle); err != nil {
 				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
 			}
 		}
-		if f.MergeCommitMessage != nil {
-			if err := validateOneOf("merge_commit_message", *f.MergeCommitMessage,
+		if ms.MergeCommitMessage != nil {
+			if err := validateOneOf("merge_commit_message", *ms.MergeCommitMessage,
 				MergeCommitMessagePRTitle, MergeCommitMessagePRBody, MergeCommitMessageBlank); err != nil {
 				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
 			}

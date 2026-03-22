@@ -90,31 +90,33 @@ func TestFetchRepository(t *testing.T) {
 	if state.Features.Discussions {
 		t.Error("expected Discussions = false")
 	}
-	if !state.Features.MergeCommit {
-		t.Error("expected MergeCommit = true")
+
+	// Merge strategy
+	if !state.MergeStrategy.AllowMergeCommit {
+		t.Error("expected AllowMergeCommit = true")
 	}
-	if !state.Features.SquashMerge {
-		t.Error("expected SquashMerge = true")
+	if !state.MergeStrategy.AllowSquashMerge {
+		t.Error("expected AllowSquashMerge = true")
 	}
-	if state.Features.RebaseMerge {
-		t.Error("expected RebaseMerge = false")
+	if state.MergeStrategy.AllowRebaseMerge {
+		t.Error("expected AllowRebaseMerge = false")
 	}
-	if !state.Features.AutoDeleteHeadBranches {
+	if !state.MergeStrategy.AutoDeleteHeadBranches {
 		t.Error("expected AutoDeleteHeadBranches = true")
 	}
 
 	// Commit message settings
-	if state.Features.SquashMergeCommitTitle != "PR_TITLE" {
-		t.Errorf("SquashMergeCommitTitle = %q, want PR_TITLE", state.Features.SquashMergeCommitTitle)
+	if state.MergeStrategy.SquashMergeCommitTitle != "PR_TITLE" {
+		t.Errorf("SquashMergeCommitTitle = %q, want PR_TITLE", state.MergeStrategy.SquashMergeCommitTitle)
 	}
-	if state.Features.SquashMergeCommitMessage != "COMMIT_MESSAGES" {
-		t.Errorf("SquashMergeCommitMessage = %q, want COMMIT_MESSAGES", state.Features.SquashMergeCommitMessage)
+	if state.MergeStrategy.SquashMergeCommitMessage != "COMMIT_MESSAGES" {
+		t.Errorf("SquashMergeCommitMessage = %q, want COMMIT_MESSAGES", state.MergeStrategy.SquashMergeCommitMessage)
 	}
-	if state.Features.MergeCommitTitle != "MERGE_MESSAGE" {
-		t.Errorf("MergeCommitTitle = %q, want MERGE_MESSAGE", state.Features.MergeCommitTitle)
+	if state.MergeStrategy.MergeCommitTitle != "MERGE_MESSAGE" {
+		t.Errorf("MergeCommitTitle = %q, want MERGE_MESSAGE", state.MergeStrategy.MergeCommitTitle)
 	}
-	if state.Features.MergeCommitMessage != "PR_BODY" {
-		t.Errorf("MergeCommitMessage = %q, want PR_BODY", state.Features.MergeCommitMessage)
+	if state.MergeStrategy.MergeCommitMessage != "PR_BODY" {
+		t.Errorf("MergeCommitMessage = %q, want PR_BODY", state.MergeStrategy.MergeCommitMessage)
 	}
 
 	// Secrets

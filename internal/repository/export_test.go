@@ -15,13 +15,15 @@ func TestToManifest(t *testing.T) {
 		Visibility:  "public",
 		Topics:      []string{"go", "cli"},
 		Features: CurrentFeatures{
-			Issues:                   true,
-			Projects:                 false,
-			Wiki:                     true,
-			Discussions:              false,
-			MergeCommit:              true,
-			SquashMerge:              true,
-			RebaseMerge:              false,
+			Issues:      true,
+			Projects:    false,
+			Wiki:        true,
+			Discussions: false,
+		},
+		MergeStrategy: CurrentMergeStrategy{
+			AllowMergeCommit:         true,
+			AllowSquashMerge:         true,
+			AllowRebaseMerge:         false,
 			AutoDeleteHeadBranches:   true,
 			MergeCommitTitle:         "MERGE_MESSAGE",
 			MergeCommitMessage:       "PR_BODY",
@@ -90,14 +92,20 @@ func TestToManifest(t *testing.T) {
 	assertBoolPtr(t, "Projects", f.Projects, false)
 	assertBoolPtr(t, "Wiki", f.Wiki, true)
 	assertBoolPtr(t, "Discussions", f.Discussions, false)
-	assertBoolPtr(t, "MergeCommit", f.MergeCommit, true)
-	assertBoolPtr(t, "SquashMerge", f.SquashMerge, true)
-	assertBoolPtr(t, "RebaseMerge", f.RebaseMerge, false)
-	assertBoolPtr(t, "AutoDeleteHeadBranches", f.AutoDeleteHeadBranches, true)
-	assertStringPtr(t, "MergeCommitTitle", f.MergeCommitTitle, "MERGE_MESSAGE")
-	assertStringPtr(t, "MergeCommitMessage", f.MergeCommitMessage, "PR_BODY")
-	assertStringPtr(t, "SquashMergeCommitTitle", f.SquashMergeCommitTitle, "PR_TITLE")
-	assertStringPtr(t, "SquashMergeCommitMessage", f.SquashMergeCommitMessage, "COMMIT_MESSAGES")
+
+	// MergeStrategy
+	ms := repo.Spec.MergeStrategy
+	if ms == nil {
+		t.Fatal("expected non-nil MergeStrategy")
+	}
+	assertBoolPtr(t, "AllowMergeCommit", ms.AllowMergeCommit, true)
+	assertBoolPtr(t, "AllowSquashMerge", ms.AllowSquashMerge, true)
+	assertBoolPtr(t, "AllowRebaseMerge", ms.AllowRebaseMerge, false)
+	assertBoolPtr(t, "AutoDeleteHeadBranches", ms.AutoDeleteHeadBranches, true)
+	assertStringPtr(t, "MergeCommitTitle", ms.MergeCommitTitle, "MERGE_MESSAGE")
+	assertStringPtr(t, "MergeCommitMessage", ms.MergeCommitMessage, "PR_BODY")
+	assertStringPtr(t, "SquashMergeCommitTitle", ms.SquashMergeCommitTitle, "PR_TITLE")
+	assertStringPtr(t, "SquashMergeCommitMessage", ms.SquashMergeCommitMessage, "COMMIT_MESSAGES")
 
 	// Branch protection
 	if len(repo.Spec.BranchProtection) != 1 {

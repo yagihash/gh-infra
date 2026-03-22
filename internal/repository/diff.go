@@ -36,6 +36,7 @@ func Diff(desired *manifest.Repository, current *CurrentState, opts ...DiffOptio
 	var changes []Change
 	changes = append(changes, diffRepoSettings(name, desired, current)...)
 	changes = append(changes, diffFeatures(name, desired, current)...)
+	changes = append(changes, diffMergeStrategy(name, desired, current)...)
 	changes = append(changes, diffBranchProtection(name, desired, current)...)
 	changes = append(changes, diffSecrets(name, desired, current, opt.ForceSecrets)...)
 	changes = append(changes, diffVariables(name, desired, current)...)
@@ -131,10 +132,35 @@ func diffFeatures(name string, desired *manifest.Repository, current *CurrentSta
 	boolDiff("projects", f.Projects, current.Features.Projects)
 	boolDiff("wiki", f.Wiki, current.Features.Wiki)
 	boolDiff("discussions", f.Discussions, current.Features.Discussions)
-	boolDiff("merge_commit", f.MergeCommit, current.Features.MergeCommit)
-	boolDiff("squash_merge", f.SquashMerge, current.Features.SquashMerge)
-	boolDiff("rebase_merge", f.RebaseMerge, current.Features.RebaseMerge)
-	boolDiff("auto_delete_head_branches", f.AutoDeleteHeadBranches, current.Features.AutoDeleteHeadBranches)
+
+	return changes
+}
+
+func diffMergeStrategy(name string, desired *manifest.Repository, current *CurrentState) []Change {
+	if desired.Spec.MergeStrategy == nil {
+		return nil
+	}
+
+	var changes []Change
+	ms := desired.Spec.MergeStrategy
+
+	boolDiff := func(field string, desiredVal *bool, currentVal bool) {
+		if desiredVal != nil && *desiredVal != currentVal {
+			changes = append(changes, Change{
+				Type:     ChangeUpdate,
+				Resource: manifest.ResourceRepository,
+				Name:     name,
+				Field:    field,
+				OldValue: currentVal,
+				NewValue: *desiredVal,
+			})
+		}
+	}
+
+	boolDiff("allow_merge_commit", ms.AllowMergeCommit, current.MergeStrategy.AllowMergeCommit)
+	boolDiff("allow_squash_merge", ms.AllowSquashMerge, current.MergeStrategy.AllowSquashMerge)
+	boolDiff("allow_rebase_merge", ms.AllowRebaseMerge, current.MergeStrategy.AllowRebaseMerge)
+	boolDiff("auto_delete_head_branches", ms.AutoDeleteHeadBranches, current.MergeStrategy.AutoDeleteHeadBranches)
 
 	stringDiff := func(field string, desiredVal *string, currentVal string) {
 		if desiredVal != nil && *desiredVal != currentVal {
@@ -149,10 +175,10 @@ func diffFeatures(name string, desired *manifest.Repository, current *CurrentSta
 		}
 	}
 
-	stringDiff("merge_commit_title", f.MergeCommitTitle, current.Features.MergeCommitTitle)
-	stringDiff("merge_commit_message", f.MergeCommitMessage, current.Features.MergeCommitMessage)
-	stringDiff("squash_merge_commit_title", f.SquashMergeCommitTitle, current.Features.SquashMergeCommitTitle)
-	stringDiff("squash_merge_commit_message", f.SquashMergeCommitMessage, current.Features.SquashMergeCommitMessage)
+	stringDiff("merge_commit_title", ms.MergeCommitTitle, current.MergeStrategy.MergeCommitTitle)
+	stringDiff("merge_commit_message", ms.MergeCommitMessage, current.MergeStrategy.MergeCommitMessage)
+	stringDiff("squash_merge_commit_title", ms.SquashMergeCommitTitle, current.MergeStrategy.SquashMergeCommitTitle)
+	stringDiff("squash_merge_commit_message", ms.SquashMergeCommitMessage, current.MergeStrategy.SquashMergeCommitMessage)
 
 	return changes
 }

@@ -193,6 +193,9 @@ func mergeSpecs(defaults *RepositorySetDefaults, override RepositorySpec) Reposi
 	if override.Features != nil {
 		result.Features = mergeFeatures(result.Features, override.Features)
 	}
+	if override.MergeStrategy != nil {
+		result.MergeStrategy = mergeMergeStrategy(result.MergeStrategy, override.MergeStrategy)
+	}
 	if len(override.BranchProtection) > 0 {
 		result.BranchProtection = override.BranchProtection
 	}
@@ -227,14 +230,26 @@ func mergeFeatures(base, override *Features) *Features {
 	if override.Discussions != nil {
 		result.Discussions = override.Discussions
 	}
-	if override.MergeCommit != nil {
-		result.MergeCommit = override.MergeCommit
+	return &result
+}
+
+func mergeMergeStrategy(base, override *MergeStrategy) *MergeStrategy {
+	if base == nil {
+		return override
 	}
-	if override.SquashMerge != nil {
-		result.SquashMerge = override.SquashMerge
+	if override == nil {
+		return base
 	}
-	if override.RebaseMerge != nil {
-		result.RebaseMerge = override.RebaseMerge
+
+	result := *base
+	if override.AllowMergeCommit != nil {
+		result.AllowMergeCommit = override.AllowMergeCommit
+	}
+	if override.AllowSquashMerge != nil {
+		result.AllowSquashMerge = override.AllowSquashMerge
+	}
+	if override.AllowRebaseMerge != nil {
+		result.AllowRebaseMerge = override.AllowRebaseMerge
 	}
 	if override.AutoDeleteHeadBranches != nil {
 		result.AutoDeleteHeadBranches = override.AutoDeleteHeadBranches

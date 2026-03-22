@@ -752,24 +752,19 @@ spec:
 	}
 }
 
-func TestMergeFeatures_MergeCommitTitleMessage(t *testing.T) {
-	base := &Features{
-		Issues:             Ptr(true),
+func TestMergeMergeStrategy_MergeCommitTitleMessage(t *testing.T) {
+	base := &MergeStrategy{
 		MergeCommitTitle:   Ptr("MERGE_MESSAGE"),
 		MergeCommitMessage: Ptr("PR_BODY"),
 	}
-	override := &Features{
+	override := &MergeStrategy{
 		MergeCommitTitle:         Ptr("PR_TITLE"),
 		SquashMergeCommitTitle:   Ptr("PR_TITLE"),
 		SquashMergeCommitMessage: Ptr("BLANK"),
 	}
 
-	result := mergeFeatures(base, override)
+	result := mergeMergeStrategy(base, override)
 
-	// base values preserved
-	if result.Issues == nil || *result.Issues != true {
-		t.Errorf("issues = %v, want true (from base)", result.Issues)
-	}
 	// overridden
 	if result.MergeCommitTitle == nil || *result.MergeCommitTitle != "PR_TITLE" {
 		t.Errorf("merge_commit_title = %v, want PR_TITLE", result.MergeCommitTitle)
@@ -789,7 +784,7 @@ func TestMergeFeatures_MergeCommitTitleMessage(t *testing.T) {
 
 func TestMergeFeatures_NilBase(t *testing.T) {
 	override := &Features{
-		MergeCommitTitle: Ptr("PR_TITLE"),
+		Issues: Ptr(true),
 	}
 	result := mergeFeatures(nil, override)
 	if result != override {
@@ -799,9 +794,29 @@ func TestMergeFeatures_NilBase(t *testing.T) {
 
 func TestMergeFeatures_NilOverride(t *testing.T) {
 	base := &Features{
-		MergeCommitTitle: Ptr("MERGE_MESSAGE"),
+		Issues: Ptr(true),
 	}
 	result := mergeFeatures(base, nil)
+	if result != base {
+		t.Error("expected base returned when override is nil")
+	}
+}
+
+func TestMergeMergeStrategy_NilBase(t *testing.T) {
+	override := &MergeStrategy{
+		MergeCommitTitle: Ptr("PR_TITLE"),
+	}
+	result := mergeMergeStrategy(nil, override)
+	if result != override {
+		t.Error("expected override returned when base is nil")
+	}
+}
+
+func TestMergeMergeStrategy_NilOverride(t *testing.T) {
+	base := &MergeStrategy{
+		MergeCommitTitle: Ptr("MERGE_MESSAGE"),
+	}
+	result := mergeMergeStrategy(base, nil)
 	if result != base {
 		t.Error("expected base returned when override is nil")
 	}

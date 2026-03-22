@@ -207,38 +207,6 @@ func TestDiff_Features_BoolFlags(t *testing.T) {
 			},
 			wantField: "discussions",
 		},
-		{
-			name: "merge_commit disabled",
-			setup: func(f *manifest.Features, c *CurrentState) {
-				f.MergeCommit = manifest.Ptr(false)
-				c.Features.MergeCommit = true
-			},
-			wantField: "merge_commit",
-		},
-		{
-			name: "squash_merge enabled",
-			setup: func(f *manifest.Features, c *CurrentState) {
-				f.SquashMerge = manifest.Ptr(true)
-				c.Features.SquashMerge = false
-			},
-			wantField: "squash_merge",
-		},
-		{
-			name: "rebase_merge enabled",
-			setup: func(f *manifest.Features, c *CurrentState) {
-				f.RebaseMerge = manifest.Ptr(true)
-				c.Features.RebaseMerge = false
-			},
-			wantField: "rebase_merge",
-		},
-		{
-			name: "auto_delete_head_branches enabled",
-			setup: func(f *manifest.Features, c *CurrentState) {
-				f.AutoDeleteHeadBranches = manifest.Ptr(true)
-				c.Features.AutoDeleteHeadBranches = false
-			},
-			wantField: "auto_delete_head_branches",
-		},
 	}
 
 	for _, tt := range tests {
@@ -249,6 +217,78 @@ func TestDiff_Features_BoolFlags(t *testing.T) {
 			tt.setup(d.Spec.Features, c)
 
 			changes := diffFeatures("org/repo", d, c)
+			if len(changes) != 1 {
+				t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
+			}
+			if changes[0].Field != tt.wantField {
+				t.Errorf("expected field %q, got %q", tt.wantField, changes[0].Field)
+			}
+			if changes[0].Type != ChangeUpdate {
+				t.Errorf("expected update, got %q", changes[0].Type)
+			}
+		})
+	}
+}
+
+func TestDiff_MergeStrategy_NilMergeStrategy(t *testing.T) {
+	d := baseDesired()
+	d.Spec.MergeStrategy = nil
+	c := baseState()
+
+	changes := diffMergeStrategy("org/repo", d, c)
+	if len(changes) != 0 {
+		t.Errorf("expected no changes when merge_strategy is nil, got %d", len(changes))
+	}
+}
+
+func TestDiff_MergeStrategy_BoolFlags(t *testing.T) {
+	tests := []struct {
+		name      string
+		setup     func(ms *manifest.MergeStrategy, c *CurrentState)
+		wantField string
+	}{
+		{
+			name: "allow_merge_commit disabled",
+			setup: func(ms *manifest.MergeStrategy, c *CurrentState) {
+				ms.AllowMergeCommit = manifest.Ptr(false)
+				c.MergeStrategy.AllowMergeCommit = true
+			},
+			wantField: "allow_merge_commit",
+		},
+		{
+			name: "allow_squash_merge enabled",
+			setup: func(ms *manifest.MergeStrategy, c *CurrentState) {
+				ms.AllowSquashMerge = manifest.Ptr(true)
+				c.MergeStrategy.AllowSquashMerge = false
+			},
+			wantField: "allow_squash_merge",
+		},
+		{
+			name: "allow_rebase_merge enabled",
+			setup: func(ms *manifest.MergeStrategy, c *CurrentState) {
+				ms.AllowRebaseMerge = manifest.Ptr(true)
+				c.MergeStrategy.AllowRebaseMerge = false
+			},
+			wantField: "allow_rebase_merge",
+		},
+		{
+			name: "auto_delete_head_branches enabled",
+			setup: func(ms *manifest.MergeStrategy, c *CurrentState) {
+				ms.AutoDeleteHeadBranches = manifest.Ptr(true)
+				c.MergeStrategy.AutoDeleteHeadBranches = false
+			},
+			wantField: "auto_delete_head_branches",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := baseDesired()
+			d.Spec.MergeStrategy = &manifest.MergeStrategy{}
+			c := baseState()
+			tt.setup(d.Spec.MergeStrategy, c)
+
+			changes := diffMergeStrategy("org/repo", d, c)
 			if len(changes) != 1 {
 				t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
 			}
@@ -276,19 +316,19 @@ func TestDiff_Features_BoolNoChange(t *testing.T) {
 	}
 }
 
-func TestDiff_Features_MergeCommitStrings(t *testing.T) {
+func TestDiff_MergeStrategy_CommitStrings(t *testing.T) {
 	tests := []struct {
 		name      string
-		setup     func(f *manifest.Features, c *CurrentState)
+		setup     func(ms *manifest.MergeStrategy, c *CurrentState)
 		wantField string
 		wantOld   string
 		wantNew   string
 	}{
 		{
 			name: "squash_merge_commit_title change",
-			setup: func(f *manifest.Features, c *CurrentState) {
-				f.SquashMergeCommitTitle = manifest.Ptr("PR_TITLE")
-				c.Features.SquashMergeCommitTitle = "COMMIT_OR_PR_TITLE"
+			setup: func(ms *manifest.MergeStrategy, c *CurrentState) {
+				ms.SquashMergeCommitTitle = manifest.Ptr("PR_TITLE")
+				c.MergeStrategy.SquashMergeCommitTitle = "COMMIT_OR_PR_TITLE"
 			},
 			wantField: "squash_merge_commit_title",
 			wantOld:   "COMMIT_OR_PR_TITLE",
@@ -296,9 +336,9 @@ func TestDiff_Features_MergeCommitStrings(t *testing.T) {
 		},
 		{
 			name: "squash_merge_commit_message change",
-			setup: func(f *manifest.Features, c *CurrentState) {
-				f.SquashMergeCommitMessage = manifest.Ptr("BLANK")
-				c.Features.SquashMergeCommitMessage = "COMMIT_MESSAGES"
+			setup: func(ms *manifest.MergeStrategy, c *CurrentState) {
+				ms.SquashMergeCommitMessage = manifest.Ptr("BLANK")
+				c.MergeStrategy.SquashMergeCommitMessage = "COMMIT_MESSAGES"
 			},
 			wantField: "squash_merge_commit_message",
 			wantOld:   "COMMIT_MESSAGES",
@@ -306,9 +346,9 @@ func TestDiff_Features_MergeCommitStrings(t *testing.T) {
 		},
 		{
 			name: "merge_commit_title change",
-			setup: func(f *manifest.Features, c *CurrentState) {
-				f.MergeCommitTitle = manifest.Ptr("PR_TITLE")
-				c.Features.MergeCommitTitle = "MERGE_MESSAGE"
+			setup: func(ms *manifest.MergeStrategy, c *CurrentState) {
+				ms.MergeCommitTitle = manifest.Ptr("PR_TITLE")
+				c.MergeStrategy.MergeCommitTitle = "MERGE_MESSAGE"
 			},
 			wantField: "merge_commit_title",
 			wantOld:   "MERGE_MESSAGE",
@@ -316,9 +356,9 @@ func TestDiff_Features_MergeCommitStrings(t *testing.T) {
 		},
 		{
 			name: "merge_commit_message change",
-			setup: func(f *manifest.Features, c *CurrentState) {
-				f.MergeCommitMessage = manifest.Ptr("BLANK")
-				c.Features.MergeCommitMessage = "PR_BODY"
+			setup: func(ms *manifest.MergeStrategy, c *CurrentState) {
+				ms.MergeCommitMessage = manifest.Ptr("BLANK")
+				c.MergeStrategy.MergeCommitMessage = "PR_BODY"
 			},
 			wantField: "merge_commit_message",
 			wantOld:   "PR_BODY",
@@ -329,11 +369,11 @@ func TestDiff_Features_MergeCommitStrings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := baseDesired()
-			d.Spec.Features = &manifest.Features{}
+			d.Spec.MergeStrategy = &manifest.MergeStrategy{}
 			c := baseState()
-			tt.setup(d.Spec.Features, c)
+			tt.setup(d.Spec.MergeStrategy, c)
 
-			changes := diffFeatures("org/repo", d, c)
+			changes := diffMergeStrategy("org/repo", d, c)
 			if len(changes) != 1 {
 				t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
 			}

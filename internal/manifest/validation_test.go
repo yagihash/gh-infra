@@ -102,7 +102,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{SquashMergeCommitTitle: Ptr("PR_TITLE")},
+					MergeStrategy: &MergeStrategy{SquashMergeCommitTitle: Ptr("PR_TITLE")},
 				},
 			},
 		},
@@ -111,7 +111,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{SquashMergeCommitTitle: Ptr("INVALID")},
+					MergeStrategy: &MergeStrategy{SquashMergeCommitTitle: Ptr("INVALID")},
 				},
 			},
 			wantErr: "invalid squash_merge_commit_title",
@@ -121,7 +121,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{SquashMergeCommitMessage: Ptr("PR_BODY")},
+					MergeStrategy: &MergeStrategy{SquashMergeCommitMessage: Ptr("PR_BODY")},
 				},
 			},
 		},
@@ -130,7 +130,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{SquashMergeCommitMessage: Ptr("NOPE")},
+					MergeStrategy: &MergeStrategy{SquashMergeCommitMessage: Ptr("NOPE")},
 				},
 			},
 			wantErr: "invalid squash_merge_commit_message",
@@ -140,7 +140,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{MergeCommitTitle: Ptr("MERGE_MESSAGE")},
+					MergeStrategy: &MergeStrategy{MergeCommitTitle: Ptr("MERGE_MESSAGE")},
 				},
 			},
 		},
@@ -149,7 +149,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{MergeCommitTitle: Ptr("BAD")},
+					MergeStrategy: &MergeStrategy{MergeCommitTitle: Ptr("BAD")},
 				},
 			},
 			wantErr: "invalid merge_commit_title",
@@ -159,7 +159,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{MergeCommitMessage: Ptr("PR_BODY")},
+					MergeStrategy: &MergeStrategy{MergeCommitMessage: Ptr("PR_BODY")},
 				},
 			},
 		},
@@ -168,7 +168,7 @@ func TestValidateRepository(t *testing.T) {
 			repo: &Repository{
 				Metadata: RepositoryMetadata{Name: "my-repo", Owner: "my-org"},
 				Spec: RepositorySpec{
-					Features: &Features{MergeCommitMessage: Ptr("WRONG")},
+					MergeStrategy: &MergeStrategy{MergeCommitMessage: Ptr("WRONG")},
 				},
 			},
 			wantErr: "invalid merge_commit_message",

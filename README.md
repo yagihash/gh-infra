@@ -90,10 +90,10 @@ spec:
   topics:
     - go
     - cli
-  features:
-    squash_merge: true
-    merge_commit: false
-    rebase_merge: false
+  merge_strategy:
+    allow_squash_merge: true
+    allow_merge_commit: false
+    allow_rebase_merge: false
     auto_delete_head_branches: true
 ```
 
@@ -156,18 +156,19 @@ spec:
     - cli
     - github
 
-  # Feature flags
+  # Features
   features:
     issues: true
     projects: false
     wiki: false
     discussions: false
-    merge_commit: false
-    squash_merge: true
-    rebase_merge: false
-    auto_delete_head_branches: true
 
-    # Default commit message settings
+  # Merge strategy
+  merge_strategy:
+    allow_merge_commit: false
+    allow_squash_merge: true
+    allow_rebase_merge: false
+    auto_delete_head_branches: true
     squash_merge_commit_title: PR_TITLE      # PR_TITLE | COMMIT_OR_PR_TITLE
     squash_merge_commit_message: COMMIT_MESSAGES  # COMMIT_MESSAGES | PR_BODY | BLANK
     merge_commit_title: MERGE_MESSAGE        # MERGE_MESSAGE | PR_TITLE
@@ -227,7 +228,8 @@ defaults:
     features:
       issues: true
       wiki: false
-      squash_merge: true
+    merge_strategy:
+      allow_squash_merge: true
       auto_delete_head_branches: true
     branch_protection:
       - pattern: main

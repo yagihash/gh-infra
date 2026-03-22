@@ -85,24 +85,28 @@ type RepositorySpec struct {
 	Archived         *bool              `yaml:"archived,omitempty"`
 	Topics           []string           `yaml:"topics,omitempty"`
 	Features         *Features          `yaml:"features,omitempty"`
+	MergeStrategy    *MergeStrategy     `yaml:"merge_strategy,omitempty"`
 	BranchProtection []BranchProtection `yaml:"branch_protection,omitempty"`
 	Secrets          []Secret           `yaml:"secrets,omitempty"`
 	Variables        []Variable         `yaml:"variables,omitempty"`
 }
 
 type Features struct {
-	Issues                   *bool   `yaml:"issues,omitempty"`
-	Projects                 *bool   `yaml:"projects,omitempty"`
-	Wiki                     *bool   `yaml:"wiki,omitempty"`
-	Discussions              *bool   `yaml:"discussions,omitempty"`
-	MergeCommit              *bool   `yaml:"merge_commit,omitempty"`
-	SquashMerge              *bool   `yaml:"squash_merge,omitempty"`
-	RebaseMerge              *bool   `yaml:"rebase_merge,omitempty"`
+	Issues      *bool `yaml:"issues,omitempty"`
+	Projects    *bool `yaml:"projects,omitempty"`
+	Wiki        *bool `yaml:"wiki,omitempty"`
+	Discussions *bool `yaml:"discussions,omitempty"`
+}
+
+type MergeStrategy struct {
+	AllowMergeCommit         *bool   `yaml:"allow_merge_commit,omitempty"`
+	AllowSquashMerge         *bool   `yaml:"allow_squash_merge,omitempty"`
+	AllowRebaseMerge         *bool   `yaml:"allow_rebase_merge,omitempty"`
 	AutoDeleteHeadBranches   *bool   `yaml:"auto_delete_head_branches,omitempty"`
-	MergeCommitTitle         *string `yaml:"merge_commit_title,omitempty"`
-	MergeCommitMessage       *string `yaml:"merge_commit_message,omitempty"`
 	SquashMergeCommitTitle   *string `yaml:"squash_merge_commit_title,omitempty"`
 	SquashMergeCommitMessage *string `yaml:"squash_merge_commit_message,omitempty"`
+	MergeCommitTitle         *string `yaml:"merge_commit_title,omitempty"`
+	MergeCommitMessage       *string `yaml:"merge_commit_message,omitempty"`
 }
 
 type BranchProtection struct {

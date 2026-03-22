@@ -119,14 +119,27 @@ func (e *Executor) applyAllSettings(repo *manifest.Repository) error {
 	// Features
 	if f := repo.Spec.Features; f != nil {
 		featureFlags := map[string]*bool{
-			"enable-projects":        f.Projects,
-			"enable-discussions":     f.Discussions,
-			"enable-merge-commit":    f.MergeCommit,
-			"enable-squash-merge":    f.SquashMerge,
-			"enable-rebase-merge":    f.RebaseMerge,
-			"delete-branch-on-merge": f.AutoDeleteHeadBranches,
+			"enable-projects":    f.Projects,
+			"enable-discussions": f.Discussions,
 		}
 		for flag, val := range featureFlags {
+			if val != nil {
+				if err := e.toggleFeature(fullName, flag, *val); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// Merge strategy
+	if ms := repo.Spec.MergeStrategy; ms != nil {
+		mergeFlags := map[string]*bool{
+			"enable-merge-commit":    ms.AllowMergeCommit,
+			"enable-squash-merge":    ms.AllowSquashMerge,
+			"enable-rebase-merge":    ms.AllowRebaseMerge,
+			"delete-branch-on-merge": ms.AutoDeleteHeadBranches,
+		}
+		for flag, val := range mergeFlags {
 			if val != nil {
 				if err := e.toggleFeature(fullName, flag, *val); err != nil {
 					return err
@@ -136,10 +149,10 @@ func (e *Executor) applyAllSettings(repo *manifest.Repository) error {
 
 		// Commit message settings
 		commitFields := map[string]*string{
-			"squash_merge_commit_title":   f.SquashMergeCommitTitle,
-			"squash_merge_commit_message": f.SquashMergeCommitMessage,
-			"merge_commit_title":          f.MergeCommitTitle,
-			"merge_commit_message":        f.MergeCommitMessage,
+			"squash_merge_commit_title":   ms.SquashMergeCommitTitle,
+			"squash_merge_commit_message": ms.SquashMergeCommitMessage,
+			"merge_commit_title":          ms.MergeCommitTitle,
+			"merge_commit_message":        ms.MergeCommitMessage,
 		}
 		for field, val := range commitFields {
 			if val != nil {
@@ -204,11 +217,11 @@ func (e *Executor) applyRepoSetting(c Change, repo *manifest.Repository) error {
 		return e.toggleFeature(fullName, "enable-wiki", c.NewValue.(bool))
 	case "discussions":
 		return e.toggleFeature(fullName, "enable-discussions", c.NewValue.(bool))
-	case "merge_commit":
+	case "allow_merge_commit":
 		return e.toggleFeature(fullName, "enable-merge-commit", c.NewValue.(bool))
-	case "squash_merge":
+	case "allow_squash_merge":
 		return e.toggleFeature(fullName, "enable-squash-merge", c.NewValue.(bool))
-	case "rebase_merge":
+	case "allow_rebase_merge":
 		return e.toggleFeature(fullName, "enable-rebase-merge", c.NewValue.(bool))
 	case "auto_delete_head_branches":
 		return e.toggleFeature(fullName, "delete-branch-on-merge", c.NewValue.(bool))
