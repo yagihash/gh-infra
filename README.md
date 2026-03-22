@@ -265,7 +265,7 @@ metadata:
 
 spec:
   # Target repositories
-  targets:
+  repositories:
     - babarot/gomi
     - babarot/enhancd
     - babarot/oksskolten

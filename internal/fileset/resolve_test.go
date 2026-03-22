@@ -15,7 +15,7 @@ func TestResolveFiles_NoOverrides(t *testing.T) {
 			},
 		},
 	}
-	target := manifest.FileSetTarget{Name: "owner/repo"}
+	target := manifest.FileSetRepository{Name: "owner/repo"}
 
 	result := ResolveFiles(fs, target)
 
@@ -40,7 +40,7 @@ func TestResolveFiles_WithOverrides(t *testing.T) {
 			},
 		},
 	}
-	target := manifest.FileSetTarget{
+	target := manifest.FileSetRepository{
 		Name: "owner/repo",
 		Overrides: []manifest.FileEntry{
 			{Path: "b.txt", Content: "overridden-b"},

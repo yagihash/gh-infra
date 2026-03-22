@@ -474,7 +474,7 @@ kind: FileSet
 metadata:
   name: ci-configs
 spec:
-  targets:
+  repositories:
     - org/repo-a
     - name: org/repo-b
       overrides:
@@ -504,17 +504,17 @@ spec:
 	if fs.Metadata.Name != "ci-configs" {
 		t.Errorf("name = %q, want %q", fs.Metadata.Name, "ci-configs")
 	}
-	if len(fs.Spec.Targets) != 2 {
-		t.Fatalf("targets count = %d, want 2", len(fs.Spec.Targets))
+	if len(fs.Spec.Repositories) != 2 {
+		t.Fatalf("targets count = %d, want 2", len(fs.Spec.Repositories))
 	}
-	if fs.Spec.Targets[0].Name != "org/repo-a" {
-		t.Errorf("targets[0].name = %q, want %q", fs.Spec.Targets[0].Name, "org/repo-a")
+	if fs.Spec.Repositories[0].Name != "org/repo-a" {
+		t.Errorf("targets[0].name = %q, want %q", fs.Spec.Repositories[0].Name, "org/repo-a")
 	}
-	if fs.Spec.Targets[1].Name != "org/repo-b" {
-		t.Errorf("targets[1].name = %q, want %q", fs.Spec.Targets[1].Name, "org/repo-b")
+	if fs.Spec.Repositories[1].Name != "org/repo-b" {
+		t.Errorf("targets[1].name = %q, want %q", fs.Spec.Repositories[1].Name, "org/repo-b")
 	}
-	if len(fs.Spec.Targets[1].Overrides) != 1 {
-		t.Fatalf("targets[1].overrides count = %d, want 1", len(fs.Spec.Targets[1].Overrides))
+	if len(fs.Spec.Repositories[1].Overrides) != 1 {
+		t.Fatalf("targets[1].overrides count = %d, want 1", len(fs.Spec.Repositories[1].Overrides))
 	}
 	if len(fs.Spec.Files) != 2 {
 		t.Fatalf("files count = %d, want 2", len(fs.Spec.Files))
@@ -535,7 +535,7 @@ kind: FileSet
 metadata:
   name: test
 spec:
-  targets:
+  repositories:
     - org/repo
   files:
     - path: file.txt
@@ -570,7 +570,7 @@ kind: FileSet
 metadata:
   name: templates
 spec:
-  targets:
+  repositories:
     - org/repo
   files:
     - path: .github/template.txt
@@ -603,7 +603,7 @@ kind: FileSet
 metadata:
   name: ""
 spec:
-  targets:
+  repositories:
     - org/repo
   files:
     - path: file.txt
@@ -644,8 +644,8 @@ spec:
 	if err == nil {
 		t.Fatal("expected error for missing targets, got nil")
 	}
-	if !contains(err.Error(), "spec.targets is required") {
-		t.Errorf("error = %q, want it to contain 'spec.targets is required'", err.Error())
+	if !contains(err.Error(), "spec.repositories is required") {
+		t.Errorf("error = %q, want it to contain 'spec.repositories is required'", err.Error())
 	}
 }
 
@@ -657,7 +657,7 @@ kind: FileSet
 metadata:
   name: test
 spec:
-  targets:
+  repositories:
     - org/repo
 `
 	path := filepath.Join(dir, "fs.yaml")
@@ -682,7 +682,7 @@ kind: FileSet
 metadata:
   name: test
 spec:
-  targets:
+  repositories:
     - org/repo
   files:
     - path: file.txt
@@ -721,7 +721,7 @@ kind: FileSet
 metadata:
   name: shared-files
 spec:
-  targets:
+  repositories:
     - org/my-repo
   files:
     - path: .editorconfig

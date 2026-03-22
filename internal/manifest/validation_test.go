@@ -226,9 +226,9 @@ func TestValidateFileSet(t *testing.T) {
 			fs: &FileSet{
 				Metadata: FileSetMetadata{Name: "common"},
 				Spec: FileSetSpec{
-					Targets: []FileSetTarget{{Name: "org/repo"}},
-					Files:   []FileEntry{{Path: "LICENSE", Content: "MIT"}},
-					OnDrift: "overwrite",
+					Repositories: []FileSetRepository{{Name: "org/repo"}},
+					Files:        []FileEntry{{Path: "LICENSE", Content: "MIT"}},
+					OnDrift:      "overwrite",
 				},
 			},
 		},
@@ -236,8 +236,8 @@ func TestValidateFileSet(t *testing.T) {
 			name: "missing name",
 			fs: &FileSet{
 				Spec: FileSetSpec{
-					Targets: []FileSetTarget{{Name: "org/repo"}},
-					Files:   []FileEntry{{Path: "LICENSE"}},
+					Repositories: []FileSetRepository{{Name: "org/repo"}},
+					Files:        []FileEntry{{Path: "LICENSE"}},
 				},
 			},
 			wantErr: "metadata.name is required",
@@ -250,14 +250,14 @@ func TestValidateFileSet(t *testing.T) {
 					Files: []FileEntry{{Path: "LICENSE"}},
 				},
 			},
-			wantErr: "spec.targets is required",
+			wantErr: "spec.repositories is required",
 		},
 		{
 			name: "missing files",
 			fs: &FileSet{
 				Metadata: FileSetMetadata{Name: "common"},
 				Spec: FileSetSpec{
-					Targets: []FileSetTarget{{Name: "org/repo"}},
+					Repositories: []FileSetRepository{{Name: "org/repo"}},
 				},
 			},
 			wantErr: "spec.files is required",
@@ -267,9 +267,9 @@ func TestValidateFileSet(t *testing.T) {
 			fs: &FileSet{
 				Metadata: FileSetMetadata{Name: "common"},
 				Spec: FileSetSpec{
-					Targets: []FileSetTarget{{Name: "org/repo"}},
-					Files:   []FileEntry{{Path: "LICENSE"}},
-					OnDrift: "delete",
+					Repositories: []FileSetRepository{{Name: "org/repo"}},
+					Files:        []FileEntry{{Path: "LICENSE"}},
+					OnDrift:      "delete",
 				},
 			},
 			wantErr: "invalid on_drift",
@@ -279,8 +279,8 @@ func TestValidateFileSet(t *testing.T) {
 			fs: &FileSet{
 				Metadata: FileSetMetadata{Name: "common"},
 				Spec: FileSetSpec{
-					Targets: []FileSetTarget{{Name: "org/repo"}},
-					Files:   []FileEntry{{Path: "LICENSE"}},
+					Repositories: []FileSetRepository{{Name: "org/repo"}},
+					Files:        []FileEntry{{Path: "LICENSE"}},
 				},
 			},
 		},
@@ -289,8 +289,8 @@ func TestValidateFileSet(t *testing.T) {
 			fs: &FileSet{
 				Metadata: FileSetMetadata{Name: "common"},
 				Spec: FileSetSpec{
-					Targets: []FileSetTarget{{Name: "org/repo"}},
-					Files:   []FileEntry{{Path: ""}},
+					Repositories: []FileSetRepository{{Name: "org/repo"}},
+					Files:        []FileEntry{{Path: ""}},
 				},
 			},
 			wantErr: "files[0].path is required",

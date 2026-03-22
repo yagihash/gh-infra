@@ -36,7 +36,7 @@ func runValidate(path string) error {
 	}
 	for _, fs := range parsed.FileSets {
 		fmt.Printf("  - FileSet: %s (%d files → %d targets)\n",
-			fs.Metadata.Name, len(fs.Spec.Files), len(fs.Spec.Targets))
+			fs.Metadata.Name, len(fs.Spec.Files), len(fs.Spec.Repositories))
 	}
 	return nil
 }

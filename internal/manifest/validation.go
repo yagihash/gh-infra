@@ -68,8 +68,8 @@ func (fs *FileSet) Validate() error {
 	if fs.Metadata.Name == "" {
 		return fmt.Errorf("FileSet metadata.name is required")
 	}
-	if len(fs.Spec.Targets) == 0 {
-		return fmt.Errorf("FileSet %q: spec.targets is required", fs.Metadata.Name)
+	if len(fs.Spec.Repositories) == 0 {
+		return fmt.Errorf("FileSet %q: spec.repositories is required", fs.Metadata.Name)
 	}
 	if len(fs.Spec.Files) == 0 {
 		return fmt.Errorf("FileSet %q: spec.files is required", fs.Metadata.Name)

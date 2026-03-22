@@ -3,7 +3,7 @@ package fileset
 import "github.com/babarot/gh-infra/internal/manifest"
 
 // ResolveFiles returns the effective files for a target, applying overrides.
-func ResolveFiles(fs *manifest.FileSet, target manifest.FileSetTarget) []manifest.FileEntry {
+func ResolveFiles(fs *manifest.FileSet, target manifest.FileSetRepository) []manifest.FileEntry {
 	if len(target.Overrides) == 0 {
 		return fs.Spec.Files
 	}

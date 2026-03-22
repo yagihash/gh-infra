@@ -58,7 +58,7 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet) []FileChange {
 	var changes []FileChange
 
 	for _, fs := range fileSets {
-		for _, target := range fs.Spec.Targets {
+		for _, target := range fs.Spec.Repositories {
 			fmt.Fprintf(os.Stderr, "  Refreshing %s → %s...\n", fs.Metadata.Name, target.Name)
 			files := ResolveFiles(fs, target)
 			for _, file := range files {

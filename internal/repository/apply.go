@@ -119,11 +119,11 @@ func (e *Executor) applyAllSettings(repo *manifest.Repository) error {
 	// Features
 	if f := repo.Spec.Features; f != nil {
 		featureFlags := map[string]*bool{
-			"enable-projects":       f.Projects,
-			"enable-discussions":    f.Discussions,
-			"enable-merge-commit":   f.MergeCommit,
-			"enable-squash-merge":   f.SquashMerge,
-			"enable-rebase-merge":   f.RebaseMerge,
+			"enable-projects":        f.Projects,
+			"enable-discussions":     f.Discussions,
+			"enable-merge-commit":    f.MergeCommit,
+			"enable-squash-merge":    f.SquashMerge,
+			"enable-rebase-merge":    f.RebaseMerge,
 			"delete-branch-on-merge": f.AutoDeleteHeadBranches,
 		}
 		for flag, val := range featureFlags {

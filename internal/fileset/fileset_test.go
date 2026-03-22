@@ -43,9 +43,9 @@ func makeFileSet(name, repo, onDrift string, files []manifest.FileEntry) []*mani
 		{
 			Metadata: manifest.FileSetMetadata{Name: name},
 			Spec: manifest.FileSetSpec{
-				Targets: []manifest.FileSetTarget{{Name: repo}},
-				Files:   files,
-				OnDrift: onDrift,
+				Repositories: []manifest.FileSetRepository{{Name: repo}},
+				Files:        files,
+				OnDrift:      onDrift,
 			},
 		},
 	}

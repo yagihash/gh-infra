@@ -6,9 +6,9 @@ import (
 	"github.com/goccy/go-yaml"
 )
 
-func TestFileSetTarget_UnmarshalYAML_String(t *testing.T) {
+func TestFileSetRepository_UnmarshalYAML_String(t *testing.T) {
 	input := `"owner/repo"`
-	var target FileSetTarget
+	var target FileSetRepository
 	if err := yaml.Unmarshal([]byte(input), &target); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -20,14 +20,14 @@ func TestFileSetTarget_UnmarshalYAML_String(t *testing.T) {
 	}
 }
 
-func TestFileSetTarget_UnmarshalYAML_Struct(t *testing.T) {
+func TestFileSetRepository_UnmarshalYAML_Struct(t *testing.T) {
 	input := `
 name: owner/repo
 overrides:
   - path: .github/ci.yml
     content: "custom content"
 `
-	var target FileSetTarget
+	var target FileSetRepository
 	if err := yaml.Unmarshal([]byte(input), &target); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

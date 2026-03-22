@@ -1,7 +1,7 @@
 package manifest
 
-// UnmarshalYAML allows FileSetTarget to be either a string or a struct.
-func (t *FileSetTarget) UnmarshalYAML(unmarshal func(any) error) error {
+// UnmarshalYAML allows FileSetRepository to be either a string or a struct.
+func (t *FileSetRepository) UnmarshalYAML(unmarshal func(any) error) error {
 	// Try string first
 	var s string
 	if err := unmarshal(&s); err == nil {
@@ -10,11 +10,11 @@ func (t *FileSetTarget) UnmarshalYAML(unmarshal func(any) error) error {
 	}
 
 	// Try struct
-	type raw FileSetTarget
+	type raw FileSetRepository
 	var r raw
 	if err := unmarshal(&r); err != nil {
 		return err
 	}
-	*t = FileSetTarget(r)
+	*t = FileSetRepository(r)
 	return nil
 }

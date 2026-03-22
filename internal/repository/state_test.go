@@ -44,8 +44,8 @@ func TestFetchRepository(t *testing.T) {
 				"merge_commit_message": "PR_BODY"
 			}`),
 			"api repos/myorg/myrepo/branches --jq [.[] | select(.protected == true) | .name]": []byte(`[]`),
-			"secret list --repo myorg/myrepo --json name --jq .[].name":                        []byte("SECRET1\nSECRET2"),
-			"variable list --repo myorg/myrepo --json name,value":                               []byte(`[{"name":"VAR1","value":"val1"},{"name":"VAR2","value":"val2"}]`),
+			"secret list --repo myorg/myrepo --json name --jq .[].name":                       []byte("SECRET1\nSECRET2"),
+			"variable list --repo myorg/myrepo --json name,value":                             []byte(`[{"name":"VAR1","value":"val1"},{"name":"VAR2","value":"val2"}]`),
 		},
 	}
 
