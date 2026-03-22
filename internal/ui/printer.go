@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"charm.land/huh/v2"
 )
 
 // Printer handles all user-facing output. All output goes through this
@@ -229,9 +231,19 @@ func ApplyCancelled() {
 	fmt.Fprintln(DefaultPrinter.out, "Apply cancelled.")
 }
 
-func ConfirmPrompt() string {
-	fmt.Fprint(DefaultPrinter.out, "\nDo you want to apply these changes? (yes/no): ")
-	return "" // caller reads stdin
+// Confirm shows an interactive yes/no prompt with the given message.
+func Confirm(title string) (bool, error) {
+	var confirm bool
+	err := huh.NewConfirm().
+		Title(title).
+		Affirmative("Yes").
+		Negative("No").
+		Value(&confirm).
+		Run()
+	if err != nil {
+		return false, err
+	}
+	return confirm, nil
 }
 
 // --- Validate output (stdout) ---

@@ -1,10 +1,7 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/babarot/gh-infra/internal/fileset"
 	"github.com/babarot/gh-infra/internal/gh"
@@ -113,15 +110,14 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets bool) error {
 
 	// Confirm
 	if !autoApprove {
-		ui.ConfirmPrompt()
-		scanner := bufio.NewScanner(os.Stdin)
-		scanner.Scan()
-		answer := strings.TrimSpace(scanner.Text())
-		if answer != "yes" {
+		confirmed, err := ui.Confirm("Do you want to apply these changes?")
+		if err != nil {
+			return err
+		}
+		if !confirmed {
 			ui.ApplyCancelled()
 			return nil
 		}
-		fmt.Println()
 	}
 
 	totalSucceeded := 0
