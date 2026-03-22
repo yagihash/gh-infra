@@ -106,7 +106,7 @@ func TestApplyVisibility(t *testing.T) {
 func TestApplyTopics(t *testing.T) {
 	mock := &gh.MockRunner{
 		Responses: map[string][]byte{
-			"repo view myorg/myrepo --json repositoryTopics --jq .[].name": []byte("old-topic\nkeep-topic\n"),
+			"repo view myorg/myrepo --json repositoryTopics --jq .repositoryTopics[].name": []byte("old-topic\nkeep-topic\n"),
 		},
 	}
 	exec := NewExecutor(mock)

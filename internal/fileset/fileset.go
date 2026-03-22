@@ -228,10 +228,15 @@ func groupChangesByTarget(changes []FileChange) map[string][]FileChange {
 }
 
 // applyToRepo creates a single commit with all file changes using Git Data API.
+// Falls back to Contents API for empty repositories (no commits yet).
 func (p *Processor) applyToRepo(repo string, changes []FileChange, opts ApplyOptions) error {
 	// 1. Get current HEAD SHA
 	headSHA, defaultBranch, err := p.getHeadSHA(repo)
 	if err != nil {
+		// Empty repo: fall back to Contents API (1 commit per file)
+		if strings.Contains(err.Error(), "repository is empty") {
+			return p.applyToEmptyRepo(repo, changes, opts)
+		}
 		return fmt.Errorf("get HEAD: %w", err)
 	}
 
@@ -280,6 +285,28 @@ func (p *Processor) applyToRepo(repo string, changes []FileChange, opts ApplyOpt
 	return p.updateRef(repo, defaultBranch, commitSHA)
 }
 
+// applyToEmptyRepo uses Contents API as fallback for repos with no commits.
+func (p *Processor) applyToEmptyRepo(repo string, changes []FileChange, opts ApplyOptions) error {
+	ui.Updating(repo, "(empty repo, using fallback)")
+	message := opts.CommitMessage
+	if message == "" {
+		message = fmt.Sprintf("chore: sync %s files via gh-infra", opts.FileSetName)
+	}
+	for _, c := range changes {
+		encoded := base64.StdEncoding.EncodeToString([]byte(c.Desired))
+		endpoint := fmt.Sprintf("repos/%s/contents/%s", repo, c.Path)
+		_, err := p.runner.Run("api", endpoint,
+			"--method", "PUT",
+			"-f", fmt.Sprintf("message=%s: %s", message, c.Path),
+			"-f", fmt.Sprintf("content=%s", encoded),
+		)
+		if err != nil {
+			return fmt.Errorf("create %s: %w", c.Path, err)
+		}
+	}
+	return nil
+}
+
 func (p *Processor) getHeadSHA(repo string) (sha, branch string, err error) {
 	// Get default branch name
 	out, err := p.runner.Run("repo", "view", repo, "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name")
@@ -287,6 +314,9 @@ func (p *Processor) getHeadSHA(repo string) (sha, branch string, err error) {
 		return "", "", err
 	}
 	branch = strings.TrimSpace(string(out))
+	if branch == "" {
+		return "", "", fmt.Errorf("repository is empty (no default branch)")
+	}
 
 	// Get HEAD SHA
 	out, err = p.runner.Run("api", fmt.Sprintf("repos/%s/git/ref/heads/%s", repo, branch), "--jq", ".object.sha")

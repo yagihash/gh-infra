@@ -236,7 +236,7 @@ func (e *Executor) toggleFeature(repo, flag string, enable bool) error {
 
 func (e *Executor) applyTopics(fullName string, repo *manifest.Repository) error {
 	// Get current topics
-	out, err := e.runner.Run("repo", "view", fullName, "--json", "repositoryTopics", "--jq", ".[].name")
+	out, err := e.runner.Run("repo", "view", fullName, "--json", "repositoryTopics", "--jq", ".repositoryTopics[].name")
 	if err != nil {
 		return wrapError(err, fullName, "topics")
 	}
