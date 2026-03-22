@@ -58,7 +58,7 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet) []FileChange {
 
 	for _, fs := range fileSets {
 		for _, target := range fs.Spec.Repositories {
-			ui.RefreshingFileSet(fs.Metadata.Name, target.Name)
+			ui.RefreshingFileSet(target.Name)
 			files := ResolveFiles(fs, target)
 			for _, file := range files {
 				change := p.planFile(fs.Metadata.Name, target.Name, file, fs.Spec.OnDrift)
@@ -470,7 +470,7 @@ func PrintPlan(changes []FileChange) {
 	}
 
 	for _, g := range groups {
-		ui.PlanFileSetGroup(g.key.fileSet, g.key.target)
+		ui.PlanFileSetGroup(len(g.changes), g.key.target)
 		for _, c := range g.changes {
 			switch c.Type {
 			case FileCreate:

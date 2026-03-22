@@ -49,8 +49,8 @@ func Refreshing(name string) {
 	fmt.Fprintf(DefaultPrinter.err, "  Refreshing %s...\n", name)
 }
 
-func RefreshingFileSet(fileSet, repo string) {
-	fmt.Fprintf(DefaultPrinter.err, "  Refreshing %s → %s...\n", fileSet, repo)
+func RefreshingFileSet(repo string) {
+	fmt.Fprintf(DefaultPrinter.err, "  Refreshing %s...\n", repo)
 }
 
 func Creating(name, field string) {
@@ -102,9 +102,13 @@ func PlanRepoGroupNew(name string) {
 		Green.Render("+"), Bold.Render(name), Green.Render("(new)"))
 }
 
-func PlanFileSetGroup(fileSet, repo string) {
+func PlanFileSetGroup(fileCount int, repo string) {
+	label := fmt.Sprintf("%d file", fileCount)
+	if fileCount != 1 {
+		label += "s"
+	}
 	fmt.Fprintf(DefaultPrinter.out, "  %s FileSet: %s → %s\n",
-		Yellow.Render("~"), Bold.Render(fileSet), Bold.Render(repo))
+		Yellow.Render("~"), Bold.Render(label), Bold.Render(repo))
 }
 
 func PlanCreate(field string, value any) {
