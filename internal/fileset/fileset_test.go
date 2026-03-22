@@ -429,6 +429,9 @@ func TestCountChanges(t *testing.T) {
 
 func TestPrintPlan(t *testing.T) {
 	var buf bytes.Buffer
+	ui.SetWriters(&buf, &buf)
+	defer ui.ResetWriters()
+
 	changes := []FileChange{
 		{FileSet: "ci", Target: "org/repo-a", Path: ".github/ci.yml", Type: FileCreate},
 		{FileSet: "ci", Target: "org/repo-a", Path: ".github/lint.yml", Type: FileUpdate},
@@ -437,7 +440,7 @@ func TestPrintPlan(t *testing.T) {
 		{FileSet: "ci", Target: "org/repo-c", Path: ".github/ci.yml", Type: FileNoOp},
 	}
 
-	PrintPlan(&buf, changes)
+	PrintPlan(changes)
 	output := buf.String()
 
 	// Check create line
@@ -473,11 +476,14 @@ func TestPrintPlan(t *testing.T) {
 
 func TestPrintPlan_AllNoOp(t *testing.T) {
 	var buf bytes.Buffer
+	ui.SetWriters(&buf, &buf)
+	defer ui.ResetWriters()
+
 	changes := []FileChange{
 		{FileSet: "ci", Target: "org/repo", Path: "a.txt", Type: FileNoOp},
 	}
 
-	PrintPlan(&buf, changes)
+	PrintPlan(changes)
 	if buf.Len() != 0 {
 		t.Errorf("expected empty output for all no-op, got:\n%s", buf.String())
 	}
@@ -485,7 +491,10 @@ func TestPrintPlan_AllNoOp(t *testing.T) {
 
 func TestPrintPlan_Empty(t *testing.T) {
 	var buf bytes.Buffer
-	PrintPlan(&buf, []FileChange{})
+	ui.SetWriters(&buf, &buf)
+	defer ui.ResetWriters()
+
+	PrintPlan([]FileChange{})
 	if buf.Len() != 0 {
 		t.Errorf("expected empty output for empty changes, got:\n%s", buf.String())
 	}
@@ -497,6 +506,9 @@ func TestPrintPlan_Empty(t *testing.T) {
 
 func TestPrintApplyResults(t *testing.T) {
 	var buf bytes.Buffer
+	ui.SetWriters(&buf, &buf)
+	defer ui.ResetWriters()
+
 	results := []FileApplyResult{
 		{
 			Change: FileChange{Target: "org/repo", Path: "a.txt", Type: FileCreate},
@@ -512,7 +524,7 @@ func TestPrintApplyResults(t *testing.T) {
 		},
 	}
 
-	PrintApplyResults(&buf, results)
+	PrintApplyResults(results)
 	output := buf.String()
 
 	if !strings.Contains(output, "✓") {
@@ -538,6 +550,9 @@ func TestPrintApplyResults(t *testing.T) {
 
 func TestPrintSummary(t *testing.T) {
 	var buf bytes.Buffer
+	ui.SetWriters(&buf, &buf)
+	defer ui.ResetWriters()
+
 	results := []FileApplyResult{
 		{Change: FileChange{}, Err: nil},
 		{Change: FileChange{}, Err: nil},
@@ -545,7 +560,7 @@ func TestPrintSummary(t *testing.T) {
 		{Change: FileChange{}, Skipped: true},
 	}
 
-	PrintSummary(&buf, results)
+	PrintSummary(results)
 	output := buf.String()
 
 	if !strings.Contains(output, "2 changes applied") {
@@ -561,12 +576,15 @@ func TestPrintSummary(t *testing.T) {
 
 func TestPrintSummary_AllSuccess(t *testing.T) {
 	var buf bytes.Buffer
+	ui.SetWriters(&buf, &buf)
+	defer ui.ResetWriters()
+
 	results := []FileApplyResult{
 		{Change: FileChange{}, Err: nil},
 		{Change: FileChange{}, Err: nil},
 	}
 
-	PrintSummary(&buf, results)
+	PrintSummary(results)
 	output := buf.String()
 
 	if !strings.Contains(output, "2 changes applied") {

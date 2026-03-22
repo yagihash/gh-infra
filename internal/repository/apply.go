@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/manifest"
+	"github.com/babarot/gh-infra/internal/ui"
 )
 
 // Executor applies planned changes to GitHub.
@@ -35,11 +35,11 @@ func (e *Executor) Apply(changes []Change, repos []*manifest.Repository) []Apply
 		}
 		switch c.Type {
 		case ChangeCreate:
-			fmt.Fprintf(os.Stderr, "  Creating %s %s...\n", c.Name, c.Field)
+			ui.Creating(c.Name, c.Field)
 		case ChangeUpdate:
-			fmt.Fprintf(os.Stderr, "  Updating %s %s...\n", c.Name, c.Field)
+			ui.Updating(c.Name, c.Field)
 		case ChangeDelete:
-			fmt.Fprintf(os.Stderr, "  Destroying %s %s...\n", c.Name, c.Field)
+			ui.Destroying(c.Name, c.Field)
 		}
 		result := e.applyChange(c, repoMap[c.Name])
 		results = append(results, result)

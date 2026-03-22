@@ -9,6 +9,7 @@ import (
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/manifest"
 	"github.com/babarot/gh-infra/internal/repository"
+	"github.com/babarot/gh-infra/internal/ui"
 	goyaml "github.com/goccy/go-yaml"
 	"github.com/spf13/cobra"
 )
@@ -78,9 +79,9 @@ func importAllRepos(owner string, runner gh.Runner, fetcher *repository.Fetcher)
 		if i > 0 {
 			fmt.Println("---")
 		}
-		fmt.Fprintf(os.Stderr, "Importing %s/%s ...\n", owner, r.Name)
+		ui.Importing(owner + "/" + r.Name)
 		if err := importSingleRepo(owner, r.Name, fetcher); err != nil {
-			fmt.Fprintf(os.Stderr, "  ⚠ skipping %s/%s: %v\n", owner, r.Name, err)
+			ui.SkipImportError(owner+"/"+r.Name, err)
 		}
 	}
 	return nil

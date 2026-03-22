@@ -1,10 +1,6 @@
 package repository
 
 import (
-	"fmt"
-	"io"
-	"strings"
-
 	"github.com/babarot/gh-infra/internal/ui"
 )
 
@@ -19,22 +15,28 @@ func HasRealChanges(changes []Change) bool {
 }
 
 // PrintPlanChanges prints the repository change details (without header/footer).
-func PrintPlanChanges(w io.Writer, changes []Change) {
+func PrintPlanChanges(changes []Change) {
 	grouped := groupByName(changes)
 	for _, group := range grouped {
 		if len(group.changes) == 0 {
 			continue
 		}
 		if isNewRepo(group.changes) {
-			fmt.Fprintf(w, "  %s %s %s\n",
-				ui.Green.Render("+"), ui.Bold.Render(group.name), ui.Green.Render("(new)"))
+			ui.PlanRepoGroupNew(group.name)
 		} else {
-			fmt.Fprintf(w, "  %s %s\n", ui.Yellow.Render("~"), ui.Bold.Render(group.name))
+			ui.PlanRepoGroup(group.name)
 		}
 		for _, c := range group.changes {
-			printChange(w, c)
+			switch c.Type {
+			case ChangeCreate:
+				ui.PlanCreate(c.Field, c.NewValue)
+			case ChangeUpdate:
+				ui.PlanUpdate(c.Field, ui.FormatValue(c.OldValue), ui.FormatValue(c.NewValue))
+			case ChangeDelete:
+				ui.PlanDelete(c.Field, c.OldValue)
+			}
 		}
-		fmt.Fprintln(w)
+		ui.PlanGroupEnd()
 	}
 }
 
@@ -44,14 +46,12 @@ func CountChanges(changes []Change) (creates, updates, deletes int) {
 }
 
 // PrintApplyResults prints individual apply result lines (no summary).
-func PrintApplyResults(w io.Writer, results []ApplyResult) {
+func PrintApplyResults(results []ApplyResult) {
 	for _, r := range results {
 		if r.Err != nil {
-			fmt.Fprintf(w, "  %s %s  %s: %v\n",
-				ui.Red.Render("✗"), ui.Bold.Render(r.Change.Name), r.Change.Field, r.Err)
+			ui.ResultError(r.Change.Name, r.Change.Field, r.Err)
 		} else {
-			fmt.Fprintf(w, "  %s %s  %s %sd\n",
-				ui.Green.Render("✓"), ui.Bold.Render(r.Change.Name), r.Change.Field, r.Change.Type)
+			ui.ResultSuccess(r.Change.Name, r.Change.Field, r.Change.Type)
 		}
 	}
 }
@@ -66,36 +66,6 @@ func CountApplyResults(results []ApplyResult) (succeeded, failed int) {
 		}
 	}
 	return
-}
-
-func printChange(w io.Writer, c Change) {
-	switch c.Type {
-	case ChangeCreate:
-		fmt.Fprintf(w, "      %s %s: %s\n",
-			ui.Green.Render("+"), c.Field, ui.Green.Render(fmt.Sprintf("%v", c.NewValue)))
-	case ChangeUpdate:
-		fmt.Fprintf(w, "      %s %s: %s → %s\n",
-			ui.Yellow.Render("~"), c.Field,
-			ui.Dim.Render(formatValue(c.OldValue)),
-			ui.Bold.Render(formatValue(c.NewValue)))
-	case ChangeDelete:
-		fmt.Fprintf(w, "      %s %s: %s\n",
-			ui.Red.Render("-"), c.Field, ui.Red.Render(fmt.Sprintf("%v", c.OldValue)))
-	}
-}
-
-func formatValue(v any) string {
-	switch val := v.(type) {
-	case []string:
-		return "[" + strings.Join(val, ", ") + "]"
-	case bool:
-		if val {
-			return "true"
-		}
-		return "false"
-	default:
-		return fmt.Sprintf("%v", v)
-	}
 }
 
 type changeGroup struct {

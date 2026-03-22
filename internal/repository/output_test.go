@@ -47,7 +47,7 @@ func TestHasRealChanges_Empty(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// formatValue
+// FormatValue (now in ui package)
 // ---------------------------------------------------------------------------
 
 func TestFormatValue(t *testing.T) {
@@ -65,9 +65,9 @@ func TestFormatValue(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := formatValue(tt.val)
+			got := ui.FormatValue(tt.val)
 			if got != tt.want {
-				t.Errorf("formatValue(%v) = %q, want %q", tt.val, got, tt.want)
+				t.Errorf("FormatValue(%v) = %q, want %q", tt.val, got, tt.want)
 			}
 		})
 	}
@@ -160,7 +160,10 @@ func TestPrintPlanChanges_WithChanges(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	PrintPlanChanges(&buf, changes)
+	ui.SetWriters(&buf, &buf)
+	defer ui.ResetWriters()
+
+	PrintPlanChanges(changes)
 	out := buf.String()
 
 	if !strings.Contains(out, "+ description:") {
@@ -183,13 +186,16 @@ func TestPrintPlanChanges_WithChanges(t *testing.T) {
 
 func TestPrintPlanChanges_Empty(t *testing.T) {
 	var buf bytes.Buffer
-	PrintPlanChanges(&buf, nil)
+	ui.SetWriters(&buf, &buf)
+	defer ui.ResetWriters()
+
+	PrintPlanChanges(nil)
 	if buf.Len() != 0 {
 		t.Errorf("expected no output for nil, got %q", buf.String())
 	}
 
 	buf.Reset()
-	PrintPlanChanges(&buf, []Change{})
+	PrintPlanChanges([]Change{})
 	if buf.Len() != 0 {
 		t.Errorf("expected no output for empty slice, got %q", buf.String())
 	}
@@ -200,7 +206,10 @@ func TestPrintPlanChanges_OnlyNoOp(t *testing.T) {
 		{Type: ChangeNoOp, Name: "org/repo1", Field: "description"},
 	}
 	var buf bytes.Buffer
-	PrintPlanChanges(&buf, changes)
+	ui.SetWriters(&buf, &buf)
+	defer ui.ResetWriters()
+
+	PrintPlanChanges(changes)
 	if buf.Len() != 0 {
 		t.Errorf("expected no output for noop-only, got %q", buf.String())
 	}
@@ -223,7 +232,10 @@ func TestPrintApplyResults_Success(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	PrintApplyResults(&buf, results)
+	ui.SetWriters(&buf, &buf)
+	defer ui.ResetWriters()
+
+	PrintApplyResults(results)
 	out := buf.String()
 
 	if count := strings.Count(out, "✓"); count != 2 {
@@ -244,7 +256,10 @@ func TestPrintApplyResults_Errors(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	PrintApplyResults(&buf, results)
+	ui.SetWriters(&buf, &buf)
+	defer ui.ResetWriters()
+
+	PrintApplyResults(results)
 	out := buf.String()
 
 	if !strings.Contains(out, "✗") {
@@ -272,7 +287,10 @@ func TestPrintApplyResults_Mixed(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	PrintApplyResults(&buf, results)
+	ui.SetWriters(&buf, &buf)
+	defer ui.ResetWriters()
+
+	PrintApplyResults(results)
 	out := buf.String()
 
 	if count := strings.Count(out, "✓"); count != 2 {

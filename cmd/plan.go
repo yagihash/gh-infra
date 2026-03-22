@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
-	"strings"
 
 	"github.com/babarot/gh-infra/internal/fileset"
 	"github.com/babarot/gh-infra/internal/gh"
@@ -46,14 +44,13 @@ func runPlan(path, filterRepo string, ci bool) error {
 	}
 
 	if len(parsed.Repositories) == 0 && len(parsed.FileSets) == 0 {
-		fmt.Println("No resources found in", path)
+		ui.NoResources(path)
 		return nil
 	}
 
 	runner := gh.NewRunner(false)
 
-	fmt.Fprintf(os.Stderr, "Reading desired state from %s ...\n", path)
-	fmt.Fprintf(os.Stderr, "Fetching current state from GitHub API ...\n\n")
+	ui.StartPhase(path)
 
 	// Phase 1: Refresh all resources in parallel
 	var repoChanges []repository.Change
@@ -87,7 +84,7 @@ func runPlan(path, filterRepo string, ci bool) error {
 	hasFile := fileset.HasChanges(fileChanges)
 
 	if !hasRepo && !hasFile {
-		fmt.Println("\nNo changes. Infrastructure is up-to-date.")
+		ui.NoChanges()
 		if ci {
 			return nil
 		}
@@ -101,20 +98,20 @@ func runPlan(path, filterRepo string, ci bool) error {
 	totalUpdates := repoUpdates + fileUpdates
 	totalDeletes := repoDeletes
 
-	fmt.Fprintf(os.Stdout, "\nPlan: %d to create, %d to update, %d to destroy\n\n", totalCreates, totalUpdates, totalDeletes)
+	ui.PlanHeader(totalCreates, totalUpdates, totalDeletes)
 
 	// Repository changes
 	if hasRepo {
-		repository.PrintPlanChanges(os.Stdout, repoChanges)
+		repository.PrintPlanChanges(repoChanges)
 	}
 
 	// FileSet changes
 	if hasFile {
-		fileset.PrintPlan(os.Stdout, fileChanges)
+		fileset.PrintPlan(fileChanges)
 	}
 
-	fmt.Fprintln(os.Stdout, ui.Dim.Render(strings.Repeat("─", 50)))
-	fmt.Fprintf(os.Stdout, "To apply these changes, run: %s\n", ui.Bold.Render("gh infra apply"))
+	ui.PlanSeparator()
+	ui.PlanFooter()
 
 	if ci {
 		os.Exit(1)

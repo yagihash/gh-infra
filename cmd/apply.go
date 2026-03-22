@@ -10,6 +10,7 @@ import (
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/manifest"
 	"github.com/babarot/gh-infra/internal/repository"
+	"github.com/babarot/gh-infra/internal/ui"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 )
@@ -48,7 +49,7 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets bool) error {
 	}
 
 	if len(parsed.Repositories) == 0 && len(parsed.FileSets) == 0 {
-		fmt.Println("No resources found in", path)
+		ui.NoResources(path)
 		return nil
 	}
 
@@ -56,8 +57,7 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets bool) error {
 
 	runner := gh.NewRunner(false)
 
-	fmt.Fprintf(os.Stderr, "Reading desired state from %s ...\n", path)
-	fmt.Fprintf(os.Stderr, "Fetching current state from GitHub API ...\n\n")
+	ui.StartPhase(path)
 
 	// Compute all changes in parallel
 	var repoChanges []repository.Change
@@ -92,31 +92,30 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets bool) error {
 	hasFile := fileset.HasChanges(fileChanges)
 
 	if !hasRepo && !hasFile {
-		fmt.Println("\nNo changes. Infrastructure is up-to-date.")
+		ui.NoChanges()
 		return nil
 	}
 
 	// Print unified plan
 	repoCreates, repoUpdates, repoDeletes := repository.CountChanges(repoChanges)
 	fileCreates, fileUpdates, _ := fileset.CountChanges(fileChanges)
-	fmt.Fprintf(os.Stdout, "\nPlan: %d to create, %d to update, %d to destroy\n\n",
-		repoCreates+fileCreates, repoUpdates+fileUpdates, repoDeletes)
+	ui.PlanHeader(repoCreates+fileCreates, repoUpdates+fileUpdates, repoDeletes)
 
 	if hasRepo {
-		repository.PrintPlanChanges(os.Stdout, repoChanges)
+		repository.PrintPlanChanges(repoChanges)
 	}
 	if hasFile {
-		fileset.PrintPlan(os.Stdout, fileChanges)
+		fileset.PrintPlan(fileChanges)
 	}
 
 	// Confirm
 	if !autoApprove {
-		fmt.Print("\nDo you want to apply these changes? (yes/no): ")
+		ui.ConfirmPrompt()
 		scanner := bufio.NewScanner(os.Stdin)
 		scanner.Scan()
 		answer := strings.TrimSpace(scanner.Text())
 		if answer != "yes" {
-			fmt.Println("Apply cancelled.")
+			ui.ApplyCancelled()
 			return nil
 		}
 		fmt.Println()
@@ -129,7 +128,7 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets bool) error {
 	if hasRepo {
 		executor := repository.NewExecutor(runner)
 		results := executor.Apply(repoChanges, targetRepos)
-		repository.PrintApplyResults(os.Stdout, results)
+		repository.PrintApplyResults(results)
 		s, f := repository.CountApplyResults(results)
 		totalSucceeded += s
 		totalFailed += f
@@ -155,7 +154,7 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets bool) error {
 				FileSetName:   fs.Metadata.Name,
 			}
 			results := processor.Apply(fsChanges, opts)
-			fileset.PrintApplyResults(os.Stdout, results)
+			fileset.PrintApplyResults(results)
 			for _, r := range results {
 				if r.Skipped {
 					continue
@@ -170,11 +169,7 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets bool) error {
 	}
 
 	// Unified summary
-	fmt.Fprintf(os.Stdout, "\nApply complete! %d changes applied", totalSucceeded)
-	if totalFailed > 0 {
-		fmt.Fprintf(os.Stdout, ", %d failed", totalFailed)
-	}
-	fmt.Fprintln(os.Stdout, ".")
+	ui.ApplySummary(totalSucceeded, totalFailed)
 
 	if totalFailed > 0 {
 		return fmt.Errorf("apply had errors")

@@ -3,11 +3,11 @@ package repository
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/babarot/gh-infra/internal/logger"
 	"github.com/babarot/gh-infra/internal/manifest"
+	"github.com/babarot/gh-infra/internal/ui"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -30,7 +30,7 @@ func FetchAllChanges(repos []*manifest.Repository, filterRepo string, fetcher *F
 			continue
 		}
 		if repo.Metadata.ManagedBy == manifest.ManagedBySelf {
-			fmt.Fprintf(os.Stderr, "  ⚠ %s: managed_by=self, skipping\n", repo.Metadata.FullName())
+			ui.SkipManagedBySelf(repo.Metadata.FullName())
 			continue
 		}
 		targets = append(targets, repo)
@@ -54,7 +54,7 @@ func FetchAllChanges(repos []*manifest.Repository, filterRepo string, fetcher *F
 			_ = sem.Acquire(context.Background(), 1)
 			defer sem.Release(1)
 
-			fmt.Fprintf(os.Stderr, "  Refreshing %s...\n", r.Metadata.FullName())
+			ui.Refreshing(r.Metadata.FullName())
 			logger.Debug("fetch start", "repo", r.Metadata.FullName())
 			current, err := fetcher.FetchRepository(r.Metadata.Owner, r.Metadata.Name)
 			if err != nil {

@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -59,7 +58,7 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet) []FileChange {
 
 	for _, fs := range fileSets {
 		for _, target := range fs.Spec.Repositories {
-			fmt.Fprintf(os.Stderr, "  Refreshing %s → %s...\n", fs.Metadata.Name, target.Name)
+			ui.RefreshingFileSet(fs.Metadata.Name, target.Name)
 			files := ResolveFiles(fs, target)
 			for _, file := range files {
 				change := p.planFile(fs.Metadata.Name, target.Name, file, fs.Spec.OnDrift)
@@ -204,7 +203,7 @@ func (p *Processor) Apply(changes []FileChange, opts ApplyOptions) []FileApplyRe
 			continue
 		}
 
-		fmt.Fprintf(os.Stderr, "  Committing %s (%d files)...\n", repo, len(filesToApply))
+		ui.Committing(repo, len(filesToApply))
 		err := p.applyToRepo(repo, filesToApply, opts)
 		for _, c := range filesToApply {
 			results = append(results, FileApplyResult{Change: c, Err: err})
@@ -430,8 +429,8 @@ func (p *Processor) createPR(repo, defaultBranch, commitSHA, title string, opts 
 	return err
 }
 
-// PrintPlan prints FileSet changes to the writer.
-func PrintPlan(w io.Writer, changes []FileChange) {
+// PrintPlan prints FileSet changes.
+func PrintPlan(changes []FileChange) {
 	if len(changes) == 0 {
 		return
 	}
@@ -471,42 +470,32 @@ func PrintPlan(w io.Writer, changes []FileChange) {
 	}
 
 	for _, g := range groups {
-		fmt.Fprintf(w, "  %s FileSet: %s → %s\n",
-			ui.Yellow.Render("~"),
-			ui.Bold.Render(g.key.fileSet),
-			ui.Bold.Render(g.key.target))
+		ui.PlanFileSetGroup(g.key.fileSet, g.key.target)
 		for _, c := range g.changes {
 			switch c.Type {
 			case FileCreate:
-				fmt.Fprintf(w, "      %s %s  %s\n",
-					ui.Green.Render("+"), c.Path, ui.Green.Render("(new file)"))
+				ui.PlanFileCreate(c.Path)
 			case FileUpdate:
-				fmt.Fprintf(w, "      %s %s  %s\n",
-					ui.Yellow.Render("~"), c.Path, ui.Yellow.Render("(content changed)"))
+				ui.PlanFileUpdate(c.Path)
 			case FileDrift:
-				fmt.Fprintf(w, "      %s %s  %s on_drift: %s → skipping apply\n",
-					ui.Yellow.Render("⚠"), c.Path, ui.Yellow.Render("[drift detected]"), c.OnDrift)
+				ui.PlanFileDrift(c.Path, c.OnDrift)
 			case FileSkip:
-				fmt.Fprintf(w, "      %s %s  %s on_drift: skip → ignored\n",
-					ui.Dim.Render("-"), c.Path, ui.Dim.Render("[drift detected]"))
+				ui.PlanFileSkip(c.Path)
 			}
 		}
-		fmt.Fprintln(w)
+		ui.PlanGroupEnd()
 	}
 }
 
 // PrintApplyResults prints the results of FileSet apply.
-func PrintApplyResults(w io.Writer, results []FileApplyResult) {
+func PrintApplyResults(results []FileApplyResult) {
 	for _, r := range results {
 		if r.Skipped {
-			fmt.Fprintf(w, "  %s %s %s  drift detected, skipped (on_drift: %s)\n",
-				ui.Yellow.Render("⚠"), ui.Bold.Render(r.Change.Target), r.Change.Path, r.Change.OnDrift)
+			ui.ResultSkipped(r.Change.Target, r.Change.Path, r.Change.OnDrift)
 		} else if r.Err != nil {
-			fmt.Fprintf(w, "  %s %s %s: %v\n",
-				ui.Red.Render("✗"), ui.Bold.Render(r.Change.Target), r.Change.Path, r.Err)
+			ui.ResultError(r.Change.Target, r.Change.Path, r.Err)
 		} else {
-			fmt.Fprintf(w, "  %s %s %s  %sd\n",
-				ui.Green.Render("✓"), ui.Bold.Render(r.Change.Target), r.Change.Path, r.Change.Type)
+			ui.ResultSuccess(r.Change.Target, r.Change.Path, r.Change.Type)
 		}
 	}
 }
@@ -536,7 +525,7 @@ func CountChanges(changes []FileChange) (creates, updates, drifts int) {
 	return
 }
 
-func PrintSummary(w io.Writer, results []FileApplyResult) {
+func PrintSummary(results []FileApplyResult) {
 	succeeded := 0
 	failed := 0
 	skipped := 0
@@ -549,6 +538,7 @@ func PrintSummary(w io.Writer, results []FileApplyResult) {
 			succeeded++
 		}
 	}
+	w := ui.DefaultPrinter.OutWriter()
 	fmt.Fprintf(w, "\nFileSet apply: %d changes applied", succeeded)
 	if failed > 0 {
 		fmt.Fprintf(w, ", %d failed", failed)
