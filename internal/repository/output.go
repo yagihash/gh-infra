@@ -43,7 +43,7 @@ func CountChanges(changes []Change) (creates, updates, deletes int) {
 	return countChanges(changes)
 }
 
-// PrintApplyResults prints the results of an apply operation.
+// PrintApplyResults prints individual apply result lines (no summary).
 func PrintApplyResults(w io.Writer, results []ApplyResult) {
 	for _, r := range results {
 		if r.Err != nil {
@@ -54,9 +54,10 @@ func PrintApplyResults(w io.Writer, results []ApplyResult) {
 				ui.Green.Render("✓"), ui.Bold.Render(r.Change.Name), r.Change.Field, r.Change.Type)
 		}
 	}
+}
 
-	succeeded := 0
-	failed := 0
+// CountApplyResults returns succeeded and failed counts.
+func CountApplyResults(results []ApplyResult) (succeeded, failed int) {
 	for _, r := range results {
 		if r.Err != nil {
 			failed++
@@ -64,11 +65,7 @@ func PrintApplyResults(w io.Writer, results []ApplyResult) {
 			succeeded++
 		}
 	}
-	fmt.Fprintf(w, "\nApply complete! %d changes applied", succeeded)
-	if failed > 0 {
-		fmt.Fprintf(w, ", %d failed", failed)
-	}
-	fmt.Fprintln(w, ".")
+	return
 }
 
 func printChange(w io.Writer, c Change) {

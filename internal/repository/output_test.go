@@ -229,15 +229,9 @@ func TestPrintApplyResults_Success(t *testing.T) {
 	if count := strings.Count(out, "✓"); count != 2 {
 		t.Errorf("expected 2 check marks, got %d in:\n%s", count, out)
 	}
-	if !strings.Contains(out, "2") {
-		t.Errorf("expected '2' succeeded in output:\n%s", out)
-	}
-	if !strings.Contains(out, "Apply complete!") {
-		t.Errorf("expected 'Apply complete!' in output:\n%s", out)
-	}
-	// No "failed" text
-	if strings.Contains(out, "failed") {
-		t.Errorf("expected no 'failed' text in output:\n%s", out)
+	// No summary line (handled by cmd layer now)
+	if strings.Contains(out, "Apply complete!") {
+		t.Errorf("expected no summary in output:\n%s", out)
 	}
 }
 
@@ -258,9 +252,6 @@ func TestPrintApplyResults_Errors(t *testing.T) {
 	}
 	if !strings.Contains(out, "permission denied") {
 		t.Errorf("expected error message in output:\n%s", out)
-	}
-	if !strings.Contains(out, "1 failed") {
-		t.Errorf("expected '1 failed' in output:\n%s", out)
 	}
 }
 
@@ -290,10 +281,16 @@ func TestPrintApplyResults_Mixed(t *testing.T) {
 	if count := strings.Count(out, "✗"); count != 1 {
 		t.Errorf("expected 1 cross mark, got %d in:\n%s", count, out)
 	}
-	if !strings.Contains(out, "2") {
-		t.Errorf("expected '2' succeeded in output:\n%s", out)
+}
+
+func TestCountApplyResults(t *testing.T) {
+	results := []ApplyResult{
+		{Err: nil},
+		{Err: fmt.Errorf("fail")},
+		{Err: nil},
 	}
-	if !strings.Contains(out, "1 failed") {
-		t.Errorf("expected '1 failed' in output:\n%s", out)
+	s, f := CountApplyResults(results)
+	if s != 2 || f != 1 {
+		t.Errorf("CountApplyResults = (%d, %d), want (2, 1)", s, f)
 	}
 }

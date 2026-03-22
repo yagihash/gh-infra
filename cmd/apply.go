@@ -92,7 +92,7 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets bool) error {
 	hasFile := fileset.HasChanges(fileChanges)
 
 	if !hasRepo && !hasFile {
-		fmt.Println("No changes. Infrastructure is up-to-date.")
+		fmt.Println("\nNo changes. Infrastructure is up-to-date.")
 		return nil
 	}
 
@@ -122,26 +122,23 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets bool) error {
 		fmt.Println()
 	}
 
-	var hasErrors bool
+	totalSucceeded := 0
+	totalFailed := 0
 
 	// Apply repo changes
 	if hasRepo {
 		executor := repository.NewExecutor(runner)
 		results := executor.Apply(repoChanges, targetRepos)
 		repository.PrintApplyResults(os.Stdout, results)
-		for _, r := range results {
-			if r.Err != nil {
-				hasErrors = true
-			}
-		}
+		s, f := repository.CountApplyResults(results)
+		totalSucceeded += s
+		totalFailed += f
 	}
 
 	// Apply file changes (per FileSet for correct options)
 	if hasFile {
 		processor := fileset.NewProcessor(runner)
-		var allFileResults []fileset.FileApplyResult
 		for _, fs := range parsed.FileSets {
-			// Filter changes for this FileSet
 			var fsChanges []fileset.FileChange
 			for _, c := range fileChanges {
 				if c.FileSet == fs.Metadata.Name {
@@ -158,18 +155,28 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets bool) error {
 				FileSetName:   fs.Metadata.Name,
 			}
 			results := processor.Apply(fsChanges, opts)
-			allFileResults = append(allFileResults, results...)
-		}
-		fileset.PrintApplyResults(os.Stdout, allFileResults)
-		fileset.PrintSummary(os.Stdout, allFileResults)
-		for _, r := range allFileResults {
-			if r.Err != nil {
-				hasErrors = true
+			fileset.PrintApplyResults(os.Stdout, results)
+			for _, r := range results {
+				if r.Skipped {
+					continue
+				}
+				if r.Err != nil {
+					totalFailed++
+				} else {
+					totalSucceeded++
+				}
 			}
 		}
 	}
 
-	if hasErrors {
+	// Unified summary
+	fmt.Fprintf(os.Stdout, "\nApply complete! %d changes applied", totalSucceeded)
+	if totalFailed > 0 {
+		fmt.Fprintf(os.Stdout, ", %d failed", totalFailed)
+	}
+	fmt.Fprintln(os.Stdout, ".")
+
+	if totalFailed > 0 {
 		return fmt.Errorf("apply had errors")
 	}
 

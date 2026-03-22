@@ -318,14 +318,31 @@ func (p *Processor) createBlob(repo, content string) (string, error) {
 }
 
 func (p *Processor) createTree(repo, baseTree string, entries any) (string, error) {
-	entriesJSON, err := json.Marshal(entries)
+	body := map[string]any{
+		"base_tree": baseTree,
+		"tree":      entries,
+	}
+	bodyJSON, err := json.Marshal(body)
 	if err != nil {
 		return "", err
 	}
+
+	// Write JSON body to a temp file for --input
+	tmpFile, err := os.CreateTemp("", "gh-infra-tree-*.json")
+	if err != nil {
+		return "", fmt.Errorf("create temp file: %w", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	if _, err := tmpFile.Write(bodyJSON); err != nil {
+		tmpFile.Close()
+		return "", fmt.Errorf("write temp file: %w", err)
+	}
+	tmpFile.Close()
+
 	out, err := p.runner.Run("api", fmt.Sprintf("repos/%s/git/trees", repo),
 		"--method", "POST",
-		"-f", fmt.Sprintf("base_tree=%s", baseTree),
-		"--raw-field", fmt.Sprintf("tree=%s", string(entriesJSON)),
+		"--input", tmpFile.Name(),
 	)
 	if err != nil {
 		return "", err
@@ -340,11 +357,31 @@ func (p *Processor) createTree(repo, baseTree string, entries any) (string, erro
 }
 
 func (p *Processor) createCommit(repo, message, treeSHA, parentSHA string) (string, error) {
+	body := map[string]any{
+		"message": message,
+		"tree":    treeSHA,
+		"parents": []string{parentSHA},
+	}
+	bodyJSON, err := json.Marshal(body)
+	if err != nil {
+		return "", err
+	}
+
+	tmpFile, err := os.CreateTemp("", "gh-infra-commit-*.json")
+	if err != nil {
+		return "", fmt.Errorf("create temp file: %w", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	if _, err := tmpFile.Write(bodyJSON); err != nil {
+		tmpFile.Close()
+		return "", fmt.Errorf("write temp file: %w", err)
+	}
+	tmpFile.Close()
+
 	out, err := p.runner.Run("api", fmt.Sprintf("repos/%s/git/commits", repo),
 		"--method", "POST",
-		"-f", fmt.Sprintf("message=%s", message),
-		"-f", fmt.Sprintf("tree=%s", treeSHA),
-		"-f", fmt.Sprintf("parents[]=%s", parentSHA),
+		"--input", tmpFile.Name(),
 	)
 	if err != nil {
 		return "", err

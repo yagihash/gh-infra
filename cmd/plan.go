@@ -87,7 +87,7 @@ func runPlan(path, filterRepo string, ci bool) error {
 	hasFile := fileset.HasChanges(fileChanges)
 
 	if !hasRepo && !hasFile {
-		fmt.Println("No changes. Infrastructure is up-to-date.")
+		fmt.Println("\nNo changes. Infrastructure is up-to-date.")
 		if ci {
 			return nil
 		}
