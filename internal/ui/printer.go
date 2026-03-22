@@ -154,8 +154,9 @@ func ResultSuccess(name, field string, changeType any) {
 }
 
 func ResultError(name, field string, err error) {
-	fmt.Fprintf(DefaultPrinter.out, "  %s %s  %s: %v\n",
-		Red.Render("✗"), Bold.Render(name), field, err)
+	msg := strings.ReplaceAll(err.Error(), "\n", "\n    ")
+	fmt.Fprintf(DefaultPrinter.out, "  %s %s  %s: %s\n",
+		Red.Render("✗"), Bold.Render(name), field, msg)
 }
 
 func ResultSkipped(name, path, onDrift string) {
