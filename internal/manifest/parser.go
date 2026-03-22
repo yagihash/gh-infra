@@ -146,38 +146,11 @@ func parseFileSet(data []byte, path string) (*FileSet, error) {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 
-	// Resolve source files/directories to content
-	dir := filepath.Dir(path)
-	var resolved []FileEntry
-	for _, entry := range fs.Spec.Files {
-		if entry.Source != "" && entry.Content == "" {
-			srcPath := entry.Source
-			if !filepath.IsAbs(srcPath) {
-				srcPath = filepath.Join(dir, srcPath)
-			}
-			info, err := os.Stat(srcPath)
-			if err != nil {
-				return nil, fmt.Errorf("%s: read source %s: %w", path, entry.Source, err)
-			}
-			if info.IsDir() {
-				// Expand directory into individual file entries
-				entries, err := expandDir(srcPath, entry.Path)
-				if err != nil {
-					return nil, fmt.Errorf("%s: expand source dir %s: %w", path, entry.Source, err)
-				}
-				resolved = append(resolved, entries...)
-			} else {
-				content, err := os.ReadFile(srcPath)
-				if err != nil {
-					return nil, fmt.Errorf("%s: read source %s: %w", path, entry.Source, err)
-				}
-				entry.Content = string(content)
-				entry.Source = ""
-				resolved = append(resolved, entry)
-			}
-		} else {
-			resolved = append(resolved, entry)
-		}
+	// Resolve source references (local files, directories, GitHub URLs)
+	resolver := DefaultResolver
+	resolved, err := resolver.ResolveFiles(fs.Spec.Files, filepath.Dir(path))
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	fs.Spec.Files = resolved
 

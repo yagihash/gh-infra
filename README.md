@@ -335,8 +335,30 @@ Each file entry supports three modes:
 - **`content`** — inline content in YAML
 - **`source` (file)** — read content from a local file (`source: ./templates/LICENSE`)
 - **`source` (directory)** — sync an entire directory (`source: ./templates/workflows/`). All files under the directory are expanded with paths relative to `path`.
+- **`source` (GitHub)** — fetch from a GitHub repository using `github://owner/repo/path`.
 
-Paths are resolved relative to the YAML file's location.
+Local paths are resolved relative to the YAML file's location.
+
+#### GitHub sources
+
+Pull files directly from another GitHub repository:
+
+```yaml
+files:
+  # Single file
+  - path: .goreleaser.yaml
+    source: github://myorg/shared-config/.goreleaser.yaml
+
+  # Entire directory (trailing slash)
+  - path: .github/workflows
+    source: github://myorg/shared-config/workflows/
+
+  # Pin to a tag or branch
+  - path: .github/workflows/ci.yaml
+    source: github://myorg/shared-config/workflows/ci.yaml@v1.0.0
+```
+
+The `github://` scheme uses the GitHub Contents API via `gh`, so authentication is handled by `gh auth`. Omitting `@ref` fetches from the default branch.
 
 #### Apply strategy
 
