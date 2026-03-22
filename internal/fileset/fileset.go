@@ -227,32 +227,73 @@ func groupChangesByTarget(changes []FileChange) map[string][]FileChange {
 	return grouped
 }
 
+// treeEntry represents a file entry in a Git tree.
+type treeEntry struct {
+	Path string `json:"path"`
+	Mode string `json:"mode"`
+	Type string `json:"type"`
+	SHA  string `json:"sha"`
+}
+
 // applyToRepo creates a single commit with all file changes using Git Data API.
 // Falls back to Contents API for empty repositories (no commits yet).
 func (p *Processor) applyToRepo(repo string, changes []FileChange, opts ApplyOptions) error {
-	// 1. Get current HEAD SHA
 	headSHA, defaultBranch, err := p.getHeadSHA(repo)
 	if err != nil {
-		// Empty repo: fall back to Contents API (1 commit per file)
 		if strings.Contains(err.Error(), "repository is empty") {
 			return p.applyToEmptyRepo(repo, changes, opts)
 		}
 		return fmt.Errorf("get HEAD: %w", err)
 	}
 
-	// 2. Create blobs for each file
-	type treeEntry struct {
-		Path string `json:"path"`
-		Mode string `json:"mode"`
-		Type string `json:"type"`
-		SHA  string `json:"sha"`
-	}
-	var entries []treeEntry
+	message := resolveCommitMessage(opts)
+	return p.applyViaGitDataAPI(repo, defaultBranch, headSHA, changes, message, opts)
+}
 
+// resolveCommitMessage returns the commit message from opts or a default.
+func resolveCommitMessage(opts ApplyOptions) string {
+	if opts.CommitMessage != "" {
+		return opts.CommitMessage
+	}
+	return fmt.Sprintf("chore: sync %s files via gh-infra", opts.FileSetName)
+}
+
+// applyViaGitDataAPI creates blobs, a tree, a commit, and updates the ref
+// (or creates a PR) in a single atomic operation. All files are included in
+// one commit regardless of count.
+func (p *Processor) applyViaGitDataAPI(repo, branch, headSHA string, changes []FileChange, message string, opts ApplyOptions) error {
+	// 1. Create blobs
+	entries, err := p.createBlobs(repo, changes)
+	if err != nil {
+		return err
+	}
+
+	// 2. Create tree
+	treeSHA, err := p.createTree(repo, headSHA, entries)
+	if err != nil {
+		return fmt.Errorf("create tree: %w", err)
+	}
+
+	// 3. Create commit
+	commitSHA, err := p.createCommit(repo, message, treeSHA, headSHA)
+	if err != nil {
+		return fmt.Errorf("create commit: %w", err)
+	}
+
+	// 4. Update ref or create PR
+	if opts.Strategy == manifest.StrategyPullRequest {
+		return p.createPR(repo, branch, commitSHA, message, opts)
+	}
+	return p.updateRef(repo, branch, commitSHA)
+}
+
+// createBlobs creates a Git blob for each file change and returns tree entries.
+func (p *Processor) createBlobs(repo string, changes []FileChange) ([]treeEntry, error) {
+	var entries []treeEntry
 	for _, c := range changes {
 		blobSHA, err := p.createBlob(repo, c.Desired)
 		if err != nil {
-			return fmt.Errorf("create blob for %s: %w", c.Path, err)
+			return nil, fmt.Errorf("create blob for %s: %w", c.Path, err)
 		}
 		entries = append(entries, treeEntry{
 			Path: c.Path,
@@ -261,28 +302,7 @@ func (p *Processor) applyToRepo(repo string, changes []FileChange, opts ApplyOpt
 			SHA:  blobSHA,
 		})
 	}
-
-	// 3. Create tree
-	treeSHA, err := p.createTree(repo, headSHA, entries)
-	if err != nil {
-		return fmt.Errorf("create tree: %w", err)
-	}
-
-	// 4. Create commit
-	message := opts.CommitMessage
-	if message == "" {
-		message = fmt.Sprintf("chore: sync %s files via gh-infra", opts.FileSetName)
-	}
-	commitSHA, err := p.createCommit(repo, message, treeSHA, headSHA)
-	if err != nil {
-		return fmt.Errorf("create commit: %w", err)
-	}
-
-	// 5. Update ref (direct to default branch)
-	if opts.Strategy == manifest.StrategyPullRequest {
-		return p.createPR(repo, defaultBranch, commitSHA, message, opts)
-	}
-	return p.updateRef(repo, defaultBranch, commitSHA)
+	return entries, nil
 }
 
 // applyToEmptyRepo uses Contents API as fallback for repos with no commits.
@@ -293,16 +313,34 @@ func (p *Processor) applyToEmptyRepo(repo string, changes []FileChange, opts App
 		message = fmt.Sprintf("chore: sync %s files via gh-infra", opts.FileSetName)
 	}
 	for _, c := range changes {
-		encoded := base64.StdEncoding.EncodeToString([]byte(c.Desired))
-		endpoint := fmt.Sprintf("repos/%s/contents/%s", repo, c.Path)
-		_, err := p.runner.Run("api", endpoint,
-			"--method", "PUT",
-			"-f", fmt.Sprintf("message=%s: %s", message, c.Path),
-			"-f", fmt.Sprintf("content=%s", encoded),
-		)
-		if err != nil {
-			return fmt.Errorf("create %s: %w", c.Path, err)
+		commitMsg := fmt.Sprintf("%s: %s", message, c.Path)
+		if err := p.putFileViaContentsAPI(repo, c.Path, c.Desired, "", commitMsg); err != nil {
+			return err
 		}
+	}
+	return nil
+}
+
+// putFileViaContentsAPI creates or updates a single file using the Contents API.
+// This results in one commit per call. Use for empty repos or when Git Data API
+// is not available. Pass sha="" for new files, or the current blob SHA for updates.
+func (p *Processor) putFileViaContentsAPI(repo, path, content, sha, message string) error {
+	encoded := base64.StdEncoding.EncodeToString([]byte(content))
+	endpoint := fmt.Sprintf("repos/%s/contents/%s", repo, path)
+
+	args := []string{
+		"api", endpoint,
+		"--method", "PUT",
+		"-f", fmt.Sprintf("message=%s", message),
+		"-f", fmt.Sprintf("content=%s", encoded),
+	}
+	if sha != "" {
+		args = append(args, "-f", fmt.Sprintf("sha=%s", sha))
+	}
+
+	_, err := p.runner.Run(args...)
+	if err != nil {
+		return fmt.Errorf("put %s: %w", path, err)
 	}
 	return nil
 }
