@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/babarot/gh-infra/internal/logger"
@@ -21,8 +20,8 @@ type repoResult struct {
 }
 
 // FetchAllChanges fetches current state and computes diffs for all repos in parallel.
+// Repos that fail to fetch are skipped with a warning; successful repos are still returned.
 func FetchAllChanges(repos []*manifest.Repository, filterRepo string, fetcher *Fetcher, diffOpts ...DiffOptions) ([]Change, []*manifest.Repository, error) {
-	// Filter repos first
 	var targets []*manifest.Repository
 	for _, repo := range repos {
 		if filterRepo != "" && repo.Metadata.FullName() != filterRepo {
@@ -73,14 +72,21 @@ func FetchAllChanges(repos []*manifest.Repository, filterRepo string, fetcher *F
 
 	var allChanges []Change
 	var targetRepos []*manifest.Repository
+	var errors int
 	for _, res := range results {
 		if res.err != nil {
-			return nil, nil, fmt.Errorf("fetch %s: %w", res.repo.Metadata.FullName(), res.err)
+			ui.RefreshError(res.repo.Metadata.FullName(), res.err)
+			errors++
+			continue
 		}
 		allChanges = append(allChanges, res.changes...)
 		targetRepos = append(targetRepos, res.repo)
 	}
 
-	logger.Info("plan complete", "total_changes", len(allChanges))
+	if errors > 0 {
+		ui.RefreshErrorSummary(errors)
+	}
+
+	logger.Info("plan complete", "total_changes", len(allChanges), "errors", errors)
 	return allChanges, targetRepos, nil
 }

@@ -193,6 +193,21 @@ func ApplySummary(succeeded, failed int) {
 	fmt.Fprintln(DefaultPrinter.out, ".")
 }
 
+// --- Refresh errors (stderr) ---
+
+func RefreshError(name string, err error) {
+	msg := strings.ReplaceAll(err.Error(), "\n", "\n    ")
+	fmt.Fprintf(DefaultPrinter.err, "  %s %s: %s\n", Red.Render("✗"), Bold.Render(name), msg)
+}
+
+func RefreshErrorSummary(count int) {
+	label := "error"
+	if count > 1 {
+		label = "errors"
+	}
+	fmt.Fprintf(DefaultPrinter.err, "\n  %s\n", Yellow.Render(fmt.Sprintf("%d %s occurred during refresh. Affected repositories were skipped.", count, label)))
+}
+
 // --- Error messages (stderr) ---
 
 func FatalError(err error) {
