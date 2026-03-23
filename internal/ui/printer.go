@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"charm.land/huh/v2"
+	"github.com/charmbracelet/x/term"
 )
 
 // Printer handles all user-facing output. All output goes through this
@@ -35,6 +36,15 @@ func SetWriters(out, err io.Writer) {
 func ResetWriters() {
 	DefaultPrinter.out = os.Stdout
 	DefaultPrinter.err = os.Stderr
+}
+
+// IsInteractive returns true if stderr is a terminal (not piped/redirected).
+func IsInteractive() bool {
+	f, ok := DefaultPrinter.err.(*os.File)
+	if !ok {
+		return false
+	}
+	return term.IsTerminal(f.Fd())
 }
 
 const separator = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

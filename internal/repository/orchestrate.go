@@ -37,6 +37,13 @@ func FetchAllChanges(repos []*manifest.Repository, filterRepo string, fetcher *F
 		return nil, nil, nil
 	}
 
+	// Start spinner display for all targets
+	names := make([]string, len(targets))
+	for i, r := range targets {
+		names[i] = r.Metadata.FullName()
+	}
+	tracker := ui.RunRefresh(names)
+
 	results := make([]repoResult, len(targets))
 	sem := semaphore.NewWeighted(defaultParallel)
 	var wg sync.WaitGroup
@@ -49,22 +56,24 @@ func FetchAllChanges(repos []*manifest.Repository, filterRepo string, fetcher *F
 			_ = sem.Acquire(context.Background(), 1)
 			defer sem.Release(1)
 
-			ui.Refreshing(r.Metadata.FullName())
 			logger.Debug("fetch start", "repo", r.Metadata.FullName())
 			current, err := fetcher.FetchRepository(r.Metadata.Owner, r.Metadata.Name)
 			if err != nil {
 				logger.Error("fetch failed", "repo", r.Metadata.FullName(), "err", err)
+				tracker.Error(r.Metadata.FullName(), err)
 				results[idx] = repoResult{index: idx, repo: r, err: err}
 				return
 			}
 
 			changes := Diff(r, current, diffOpts...)
 			logger.Debug("diff done", "repo", r.Metadata.FullName(), "changes", len(changes))
+			tracker.Done(r.Metadata.FullName())
 			results[idx] = repoResult{index: idx, repo: r, changes: changes}
 		}(i, repo)
 	}
 
 	wg.Wait()
+	tracker.Wait()
 
 	var allChanges []Change
 	var targetRepos []*manifest.Repository

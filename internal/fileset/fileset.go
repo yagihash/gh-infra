@@ -77,6 +77,13 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet) []FileChange {
 		}
 	}
 
+	// Start spinner display for all targets.
+	names := make([]string, len(units))
+	for i, u := range units {
+		names[i] = u.target.Name
+	}
+	tracker := ui.RunRefresh(names)
+
 	// Process each unit concurrently; collect results in order.
 	results := make([][]FileChange, len(units))
 	var wg sync.WaitGroup
@@ -84,16 +91,17 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet) []FileChange {
 	for i, u := range units {
 		go func(i int, u planUnit) {
 			defer wg.Done()
-			ui.RefreshingFileSet(u.target.Name)
 			var out []FileChange
 			for _, file := range u.files {
 				change := p.planFile(u.fileSetName, u.target.Name, file, u.onDrift)
 				out = append(out, change)
 			}
 			results[i] = out
+			tracker.Done(u.target.Name)
 		}(i, u)
 	}
 	wg.Wait()
+	tracker.Wait()
 
 	// Flatten in original order.
 	var changes []FileChange
