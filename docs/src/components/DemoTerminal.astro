@@ -1,0 +1,40 @@
+---
+// Terminal-styled container for demo GIF with light/dark theme support.
+// Usage: <DemoTerminal />
+---
+<div class="demo-terminal">
+  <picture>
+    <source srcset={`${import.meta.env.BASE_URL}demo-light.gif`} media="(prefers-color-scheme: light)" />
+    <img
+      src={`${import.meta.env.BASE_URL}demo.gif`}
+      alt="gh-infra demo showing plan and apply workflow"
+      class="demo-gif"
+      loading="eager"
+    />
+  </picture>
+</div>
+
+<style>
+  .demo-terminal {
+    max-width: 720px;
+    margin: 1.5rem auto 2rem;
+    background: #1a1b26;
+    border-radius: 12px;
+    padding: 12px;
+    border: 1px solid #292e42;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+
+  .demo-gif {
+    width: 100%;
+    border-radius: 6px;
+    display: block;
+  }
+
+  /* Light theme */
+  :global([data-theme='light']) .demo-terminal {
+    background: #d5d6db;
+    border: 1px solid #c4c8da;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  }
+</style>

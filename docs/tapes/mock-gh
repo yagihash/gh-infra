@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# Mock gh CLI for VHS demo recording.
+# Returns canned responses with realistic delays.
+# This script is placed in PATH inside the VHS Docker container
+# so that gh-infra uses it instead of the real gh CLI.
+
+set -euo pipefail
+
+# Simulate API latency (0.2–0.5s)
+delay() {
+  local ms=$(( RANDOM % 300 + 200 ))
+  sleep "0.${ms}"
+}
+
+args="$*"
+
+# ---------------------------------------------------------------------------
+# Plan: repository state fetching
+# ---------------------------------------------------------------------------
+
+# gh repo view owner/repo --json description,homepageUrl,visibility,...
+if [[ "$args" == *"repo view"*"--json"*"description,homepageUrl"* ]]; then
+  delay
+  cat <<'JSON'
+{
+  "description": "My project",
+  "homepageUrl": "",
+  "visibility": "PUBLIC",
+  "isArchived": false,
+  "repositoryTopics": [],
+  "hasIssuesEnabled": true,
+  "hasProjectsEnabled": true,
+  "hasWikiEnabled": true,
+  "hasDiscussionsEnabled": false,
+  "mergeCommitAllowed": true,
+  "squashMergeAllowed": false,
+  "rebaseMergeAllowed": true,
+  "deleteBranchOnMerge": false,
+  "defaultBranchRef": { "name": "main" }
+}
+JSON
+  exit 0
+fi
+
+# gh api repos/owner/repo --jq {squash_merge_commit_title,...}
+if [[ "$args" == *"api repos/"*"--jq"*"squash_merge_commit_title"* ]]; then
+  delay
+  cat <<'JSON'
+{
+  "squash_merge_commit_title": "COMMIT_OR_PR_TITLE",
+  "squash_merge_commit_message": "COMMIT_MESSAGES",
+  "merge_commit_title": "MERGE_MESSAGE",
+  "merge_commit_message": "PR_TITLE"
+}
+JSON
+  exit 0
+fi
+
+# gh api repos/owner/repo/branches --jq (protected branches)
+if [[ "$args" == *"/branches"*"--jq"*"protected"* ]]; then
+  delay
+  echo '[]'
+  exit 0
+fi
+
+# gh api repos/owner/repo/rulesets --paginate
+if [[ "$args" == *"/rulesets"*"--paginate"* ]]; then
+  delay
+  echo '[]'
+  exit 0
+fi
+
+# gh secret list --repo owner/repo
+if [[ "$args" == *"secret list"* ]]; then
+  delay
+  echo ''
+  exit 0
+fi
+
+# gh variable list --repo owner/repo
+if [[ "$args" == *"variable list"* ]]; then
+  delay
+  echo '[]'
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Apply: write operations (just succeed with delay)
+# ---------------------------------------------------------------------------
+
+# gh repo edit ...
+if [[ "$args" == *"repo edit"* ]]; then
+  delay
+  exit 0
+fi
+
+# gh repo view ... --json repositoryTopics (used during topic apply)
+if [[ "$args" == *"repo view"*"repositoryTopics"* ]]; then
+  delay
+  echo ''
+  exit 0
+fi
+
+# gh api ... --method PATCH/PUT/POST (any write API call)
+if [[ "$args" == *"--method"* ]]; then
+  delay
+  echo '{"sha":"mock-sha-0123456789abcdef"}'
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Fallback: succeed silently
+# ---------------------------------------------------------------------------
+delay
+exit 0

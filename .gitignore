@@ -3,6 +3,11 @@
 /repos
 coverage.out
 
+# VHS demo (build artifacts in tapes/, outputs copied to docs/public/)
+docs/tapes/.gh-infra
+docs/tapes/*.gif
+docs/tapes/*.mp4
+
 # Docs (Astro / Starlight)
 docs/node_modules/
 docs/dist/

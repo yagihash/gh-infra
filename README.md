@@ -5,6 +5,8 @@
 
 Declarative GitHub infrastructure management via YAML. Like Terraform, but for GitHub — no state file required.
 
+[![demo](./docs/public/demo.gif)](https://babarot.github.io/gh-infra/)
+
 ```
 gh infra plan    # Show what would change
 gh infra apply   # Apply the changes
