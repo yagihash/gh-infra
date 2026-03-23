@@ -16,6 +16,10 @@ func ResolveFiles(fs *manifest.FileSet, target manifest.FileSetRepository) []man
 	result := make([]manifest.FileEntry, 0, len(fs.Spec.Files))
 	for _, f := range fs.Spec.Files {
 		if override, ok := overrideMap[f.Path]; ok {
+			// Inherit vars from original if override doesn't define its own
+			if override.Vars == nil && f.Vars != nil {
+				override.Vars = f.Vars
+			}
 			result = append(result, override)
 		} else {
 			result = append(result, f)

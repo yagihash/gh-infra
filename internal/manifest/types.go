@@ -265,9 +265,10 @@ func (t *FileSetRepository) UnmarshalYAML(unmarshal func(any) error) error {
 }
 
 type FileEntry struct {
-	Path    string `yaml:"path"`
-	Content string `yaml:"content,omitempty"`
-	Source  string `yaml:"source,omitempty"` // local file path
+	Path    string            `yaml:"path"`
+	Content string            `yaml:"content,omitempty"`
+	Source  string            `yaml:"source,omitempty"` // local file path
+	Vars    map[string]string `yaml:"vars,omitempty"`   // template variables
 }
 
 // ParseResult holds all parsed resources from a path.

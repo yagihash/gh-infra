@@ -36,11 +36,19 @@ func (r *SourceResolver) ResolveFiles(files []FileEntry, yamlDir string) ([]File
 			if err != nil {
 				return nil, fmt.Errorf("resolve %s: %w", entry.Source, err)
 			}
+			// Preserve Vars from the original entry
+			for i := range entries {
+				entries[i].Vars = entry.Vars
+			}
 			resolved = append(resolved, entries...)
 		} else {
 			entries, err := resolveLocal(entry.Source, entry.Path, yamlDir)
 			if err != nil {
 				return nil, fmt.Errorf("resolve %s: %w", entry.Source, err)
+			}
+			// Preserve Vars from the original entry
+			for i := range entries {
+				entries[i].Vars = entry.Vars
 			}
 			resolved = append(resolved, entries...)
 		}

@@ -83,8 +83,9 @@ func runPlan(path, filterRepo string, ci bool) error {
 	if len(parsed.FileSets) > 0 {
 		processor := fileset.NewProcessor(runner)
 		g.Go(func() error {
-			fileChanges = processor.Plan(parsed.FileSets)
-			return nil
+			var planErr error
+			fileChanges, planErr = processor.Plan(parsed.FileSets)
+			return planErr
 		})
 	}
 

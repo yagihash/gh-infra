@@ -64,7 +64,7 @@ type planUnit struct {
 }
 
 // Plan computes changes for all FileSets concurrently.
-func (p *Processor) Plan(fileSets []*manifest.FileSet) []FileChange {
+func (p *Processor) Plan(fileSets []*manifest.FileSet) ([]FileChange, error) {
 	// Build work units (order-preserving index).
 	var units []planUnit
 	for _, fs := range fileSets {
@@ -87,7 +87,11 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet) []FileChange {
 	tracker := ui.RunRefresh(names)
 
 	// Process each unit concurrently; collect results in order.
-	results := make([][]FileChange, len(units))
+	type unitResult struct {
+		changes []FileChange
+		err     error
+	}
+	results := make([]unitResult, len(units))
 	var wg sync.WaitGroup
 	wg.Add(len(units))
 	for i, u := range units {
@@ -95,22 +99,36 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet) []FileChange {
 			defer wg.Done()
 			var out []FileChange
 			for _, file := range u.files {
+				// Template rendering (deep copy vars to avoid data races)
+				if HasTemplate(file.Content, file.Vars) {
+					varsCopy := copyVars(file.Vars)
+					rendered, err := RenderTemplate(file.Content, u.target.Name, varsCopy)
+					if err != nil {
+						results[i] = unitResult{err: fmt.Errorf("template %s for %s: %w", file.Path, u.target.Name, err)}
+						tracker.Error(u.target.Name, err)
+						return
+					}
+					file.Content = rendered
+				}
 				change := p.planFile(u.fileSetName, u.target.Name, file, u.onDrift)
 				out = append(out, change)
 			}
-			results[i] = out
+			results[i] = unitResult{changes: out}
 			tracker.Done(u.target.Name)
 		}(i, u)
 	}
 	wg.Wait()
 	tracker.Wait()
 
-	// Flatten in original order.
+	// Flatten in original order; return first error.
 	var changes []FileChange
 	for _, r := range results {
-		changes = append(changes, r...)
+		if r.err != nil {
+			return nil, r.err
+		}
+		changes = append(changes, r.changes...)
 	}
-	return changes
+	return changes, nil
 }
 
 func (p *Processor) planFile(fileSetName, repo string, file manifest.FileEntry, onDrift string) FileChange {

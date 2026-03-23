@@ -15,6 +15,18 @@ files:
       * @babarot
 ```
 
+Inline content can also use `<% %>` template syntax to customize values per repository:
+
+```yaml
+files:
+  - path: go.mod
+    content: |
+      module github.com/<% .Repo.FullName %>
+      go 1.24.0
+```
+
+See [Templating](../templating/) for details on built-in variables, custom vars, and compatibility with other template systems.
+
 ## Local File
 
 Read content from a file on disk. Paths are resolved relative to the YAML file's location.
