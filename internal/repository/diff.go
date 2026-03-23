@@ -38,6 +38,7 @@ func Diff(desired *manifest.Repository, current *CurrentState, opts ...DiffOptio
 	changes = append(changes, diffFeatures(name, desired, current)...)
 	changes = append(changes, diffMergeStrategy(name, desired, current)...)
 	changes = append(changes, diffBranchProtection(name, desired, current)...)
+	changes = append(changes, diffRulesets(name, desired, current)...)
 	changes = append(changes, diffSecrets(name, desired, current, opt.ForceSecrets)...)
 	changes = append(changes, diffVariables(name, desired, current)...)
 
@@ -302,6 +303,256 @@ func diffBranchProtection(name string, desired *manifest.Repository, current *Cu
 	}
 
 	return changes
+}
+
+func diffRulesets(name string, desired *manifest.Repository, current *CurrentState) []Change {
+	var changes []Change
+
+	for _, drs := range desired.Spec.Rulesets {
+		crs, exists := current.Rulesets[drs.Name]
+		resource := fmt.Sprintf("%s[%s]", manifest.ResourceRuleset, drs.Name)
+
+		if !exists {
+			changes = append(changes, Change{
+				Type:     ChangeCreate,
+				Resource: resource,
+				Name:     name,
+				Field:    "ruleset",
+				NewValue: drs.Name,
+			})
+			continue
+		}
+
+		// enforcement
+		if drs.Enforcement != nil && *drs.Enforcement != crs.Enforcement {
+			changes = append(changes, Change{
+				Type:     ChangeUpdate,
+				Resource: resource,
+				Name:     name,
+				Field:    "enforcement",
+				OldValue: crs.Enforcement,
+				NewValue: *drs.Enforcement,
+			})
+		}
+
+		// target
+		if drs.Target != nil && *drs.Target != crs.Target {
+			changes = append(changes, Change{
+				Type:     ChangeUpdate,
+				Resource: resource,
+				Name:     name,
+				Field:    "target",
+				OldValue: crs.Target,
+				NewValue: *drs.Target,
+			})
+		}
+
+		// bypass_actors
+		if !rulesetBypassActorsEqual(drs.BypassActors, crs.BypassActors) {
+			changes = append(changes, Change{
+				Type:     ChangeUpdate,
+				Resource: resource,
+				Name:     name,
+				Field:    "bypass_actors",
+				OldValue: fmt.Sprintf("%d actors", len(crs.BypassActors)),
+				NewValue: fmt.Sprintf("%d actors", len(drs.BypassActors)),
+			})
+		}
+
+		// conditions
+		if !rulesetConditionsEqual(drs.Conditions, crs.Conditions) {
+			changes = append(changes, Change{
+				Type:     ChangeUpdate,
+				Resource: resource,
+				Name:     name,
+				Field:    "conditions",
+				OldValue: rulesetConditionsSummary(crs.Conditions),
+				NewValue: rulesetConditionsSummary2(drs.Conditions),
+			})
+		}
+
+		// toggle rules
+		rulesetBoolDiff := func(field string, desired *bool, current bool) {
+			if desired != nil && *desired != current {
+				changes = append(changes, Change{
+					Type:     ChangeUpdate,
+					Resource: resource,
+					Name:     name,
+					Field:    field,
+					OldValue: current,
+					NewValue: *desired,
+				})
+			}
+		}
+		rulesetBoolDiff("rules.non_fast_forward", drs.Rules.NonFastForward, crs.Rules.NonFastForward)
+		rulesetBoolDiff("rules.deletion", drs.Rules.Deletion, crs.Rules.Deletion)
+		rulesetBoolDiff("rules.creation", drs.Rules.Creation, crs.Rules.Creation)
+		rulesetBoolDiff("rules.required_linear_history", drs.Rules.RequiredLinearHistory, crs.Rules.RequiredLinearHistory)
+		rulesetBoolDiff("rules.required_signatures", drs.Rules.RequiredSignatures, crs.Rules.RequiredSignatures)
+
+		// pull_request rule
+		if drs.Rules.PullRequest != nil {
+			if crs.Rules.PullRequest == nil {
+				changes = append(changes, Change{
+					Type:     ChangeCreate,
+					Resource: resource,
+					Name:     name,
+					Field:    "rules.pull_request",
+					NewValue: "enabled",
+				})
+			} else {
+				pr := drs.Rules.PullRequest
+				cpr := crs.Rules.PullRequest
+				if pr.RequiredApprovingReviewCount != nil && *pr.RequiredApprovingReviewCount != cpr.RequiredApprovingReviewCount {
+					changes = append(changes, Change{
+						Type:     ChangeUpdate,
+						Resource: resource,
+						Name:     name,
+						Field:    "rules.pull_request.required_approving_review_count",
+						OldValue: cpr.RequiredApprovingReviewCount,
+						NewValue: *pr.RequiredApprovingReviewCount,
+					})
+				}
+				prBoolDiff := func(field string, desired *bool, current bool) {
+					if desired != nil && *desired != current {
+						changes = append(changes, Change{
+							Type:     ChangeUpdate,
+							Resource: resource,
+							Name:     name,
+							Field:    "rules.pull_request." + field,
+							OldValue: current,
+							NewValue: *desired,
+						})
+					}
+				}
+				prBoolDiff("dismiss_stale_reviews_on_push", pr.DismissStaleReviewsOnPush, cpr.DismissStaleReviewsOnPush)
+				prBoolDiff("require_code_owner_review", pr.RequireCodeOwnerReview, cpr.RequireCodeOwnerReview)
+				prBoolDiff("require_last_push_approval", pr.RequireLastPushApproval, cpr.RequireLastPushApproval)
+				prBoolDiff("required_review_thread_resolution", pr.RequiredReviewThreadResolution, cpr.RequiredReviewThreadResolution)
+			}
+		}
+
+		// required_status_checks rule
+		if drs.Rules.RequiredStatusChecks != nil {
+			if crs.Rules.RequiredStatusChecks == nil {
+				changes = append(changes, Change{
+					Type:     ChangeCreate,
+					Resource: resource,
+					Name:     name,
+					Field:    "rules.required_status_checks",
+					NewValue: "enabled",
+				})
+			} else {
+				sc := drs.Rules.RequiredStatusChecks
+				csc := crs.Rules.RequiredStatusChecks
+				if sc.StrictRequiredStatusChecksPolicy != nil && *sc.StrictRequiredStatusChecksPolicy != csc.StrictRequiredStatusChecksPolicy {
+					changes = append(changes, Change{
+						Type:     ChangeUpdate,
+						Resource: resource,
+						Name:     name,
+						Field:    "rules.required_status_checks.strict",
+						OldValue: csc.StrictRequiredStatusChecksPolicy,
+						NewValue: *sc.StrictRequiredStatusChecksPolicy,
+					})
+				}
+				if !rulesetStatusChecksEqual(sc.Contexts, csc.Contexts) {
+					changes = append(changes, Change{
+						Type:     ChangeUpdate,
+						Resource: resource,
+						Name:     name,
+						Field:    "rules.required_status_checks.contexts",
+						OldValue: rulesetStatusCheckNames(csc.Contexts),
+						NewValue: rulesetStatusCheckNames2(sc.Contexts),
+					})
+				}
+			}
+		}
+	}
+
+	return changes
+}
+
+func rulesetBypassActorsEqual(desired []manifest.RulesetBypassActor, current []CurrentRulesetBypassActor) bool {
+	if len(desired) != len(current) {
+		return false
+	}
+	dm := make(map[string]bool)
+	for _, a := range desired {
+		dm[fmt.Sprintf("%d:%s:%s", a.ActorID, a.ActorType, a.BypassMode)] = true
+	}
+	for _, a := range current {
+		if !dm[fmt.Sprintf("%d:%s:%s", a.ActorID, a.ActorType, a.BypassMode)] {
+			return false
+		}
+	}
+	return true
+}
+
+func rulesetConditionsEqual(desired *manifest.RulesetConditions, current *CurrentRulesetConditions) bool {
+	if desired == nil && current == nil {
+		return true
+	}
+	if desired == nil || current == nil {
+		return false
+	}
+	if desired.RefName == nil && current.RefName == nil {
+		return true
+	}
+	if desired.RefName == nil || current.RefName == nil {
+		return false
+	}
+	return stringSliceEqual(desired.RefName.Include, current.RefName.Include) &&
+		stringSliceEqual(desired.RefName.Exclude, current.RefName.Exclude)
+}
+
+func rulesetConditionsSummary(c *CurrentRulesetConditions) string {
+	if c == nil || c.RefName == nil {
+		return "(none)"
+	}
+	return fmt.Sprintf("include:%v exclude:%v", c.RefName.Include, c.RefName.Exclude)
+}
+
+func rulesetConditionsSummary2(c *manifest.RulesetConditions) string {
+	if c == nil || c.RefName == nil {
+		return "(none)"
+	}
+	return fmt.Sprintf("include:%v exclude:%v", c.RefName.Include, c.RefName.Exclude)
+}
+
+func rulesetStatusChecksEqual(desired []manifest.RulesetStatusCheck, current []CurrentRulesetStatusCheck) bool {
+	if len(desired) != len(current) {
+		return false
+	}
+	dm := make(map[string]bool)
+	for _, c := range desired {
+		id := 0
+		if c.IntegrationID != nil {
+			id = *c.IntegrationID
+		}
+		dm[fmt.Sprintf("%s:%d", c.Context, id)] = true
+	}
+	for _, c := range current {
+		if !dm[fmt.Sprintf("%s:%d", c.Context, c.IntegrationID)] {
+			return false
+		}
+	}
+	return true
+}
+
+func rulesetStatusCheckNames(checks []CurrentRulesetStatusCheck) []string {
+	var names []string
+	for _, c := range checks {
+		names = append(names, c.Context)
+	}
+	return names
+}
+
+func rulesetStatusCheckNames2(checks []manifest.RulesetStatusCheck) []string {
+	var names []string
+	for _, c := range checks {
+		names = append(names, c.Context)
+	}
+	return names
 }
 
 func diffSecrets(name string, desired *manifest.Repository, current *CurrentState, forceSecrets bool) []Change {

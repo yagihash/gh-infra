@@ -28,6 +28,16 @@ const (
 	ResourceBranchProtection = "BranchProtection"
 	ResourceSecret           = "Secret"
 	ResourceVariable         = "Variable"
+	ResourceRuleset          = "Ruleset"
+
+	// Ruleset enforcement values.
+	RulesetEnforcementActive   = "active"
+	RulesetEnforcementEvaluate = "evaluate"
+	RulesetEnforcementDisabled = "disabled"
+
+	// Ruleset target values.
+	RulesetTargetBranch = "branch"
+	RulesetTargetTag    = "tag"
 
 	// Squash merge commit title options.
 	SquashMergeCommitTitlePRTitle         = "PR_TITLE"
@@ -83,6 +93,7 @@ type RepositorySpec struct {
 	Features         *Features          `yaml:"features,omitempty"`
 	MergeStrategy    *MergeStrategy     `yaml:"merge_strategy,omitempty"`
 	BranchProtection []BranchProtection `yaml:"branch_protection,omitempty"`
+	Rulesets         []Ruleset          `yaml:"rulesets,omitempty"`
 	Secrets          []Secret           `yaml:"secrets,omitempty"`
 	Variables        []Variable         `yaml:"variables,omitempty"`
 }
@@ -120,6 +131,59 @@ type BranchProtection struct {
 type StatusChecks struct {
 	Strict   bool     `yaml:"strict"`
 	Contexts []string `yaml:"contexts"`
+}
+
+// Ruleset represents a GitHub repository ruleset.
+type Ruleset struct {
+	Name         string               `yaml:"name"`
+	Target       *string              `yaml:"target,omitempty"`      // "branch" (default) or "tag"
+	Enforcement  *string              `yaml:"enforcement,omitempty"` // "active", "evaluate", "disabled"
+	BypassActors []RulesetBypassActor `yaml:"bypass_actors,omitempty"`
+	Conditions   *RulesetConditions   `yaml:"conditions,omitempty"`
+	Rules        RulesetRules         `yaml:"rules"`
+}
+
+type RulesetBypassActor struct {
+	ActorID    int    `yaml:"actor_id"`
+	ActorType  string `yaml:"actor_type"`  // RepositoryRole, Team, Integration, OrganizationAdmin
+	BypassMode string `yaml:"bypass_mode"` // always, pull_request
+}
+
+type RulesetConditions struct {
+	RefName *RulesetRefCondition `yaml:"ref_name,omitempty"`
+}
+
+type RulesetRefCondition struct {
+	Include []string `yaml:"include"`
+	Exclude []string `yaml:"exclude,omitempty"`
+}
+
+type RulesetRules struct {
+	PullRequest           *RulesetPullRequest  `yaml:"pull_request,omitempty"`
+	RequiredStatusChecks  *RulesetStatusChecks `yaml:"required_status_checks,omitempty"`
+	NonFastForward        *bool                `yaml:"non_fast_forward,omitempty"`
+	Deletion              *bool                `yaml:"deletion,omitempty"`
+	Creation              *bool                `yaml:"creation,omitempty"`
+	RequiredLinearHistory *bool                `yaml:"required_linear_history,omitempty"`
+	RequiredSignatures    *bool                `yaml:"required_signatures,omitempty"`
+}
+
+type RulesetPullRequest struct {
+	RequiredApprovingReviewCount   *int  `yaml:"required_approving_review_count,omitempty"`
+	DismissStaleReviewsOnPush      *bool `yaml:"dismiss_stale_reviews_on_push,omitempty"`
+	RequireCodeOwnerReview         *bool `yaml:"require_code_owner_review,omitempty"`
+	RequireLastPushApproval        *bool `yaml:"require_last_push_approval,omitempty"`
+	RequiredReviewThreadResolution *bool `yaml:"required_review_thread_resolution,omitempty"`
+}
+
+type RulesetStatusChecks struct {
+	StrictRequiredStatusChecksPolicy *bool                `yaml:"strict_required_status_checks_policy,omitempty"`
+	Contexts                         []RulesetStatusCheck `yaml:"contexts"`
+}
+
+type RulesetStatusCheck struct {
+	Context       string `yaml:"context"`
+	IntegrationID *int   `yaml:"integration_id,omitempty"`
 }
 
 type Secret struct {

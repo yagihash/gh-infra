@@ -62,6 +62,8 @@ func (e *Executor) applyChange(c Change, repo *manifest.Repository) ApplyResult 
 		err = e.applyRepoSetting(c, repo)
 	case strings.HasPrefix(c.Resource, manifest.ResourceBranchProtection):
 		err = e.applyBranchProtection(c, repo)
+	case strings.HasPrefix(c.Resource, manifest.ResourceRuleset):
+		err = e.applyRuleset(c, repo)
 	case c.Resource == manifest.ResourceSecret:
 		err = e.applySecret(c, repo)
 	case c.Resource == manifest.ResourceVariable:
@@ -390,6 +392,197 @@ func buildBranchProtectionPayload(bp *manifest.BranchProtection) map[string]any 
 		payload["required_status_checks"] = nil
 	}
 
+	return payload
+}
+
+func (e *Executor) applyRuleset(c Change, repo *manifest.Repository) error {
+	owner := repo.Metadata.Owner
+	name := repo.Metadata.Name
+
+	// Extract ruleset name from resource like "Ruleset[protect-main]"
+	rulesetName := strings.TrimSuffix(strings.TrimPrefix(c.Resource, manifest.ResourceRuleset+"["), "]")
+
+	var rs *manifest.Ruleset
+	for i := range repo.Spec.Rulesets {
+		if repo.Spec.Rulesets[i].Name == rulesetName {
+			rs = &repo.Spec.Rulesets[i]
+			break
+		}
+	}
+	if rs == nil {
+		return fmt.Errorf("ruleset %q not found in desired state", rulesetName)
+	}
+
+	payload := buildRulesetPayload(rs)
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal ruleset payload: %w", err)
+	}
+
+	switch c.Type {
+	case ChangeCreate:
+		_, err = e.runner.Run("api",
+			fmt.Sprintf("repos/%s/%s/rulesets", owner, name),
+			"--method", "POST",
+			"--header", "Accept: application/vnd.github+json",
+			"--body", string(payloadJSON),
+		)
+		return wrapError(err, owner+"/"+name, "ruleset:"+rulesetName)
+
+	case ChangeUpdate:
+		target := "branch"
+		if rs.Target != nil {
+			target = *rs.Target
+		}
+		rulesetID, err := e.resolveRulesetID(owner, name, rulesetName, target)
+		if err != nil {
+			return err
+		}
+		_, err = e.runner.Run("api",
+			fmt.Sprintf("repos/%s/%s/rulesets/%d", owner, name, rulesetID),
+			"--method", "PUT",
+			"--header", "Accept: application/vnd.github+json",
+			"--body", string(payloadJSON),
+		)
+		return wrapError(err, owner+"/"+name, "ruleset:"+rulesetName)
+	}
+
+	return nil
+}
+
+func (e *Executor) resolveRulesetID(owner, name, rulesetName, target string) (int, error) {
+	out, err := e.runner.Run("api", fmt.Sprintf("repos/%s/%s/rulesets", owner, name))
+	if err != nil {
+		return 0, fmt.Errorf("list rulesets for %s/%s: %w", owner, name, err)
+	}
+
+	var rulesets []struct {
+		ID     int    `json:"id"`
+		Name   string `json:"name"`
+		Target string `json:"target"`
+	}
+	if err := json.Unmarshal(out, &rulesets); err != nil {
+		return 0, fmt.Errorf("parse rulesets list for %s/%s: %w", owner, name, err)
+	}
+
+	var matches []int
+	for _, rs := range rulesets {
+		if rs.Name == rulesetName && rs.Target == target {
+			matches = append(matches, rs.ID)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return 0, fmt.Errorf("ruleset %q (target=%s) not found in %s/%s", rulesetName, target, owner, name)
+	case 1:
+		return matches[0], nil
+	default:
+		return 0, fmt.Errorf("multiple rulesets named %q (target=%s) found in %s/%s; cannot determine which to update", rulesetName, target, owner, name)
+	}
+}
+
+func buildRulesetPayload(rs *manifest.Ruleset) map[string]any {
+	target := "branch"
+	if rs.Target != nil {
+		target = *rs.Target
+	}
+	enforcement := "active"
+	if rs.Enforcement != nil {
+		enforcement = *rs.Enforcement
+	}
+
+	payload := map[string]any{
+		"name":        rs.Name,
+		"target":      target,
+		"enforcement": enforcement,
+	}
+
+	// bypass_actors
+	if len(rs.BypassActors) > 0 {
+		actors := make([]map[string]any, len(rs.BypassActors))
+		for i, a := range rs.BypassActors {
+			actors[i] = map[string]any{
+				"actor_id":    a.ActorID,
+				"actor_type":  a.ActorType,
+				"bypass_mode": a.BypassMode,
+			}
+		}
+		payload["bypass_actors"] = actors
+	} else {
+		payload["bypass_actors"] = []map[string]any{}
+	}
+
+	// conditions
+	if rs.Conditions != nil && rs.Conditions.RefName != nil {
+		exclude := rs.Conditions.RefName.Exclude
+		if exclude == nil {
+			exclude = []string{}
+		}
+		payload["conditions"] = map[string]any{
+			"ref_name": map[string]any{
+				"include": rs.Conditions.RefName.Include,
+				"exclude": exclude,
+			},
+		}
+	}
+
+	// rules
+	var rules []map[string]any
+
+	if rs.Rules.PullRequest != nil {
+		pr := rs.Rules.PullRequest
+		params := map[string]any{}
+		if pr.RequiredApprovingReviewCount != nil {
+			params["required_approving_review_count"] = *pr.RequiredApprovingReviewCount
+		}
+		if pr.DismissStaleReviewsOnPush != nil {
+			params["dismiss_stale_reviews_on_push"] = *pr.DismissStaleReviewsOnPush
+		}
+		if pr.RequireCodeOwnerReview != nil {
+			params["require_code_owner_review"] = *pr.RequireCodeOwnerReview
+		}
+		if pr.RequireLastPushApproval != nil {
+			params["require_last_push_approval"] = *pr.RequireLastPushApproval
+		}
+		if pr.RequiredReviewThreadResolution != nil {
+			params["required_review_thread_resolution"] = *pr.RequiredReviewThreadResolution
+		}
+		rules = append(rules, map[string]any{"type": "pull_request", "parameters": params})
+	}
+
+	if rs.Rules.RequiredStatusChecks != nil {
+		sc := rs.Rules.RequiredStatusChecks
+		checks := make([]map[string]any, len(sc.Contexts))
+		for i, ctx := range sc.Contexts {
+			check := map[string]any{"context": ctx.Context}
+			if ctx.IntegrationID != nil {
+				check["integration_id"] = *ctx.IntegrationID
+			}
+			checks[i] = check
+		}
+		params := map[string]any{"required_status_checks": checks}
+		if sc.StrictRequiredStatusChecksPolicy != nil {
+			params["strict_required_status_checks_policy"] = *sc.StrictRequiredStatusChecksPolicy
+		}
+		rules = append(rules, map[string]any{"type": "required_status_checks", "parameters": params})
+	}
+
+	// Toggle rules
+	toggles := map[string]*bool{
+		"non_fast_forward":        rs.Rules.NonFastForward,
+		"deletion":                rs.Rules.Deletion,
+		"creation":                rs.Rules.Creation,
+		"required_linear_history": rs.Rules.RequiredLinearHistory,
+		"required_signatures":     rs.Rules.RequiredSignatures,
+	}
+	for ruleType, enabled := range toggles {
+		if enabled != nil && *enabled {
+			rules = append(rules, map[string]any{"type": ruleType})
+		}
+	}
+
+	payload["rules"] = rules
 	return payload
 }
 

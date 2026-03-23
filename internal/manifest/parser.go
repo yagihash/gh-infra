@@ -223,6 +223,9 @@ func mergeSpecs(defaults *RepositorySetDefaults, override RepositorySpec) Reposi
 	if len(override.BranchProtection) > 0 {
 		result.BranchProtection = override.BranchProtection
 	}
+	if len(override.Rulesets) > 0 {
+		result.Rulesets = override.Rulesets
+	}
 	if len(override.Secrets) > 0 {
 		result.Secrets = override.Secrets
 	}

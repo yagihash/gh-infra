@@ -8,9 +8,9 @@ gh-infra manages GitHub infrastructure through three resource kinds:
 
 | Kind | Scope | Description |
 |------|-------|-------------|
-| [Repository](/reference/repository/) | 1 repo | Settings, features, branch protection, secrets, variables |
-| [RepositorySet](/reference/repository-set/) | N repos | Shared defaults across multiple repositories |
-| [FileSet](/reference/fileset/) | N repos | Distribute files (CODEOWNERS, LICENSE, workflows, etc.) |
+| [Repository](../repository/) | 1 repo | Settings, features, branch protection, rulesets, secrets, variables |
+| [RepositorySet](../repository-set/) | N repos | Shared defaults across multiple repositories |
+| [FileSet](../fileset/) | N repos | Distribute files (CODEOWNERS, LICENSE, workflows, etc.) |
 
 ## Common Structure
 

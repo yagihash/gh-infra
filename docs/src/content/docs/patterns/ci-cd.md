@@ -4,7 +4,7 @@ sidebar:
   order: 2
 ---
 
-gh-infra is designed to run in CI. The two most common patterns are **auto-apply on merge** and **scheduled drift detection**. Both work with either [central](/patterns/central/) or [self-managed](/patterns/self-managed/) setups.
+gh-infra is designed to run in CI. The two most common patterns are **auto-apply on merge** and **scheduled drift detection**. Both work with either [central](../central/) or [self-managed](../self-managed/) setups.
 
 ## Auto-Apply on Merge
 

@@ -32,9 +32,10 @@ func (f *Fetcher) FetchRepository(owner, name string) (*CurrentState, error) {
 	}
 
 	var (
-		bp      map[string]*CurrentBranchProtection
-		secrets []string
-		vars    map[string]string
+		bp       map[string]*CurrentBranchProtection
+		rulesets map[string]*CurrentRuleset
+		secrets  []string
+		vars     map[string]string
 	)
 
 	g := new(errgroup.Group)
@@ -42,6 +43,12 @@ func (f *Fetcher) FetchRepository(owner, name string) (*CurrentState, error) {
 	g.Go(func() error {
 		var err error
 		bp, err = f.fetchBranchProtection(owner, name)
+		return err
+	})
+
+	g.Go(func() error {
+		var err error
+		rulesets, err = f.fetchRulesets(owner, name)
 		return err
 	})
 
@@ -62,6 +69,7 @@ func (f *Fetcher) FetchRepository(owner, name string) (*CurrentState, error) {
 	}
 
 	repo.BranchProtection = bp
+	repo.Rulesets = rulesets
 	repo.Secrets = secrets
 	repo.Variables = vars
 
@@ -260,6 +268,162 @@ func (f *Fetcher) fetchBranchProtectionRule(owner, name, branch string) (*Curren
 	}
 
 	return bp, nil
+}
+
+func (f *Fetcher) fetchRulesets(owner, name string) (map[string]*CurrentRuleset, error) {
+	out, err := f.runner.Run(
+		"api", fmt.Sprintf("repos/%s/%s/rulesets", owner, name),
+		"--paginate",
+	)
+	if err != nil {
+		// 404 means rulesets not available (e.g., free plan, GHES without rulesets)
+		if errors.Is(err, gh.ErrNotFound) {
+			return make(map[string]*CurrentRuleset), nil
+		}
+		// All other errors (403, 429, 5xx) propagate to prevent false diffs
+		return nil, fmt.Errorf("fetch rulesets for %s/%s: %w", owner, name, err)
+	}
+
+	var rawList []struct {
+		ID         int    `json:"id"`
+		Name       string `json:"name"`
+		SourceType string `json:"source_type"`
+	}
+	if err := json.Unmarshal(out, &rawList); err != nil {
+		return make(map[string]*CurrentRuleset), nil
+	}
+
+	result := make(map[string]*CurrentRuleset)
+	for _, item := range rawList {
+		// Skip org-level rulesets (not manageable at repo level)
+		if item.SourceType == "Organization" || item.SourceType == "Enterprise" {
+			continue
+		}
+		rs, err := f.fetchRuleset(owner, name, item.ID)
+		if err != nil {
+			continue // skip inaccessible individual rulesets
+		}
+		result[rs.Name] = rs
+	}
+	return result, nil
+}
+
+func (f *Fetcher) fetchRuleset(owner, name string, id int) (*CurrentRuleset, error) {
+	out, err := f.runner.Run(
+		"api", fmt.Sprintf("repos/%s/%s/rulesets/%d", owner, name, id),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var raw struct {
+		ID           int    `json:"id"`
+		Name         string `json:"name"`
+		Target       string `json:"target"`
+		Enforcement  string `json:"enforcement"`
+		BypassActors []struct {
+			ActorID    int    `json:"actor_id"`
+			ActorType  string `json:"actor_type"`
+			BypassMode string `json:"bypass_mode"`
+		} `json:"bypass_actors"`
+		Conditions struct {
+			RefName *struct {
+				Include []string `json:"include"`
+				Exclude []string `json:"exclude"`
+			} `json:"ref_name"`
+		} `json:"conditions"`
+		Rules []json.RawMessage `json:"rules"`
+	}
+	if err := json.Unmarshal(out, &raw); err != nil {
+		return nil, fmt.Errorf("parse ruleset %d for %s/%s: %w", id, owner, name, err)
+	}
+
+	rs := &CurrentRuleset{
+		ID:          raw.ID,
+		Name:        raw.Name,
+		Target:      raw.Target,
+		Enforcement: raw.Enforcement,
+	}
+
+	for _, ba := range raw.BypassActors {
+		rs.BypassActors = append(rs.BypassActors, CurrentRulesetBypassActor{
+			ActorID:    ba.ActorID,
+			ActorType:  ba.ActorType,
+			BypassMode: ba.BypassMode,
+		})
+	}
+
+	if raw.Conditions.RefName != nil {
+		rs.Conditions = &CurrentRulesetConditions{
+			RefName: &CurrentRulesetRefCondition{
+				Include: raw.Conditions.RefName.Include,
+				Exclude: raw.Conditions.RefName.Exclude,
+			},
+		}
+	}
+
+	// Parse rules array
+	type ruleEnvelope struct {
+		Type       string          `json:"type"`
+		Parameters json.RawMessage `json:"parameters"`
+	}
+	for _, rawRule := range raw.Rules {
+		var env ruleEnvelope
+		if err := json.Unmarshal(rawRule, &env); err != nil {
+			continue
+		}
+		switch env.Type {
+		case "pull_request":
+			var params struct {
+				RequiredApprovingReviewCount   int  `json:"required_approving_review_count"`
+				DismissStaleReviewsOnPush      bool `json:"dismiss_stale_reviews_on_push"`
+				RequireCodeOwnerReview         bool `json:"require_code_owner_review"`
+				RequireLastPushApproval        bool `json:"require_last_push_approval"`
+				RequiredReviewThreadResolution bool `json:"required_review_thread_resolution"`
+			}
+			if err := json.Unmarshal(env.Parameters, &params); err == nil {
+				rs.Rules.PullRequest = &CurrentRulesetPullRequest{
+					RequiredApprovingReviewCount:   params.RequiredApprovingReviewCount,
+					DismissStaleReviewsOnPush:      params.DismissStaleReviewsOnPush,
+					RequireCodeOwnerReview:         params.RequireCodeOwnerReview,
+					RequireLastPushApproval:        params.RequireLastPushApproval,
+					RequiredReviewThreadResolution: params.RequiredReviewThreadResolution,
+				}
+			}
+		case "required_status_checks":
+			var params struct {
+				StrictRequiredStatusChecksPolicy bool `json:"strict_required_status_checks_policy"`
+				RequiredStatusChecks             []struct {
+					Context       string `json:"context"`
+					IntegrationID int    `json:"integration_id"`
+				} `json:"required_status_checks"`
+			}
+			if err := json.Unmarshal(env.Parameters, &params); err == nil {
+				sc := &CurrentRulesetStatusChecks{
+					StrictRequiredStatusChecksPolicy: params.StrictRequiredStatusChecksPolicy,
+				}
+				for _, c := range params.RequiredStatusChecks {
+					sc.Contexts = append(sc.Contexts, CurrentRulesetStatusCheck{
+						Context:       c.Context,
+						IntegrationID: c.IntegrationID,
+					})
+				}
+				rs.Rules.RequiredStatusChecks = sc
+			}
+		case "non_fast_forward":
+			rs.Rules.NonFastForward = true
+		case "deletion":
+			rs.Rules.Deletion = true
+		case "creation":
+			rs.Rules.Creation = true
+		case "required_linear_history":
+			rs.Rules.RequiredLinearHistory = true
+		case "required_signatures":
+			rs.Rules.RequiredSignatures = true
+		}
+	}
+
+	return rs, nil
 }
 
 func (f *Fetcher) fetchSecrets(owner, name string) ([]string, error) {

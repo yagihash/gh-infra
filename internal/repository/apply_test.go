@@ -503,3 +503,210 @@ func TestDerefBool(t *testing.T) {
 }
 
 func boolPtr(b bool) *bool { return &b }
+
+func TestApplyRuleset_Create(t *testing.T) {
+	mock := &gh.MockRunner{}
+	exec := NewExecutor(mock)
+
+	repo := newTestRepo("myorg", "myrepo")
+	repo.Spec.Rulesets = []manifest.Ruleset{
+		{
+			Name:        "protect-main",
+			Enforcement: manifest.Ptr("active"),
+			Target:      manifest.Ptr("branch"),
+			Conditions: &manifest.RulesetConditions{
+				RefName: &manifest.RulesetRefCondition{
+					Include: []string{"refs/heads/main"},
+				},
+			},
+			Rules: manifest.RulesetRules{
+				NonFastForward: manifest.Ptr(true),
+				Deletion:       manifest.Ptr(true),
+			},
+		},
+	}
+
+	changes := []Change{
+		{
+			Type:     ChangeCreate,
+			Resource: "Ruleset[protect-main]",
+			Name:     "myorg/myrepo",
+			Field:    "ruleset",
+			NewValue: "protect-main",
+		},
+	}
+
+	results := exec.Apply(changes, []*manifest.Repository{repo})
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Err != nil {
+		t.Fatalf("unexpected error: %v", results[0].Err)
+	}
+
+	found := false
+	for _, call := range mock.Called {
+		joined := strings.Join(call, " ")
+		if strings.Contains(joined, "repos/myorg/myrepo/rulesets") &&
+			strings.Contains(joined, "POST") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected POST to rulesets endpoint, got calls: %v", mock.Called)
+	}
+}
+
+func TestApplyRuleset_Update(t *testing.T) {
+	// Mock returns list of rulesets for ID resolution
+	listResp := `[{"id":42,"name":"protect-main","target":"branch"}]`
+	mock := &gh.MockRunner{
+		Responses: map[string][]byte{
+			"api repos/myorg/myrepo/rulesets": []byte(listResp),
+		},
+	}
+	exec := NewExecutor(mock)
+
+	repo := newTestRepo("myorg", "myrepo")
+	repo.Spec.Rulesets = []manifest.Ruleset{
+		{
+			Name:        "protect-main",
+			Enforcement: manifest.Ptr("evaluate"),
+			Target:      manifest.Ptr("branch"),
+			Rules:       manifest.RulesetRules{},
+		},
+	}
+
+	changes := []Change{
+		{
+			Type:     ChangeUpdate,
+			Resource: "Ruleset[protect-main]",
+			Name:     "myorg/myrepo",
+			Field:    "enforcement",
+			OldValue: "active",
+			NewValue: "evaluate",
+		},
+	}
+
+	results := exec.Apply(changes, []*manifest.Repository{repo})
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Err != nil {
+		t.Fatalf("unexpected error: %v", results[0].Err)
+	}
+
+	found := false
+	for _, call := range mock.Called {
+		joined := strings.Join(call, " ")
+		if strings.Contains(joined, "repos/myorg/myrepo/rulesets/42") &&
+			strings.Contains(joined, "PUT") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected PUT to rulesets/42 endpoint, got calls: %v", mock.Called)
+	}
+}
+
+func TestBuildRulesetPayload(t *testing.T) {
+	rs := &manifest.Ruleset{
+		Name:        "protect-main",
+		Target:      manifest.Ptr("branch"),
+		Enforcement: manifest.Ptr("active"),
+		BypassActors: []manifest.RulesetBypassActor{
+			{ActorID: 5, ActorType: "RepositoryRole", BypassMode: "always"},
+		},
+		Conditions: &manifest.RulesetConditions{
+			RefName: &manifest.RulesetRefCondition{
+				Include: []string{"refs/heads/main"},
+			},
+		},
+		Rules: manifest.RulesetRules{
+			PullRequest: &manifest.RulesetPullRequest{
+				RequiredApprovingReviewCount: manifest.Ptr(1),
+				DismissStaleReviewsOnPush:    manifest.Ptr(true),
+			},
+			RequiredStatusChecks: &manifest.RulesetStatusChecks{
+				StrictRequiredStatusChecksPolicy: manifest.Ptr(true),
+				Contexts: []manifest.RulesetStatusCheck{
+					{Context: "ci/test", IntegrationID: manifest.Ptr(123)},
+				},
+			},
+			NonFastForward:     manifest.Ptr(true),
+			Deletion:           manifest.Ptr(true),
+			Creation:           manifest.Ptr(false),
+			RequiredSignatures: manifest.Ptr(true),
+		},
+	}
+
+	payload := buildRulesetPayload(rs)
+
+	if payload["name"] != "protect-main" {
+		t.Errorf("name: got %v, want %q", payload["name"], "protect-main")
+	}
+	if payload["target"] != "branch" {
+		t.Errorf("target: got %v, want %q", payload["target"], "branch")
+	}
+	if payload["enforcement"] != "active" {
+		t.Errorf("enforcement: got %v, want %q", payload["enforcement"], "active")
+	}
+
+	rules, ok := payload["rules"].([]map[string]any)
+	if !ok {
+		t.Fatalf("rules is not []map[string]any, got %T", payload["rules"])
+	}
+
+	// Should have: pull_request, required_status_checks, non_fast_forward, deletion, required_signatures
+	// NOT creation (false)
+	ruleTypes := make(map[string]bool)
+	for _, r := range rules {
+		ruleTypes[r["type"].(string)] = true
+	}
+	for _, expected := range []string{"pull_request", "required_status_checks", "non_fast_forward", "deletion", "required_signatures"} {
+		if !ruleTypes[expected] {
+			t.Errorf("expected rule type %q not found in payload", expected)
+		}
+	}
+	if ruleTypes["creation"] {
+		t.Error("creation rule should not be in payload when set to false")
+	}
+}
+
+func TestResolveRulesetID_Ambiguous(t *testing.T) {
+	listResp := `[{"id":1,"name":"dup","target":"branch"},{"id":2,"name":"dup","target":"branch"}]`
+	mock := &gh.MockRunner{
+		Responses: map[string][]byte{
+			"api repos/o/r/rulesets": []byte(listResp),
+		},
+	}
+	exec := NewExecutor(mock)
+
+	_, err := exec.resolveRulesetID("o", "r", "dup", "branch")
+	if err == nil {
+		t.Fatal("expected error for ambiguous rulesets")
+	}
+	if !strings.Contains(err.Error(), "multiple") {
+		t.Errorf("expected 'multiple' in error, got: %v", err)
+	}
+}
+
+func TestResolveRulesetID_NotFound(t *testing.T) {
+	listResp := `[{"id":1,"name":"other","target":"branch"}]`
+	mock := &gh.MockRunner{
+		Responses: map[string][]byte{
+			"api repos/o/r/rulesets": []byte(listResp),
+		},
+	}
+	exec := NewExecutor(mock)
+
+	_, err := exec.resolveRulesetID("o", "r", "missing", "branch")
+	if err == nil {
+		t.Fatal("expected error for missing ruleset")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected 'not found' in error, got: %v", err)
+	}
+}

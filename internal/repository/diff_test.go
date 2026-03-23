@@ -22,6 +22,7 @@ func baseState() *CurrentState {
 		Owner:            "org",
 		Name:             "repo",
 		BranchProtection: map[string]*CurrentBranchProtection{},
+		Rulesets:         map[string]*CurrentRuleset{},
 		Variables:        map[string]string{},
 	}
 }
@@ -906,5 +907,168 @@ func TestStringSliceEqual(t *testing.T) {
 				t.Errorf("stringSliceEqual(%v, %v) = %v, want %v", tt.a, tt.b, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestDiff_Rulesets_Create(t *testing.T) {
+	desired := baseDesired()
+	desired.Spec.Rulesets = []manifest.Ruleset{
+		{
+			Name:        "protect-main",
+			Enforcement: manifest.Ptr("active"),
+			Rules: manifest.RulesetRules{
+				NonFastForward: manifest.Ptr(true),
+			},
+		},
+	}
+	current := baseState()
+
+	changes := Diff(desired, current)
+	if len(changes) != 1 {
+		t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
+	}
+	if changes[0].Type != ChangeCreate {
+		t.Errorf("expected ChangeCreate, got %v", changes[0].Type)
+	}
+	if changes[0].Resource != "Ruleset[protect-main]" {
+		t.Errorf("resource: got %q, want %q", changes[0].Resource, "Ruleset[protect-main]")
+	}
+}
+
+func TestDiff_Rulesets_Noop(t *testing.T) {
+	desired := baseDesired()
+	desired.Spec.Rulesets = []manifest.Ruleset{
+		{
+			Name:        "protect-main",
+			Enforcement: manifest.Ptr("active"),
+			Target:      manifest.Ptr("branch"),
+			Rules: manifest.RulesetRules{
+				NonFastForward: manifest.Ptr(true),
+				Deletion:       manifest.Ptr(false),
+			},
+		},
+	}
+	current := baseState()
+	current.Rulesets["protect-main"] = &CurrentRuleset{
+		ID:          1,
+		Name:        "protect-main",
+		Enforcement: "active",
+		Target:      "branch",
+		Rules: CurrentRulesetRules{
+			NonFastForward: true,
+			Deletion:       false,
+		},
+	}
+
+	changes := Diff(desired, current)
+	if len(changes) != 0 {
+		t.Errorf("expected no changes, got %d: %v", len(changes), changes)
+	}
+}
+
+func TestDiff_Rulesets_UpdateEnforcement(t *testing.T) {
+	desired := baseDesired()
+	desired.Spec.Rulesets = []manifest.Ruleset{
+		{
+			Name:        "protect-main",
+			Enforcement: manifest.Ptr("evaluate"),
+			Rules:       manifest.RulesetRules{},
+		},
+	}
+	current := baseState()
+	current.Rulesets["protect-main"] = &CurrentRuleset{
+		ID:          1,
+		Name:        "protect-main",
+		Enforcement: "active",
+	}
+
+	changes := Diff(desired, current)
+	found := false
+	for _, c := range changes {
+		if c.Field == "enforcement" {
+			found = true
+			if c.OldValue != "active" || c.NewValue != "evaluate" {
+				t.Errorf("enforcement: old=%v new=%v", c.OldValue, c.NewValue)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected enforcement change, not found")
+	}
+}
+
+func TestDiff_Rulesets_UpdateToggleRules(t *testing.T) {
+	desired := baseDesired()
+	desired.Spec.Rulesets = []manifest.Ruleset{
+		{
+			Name: "protect-main",
+			Rules: manifest.RulesetRules{
+				NonFastForward:        manifest.Ptr(true),
+				Deletion:              manifest.Ptr(true),
+				RequiredLinearHistory: manifest.Ptr(true),
+			},
+		},
+	}
+	current := baseState()
+	current.Rulesets["protect-main"] = &CurrentRuleset{
+		ID:   1,
+		Name: "protect-main",
+		Rules: CurrentRulesetRules{
+			NonFastForward: false,
+			Deletion:       false,
+		},
+	}
+
+	changes := Diff(desired, current)
+	fields := make(map[string]bool)
+	for _, c := range changes {
+		fields[c.Field] = true
+	}
+	if !fields["rules.non_fast_forward"] {
+		t.Error("expected rules.non_fast_forward change")
+	}
+	if !fields["rules.deletion"] {
+		t.Error("expected rules.deletion change")
+	}
+	if !fields["rules.required_linear_history"] {
+		t.Error("expected rules.required_linear_history change")
+	}
+}
+
+func TestDiff_Rulesets_UpdatePullRequest(t *testing.T) {
+	desired := baseDesired()
+	desired.Spec.Rulesets = []manifest.Ruleset{
+		{
+			Name: "protect-main",
+			Rules: manifest.RulesetRules{
+				PullRequest: &manifest.RulesetPullRequest{
+					RequiredApprovingReviewCount: manifest.Ptr(2),
+					DismissStaleReviewsOnPush:    manifest.Ptr(true),
+				},
+			},
+		},
+	}
+	current := baseState()
+	current.Rulesets["protect-main"] = &CurrentRuleset{
+		ID:   1,
+		Name: "protect-main",
+		Rules: CurrentRulesetRules{
+			PullRequest: &CurrentRulesetPullRequest{
+				RequiredApprovingReviewCount: 1,
+				DismissStaleReviewsOnPush:    false,
+			},
+		},
+	}
+
+	changes := Diff(desired, current)
+	fields := make(map[string]bool)
+	for _, c := range changes {
+		fields[c.Field] = true
+	}
+	if !fields["rules.pull_request.required_approving_review_count"] {
+		t.Error("expected review count change")
+	}
+	if !fields["rules.pull_request.dismiss_stale_reviews_on_push"] {
+		t.Error("expected dismiss stale reviews change")
 	}
 }

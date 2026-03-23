@@ -50,6 +50,43 @@ func (r *Repository) Validate() error {
 			return fmt.Errorf("%s: branch_protection.pattern is required", r.Metadata.Name)
 		}
 	}
+	rulesetNames := make(map[string]bool)
+	for _, rs := range r.Spec.Rulesets {
+		if rs.Name == "" {
+			return fmt.Errorf("%s: rulesets[].name is required", r.Metadata.Name)
+		}
+		if rulesetNames[rs.Name] {
+			return fmt.Errorf("%s: duplicate ruleset name %q", r.Metadata.Name, rs.Name)
+		}
+		rulesetNames[rs.Name] = true
+		if rs.Enforcement != nil {
+			if err := validateOneOf("rulesets.enforcement", *rs.Enforcement,
+				RulesetEnforcementActive, RulesetEnforcementEvaluate, RulesetEnforcementDisabled); err != nil {
+				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
+			}
+		}
+		if rs.Target != nil {
+			if err := validateOneOf("rulesets.target", *rs.Target,
+				RulesetTargetBranch, RulesetTargetTag); err != nil {
+				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
+			}
+		}
+		for _, ba := range rs.BypassActors {
+			if err := validateOneOf("rulesets.bypass_actors.actor_type", ba.ActorType,
+				"RepositoryRole", "Team", "Integration", "OrganizationAdmin"); err != nil {
+				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
+			}
+			if err := validateOneOf("rulesets.bypass_actors.bypass_mode", ba.BypassMode,
+				"always", "pull_request"); err != nil {
+				return fmt.Errorf("%s: %w", r.Metadata.Name, err)
+			}
+		}
+		if rs.Conditions != nil && rs.Conditions.RefName != nil {
+			if len(rs.Conditions.RefName.Include) == 0 {
+				return fmt.Errorf("%s: rulesets[%s].conditions.ref_name.include must not be empty", r.Metadata.Name, rs.Name)
+			}
+		}
+	}
 	for _, s := range r.Spec.Secrets {
 		if s.Name == "" {
 			return fmt.Errorf("%s: secrets[].name is required", r.Metadata.Name)

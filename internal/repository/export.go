@@ -60,6 +60,59 @@ func ToManifest(r *CurrentState) *manifest.Repository {
 		repo.Spec.BranchProtection = append(repo.Spec.BranchProtection, mbp)
 	}
 
+	for _, rs := range r.Rulesets {
+		mrs := manifest.Ruleset{
+			Name:        rs.Name,
+			Target:      manifest.Ptr(rs.Target),
+			Enforcement: manifest.Ptr(rs.Enforcement),
+			Rules: manifest.RulesetRules{
+				NonFastForward:        manifest.Ptr(rs.Rules.NonFastForward),
+				Deletion:              manifest.Ptr(rs.Rules.Deletion),
+				Creation:              manifest.Ptr(rs.Rules.Creation),
+				RequiredLinearHistory: manifest.Ptr(rs.Rules.RequiredLinearHistory),
+				RequiredSignatures:    manifest.Ptr(rs.Rules.RequiredSignatures),
+			},
+		}
+		for _, ba := range rs.BypassActors {
+			mrs.BypassActors = append(mrs.BypassActors, manifest.RulesetBypassActor{
+				ActorID:    ba.ActorID,
+				ActorType:  ba.ActorType,
+				BypassMode: ba.BypassMode,
+			})
+		}
+		if rs.Conditions != nil && rs.Conditions.RefName != nil {
+			mrs.Conditions = &manifest.RulesetConditions{
+				RefName: &manifest.RulesetRefCondition{
+					Include: rs.Conditions.RefName.Include,
+					Exclude: rs.Conditions.RefName.Exclude,
+				},
+			}
+		}
+		if rs.Rules.PullRequest != nil {
+			mrs.Rules.PullRequest = &manifest.RulesetPullRequest{
+				RequiredApprovingReviewCount:   manifest.Ptr(rs.Rules.PullRequest.RequiredApprovingReviewCount),
+				DismissStaleReviewsOnPush:      manifest.Ptr(rs.Rules.PullRequest.DismissStaleReviewsOnPush),
+				RequireCodeOwnerReview:         manifest.Ptr(rs.Rules.PullRequest.RequireCodeOwnerReview),
+				RequireLastPushApproval:        manifest.Ptr(rs.Rules.PullRequest.RequireLastPushApproval),
+				RequiredReviewThreadResolution: manifest.Ptr(rs.Rules.PullRequest.RequiredReviewThreadResolution),
+			}
+		}
+		if rs.Rules.RequiredStatusChecks != nil {
+			sc := &manifest.RulesetStatusChecks{
+				StrictRequiredStatusChecksPolicy: manifest.Ptr(rs.Rules.RequiredStatusChecks.StrictRequiredStatusChecksPolicy),
+			}
+			for _, c := range rs.Rules.RequiredStatusChecks.Contexts {
+				check := manifest.RulesetStatusCheck{Context: c.Context}
+				if c.IntegrationID != 0 {
+					check.IntegrationID = manifest.Ptr(c.IntegrationID)
+				}
+				sc.Contexts = append(sc.Contexts, check)
+			}
+			mrs.Rules.RequiredStatusChecks = sc
+		}
+		repo.Spec.Rulesets = append(repo.Spec.Rulesets, mrs)
+	}
+
 	for name, value := range r.Variables {
 		repo.Spec.Variables = append(repo.Spec.Variables, manifest.Variable{
 			Name:  name,

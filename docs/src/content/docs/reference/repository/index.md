@@ -5,7 +5,7 @@ sidebar:
   order: 0
 ---
 
-`Repository` manages a **single** GitHub repository — its description, visibility, topics, features, merge strategy, branch protection rules, secrets, and variables.
+`Repository` manages a **single** GitHub repository — its description, visibility, topics, features, merge strategy, branch protection rules, rulesets, secrets, and variables.
 
 ## When to Use
 
@@ -17,7 +17,7 @@ It works best when:
 - **You want per-repo change tracking** — each file maps to one repo, so `git blame` tells you exactly who changed what and when.
 - **You're managing a small number of repos** — for 1–5 repos, separate files are easy to maintain.
 
-If you find yourself copying the same settings across many files, consider [RepositorySet](/reference/repository-set/) instead.
+If you find yourself copying the same settings across many files, consider [RepositorySet](../../repository-set/) instead.
 
 ## Example
 
@@ -48,6 +48,17 @@ spec:
       require_status_checks:
         strict: true
         contexts: ["ci / test"]
+
+  rulesets:
+    - name: protect-main
+      enforcement: active
+      conditions:
+        ref_name:
+          include: ["refs/heads/main"]
+      rules:
+        pull_request:
+          required_approving_review_count: 1
+        non_fast_forward: true
 
   secrets:
     - name: DEPLOY_TOKEN

@@ -316,6 +316,125 @@ func TestValidateFileSet(t *testing.T) {
 	}
 }
 
+func TestValidateRulesets(t *testing.T) {
+	base := func() *Repository {
+		return &Repository{
+			Metadata: RepositoryMetadata{Name: "test", Owner: "org"},
+		}
+	}
+
+	tests := []struct {
+		name    string
+		setup   func(r *Repository)
+		wantErr string
+	}{
+		{
+			name: "valid ruleset",
+			setup: func(r *Repository) {
+				r.Spec.Rulesets = []Ruleset{
+					{
+						Name:        "protect-main",
+						Enforcement: Ptr("active"),
+						Target:      Ptr("branch"),
+						Rules:       RulesetRules{NonFastForward: Ptr(true)},
+					},
+				}
+			},
+		},
+		{
+			name: "empty name",
+			setup: func(r *Repository) {
+				r.Spec.Rulesets = []Ruleset{{Name: ""}}
+			},
+			wantErr: "rulesets[].name is required",
+		},
+		{
+			name: "duplicate name",
+			setup: func(r *Repository) {
+				r.Spec.Rulesets = []Ruleset{
+					{Name: "dup", Rules: RulesetRules{}},
+					{Name: "dup", Rules: RulesetRules{}},
+				}
+			},
+			wantErr: "duplicate ruleset name",
+		},
+		{
+			name: "invalid enforcement",
+			setup: func(r *Repository) {
+				r.Spec.Rulesets = []Ruleset{
+					{Name: "rs", Enforcement: Ptr("invalid")},
+				}
+			},
+			wantErr: "must be one of",
+		},
+		{
+			name: "invalid target",
+			setup: func(r *Repository) {
+				r.Spec.Rulesets = []Ruleset{
+					{Name: "rs", Target: Ptr("push")},
+				}
+			},
+			wantErr: "must be one of",
+		},
+		{
+			name: "invalid actor_type",
+			setup: func(r *Repository) {
+				r.Spec.Rulesets = []Ruleset{
+					{Name: "rs", BypassActors: []RulesetBypassActor{
+						{ActorType: "Invalid", BypassMode: "always"},
+					}},
+				}
+			},
+			wantErr: "actor_type",
+		},
+		{
+			name: "invalid bypass_mode",
+			setup: func(r *Repository) {
+				r.Spec.Rulesets = []Ruleset{
+					{Name: "rs", BypassActors: []RulesetBypassActor{
+						{ActorType: "Team", BypassMode: "invalid"},
+					}},
+				}
+			},
+			wantErr: "bypass_mode",
+		},
+		{
+			name: "empty ref_name include",
+			setup: func(r *Repository) {
+				r.Spec.Rulesets = []Ruleset{
+					{
+						Name: "rs",
+						Conditions: &RulesetConditions{
+							RefName: &RulesetRefCondition{Include: []string{}},
+						},
+					},
+				}
+			},
+			wantErr: "include must not be empty",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := base()
+			tt.setup(r)
+			err := r.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestValidateOneOf(t *testing.T) {
 	if err := validateOneOf("field", "a", "a", "b", "c"); err != nil {
 		t.Errorf("expected no error, got: %v", err)

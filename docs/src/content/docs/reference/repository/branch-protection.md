@@ -1,8 +1,14 @@
 ---
-title: Branch Protection
+title: Branch Protection (Classic)
 ---
 
-Configure branch protection rules:
+:::caution
+This configures **classic** branch protection rules via the [Branch Protection API](https://docs.github.com/en/rest/branches/branch-protection). GitHub now recommends [Repository Rulesets](../rulesets/) as the successor, which offer richer controls such as enforcement modes (dry-run), granular bypass actors, tag protection, and audit history.
+
+Classic branch protection still works and is fully supported by gh-infra, but for new setups consider using [`rulesets`](../rulesets/) instead.
+:::
+
+## Example
 
 ```yaml
 spec:
@@ -27,6 +33,8 @@ spec:
 
 Multiple patterns can be defined. Each entry creates a separate branch protection rule.
 
+## Fields
+
 | Field | Type | Description |
 |-------|------|-------------|
 | `pattern` | string | Branch name or pattern (e.g., `main`, `release/*`) |
@@ -38,3 +46,15 @@ Multiple patterns can be defined. Each entry creates a separate branch protectio
 | `enforce_admins` | bool | Apply rules to admins too |
 | `allow_force_pushes` | bool | Allow force pushes to matching branches |
 | `allow_deletions` | bool | Allow deleting matching branches |
+
+## When to Use Classic vs Rulesets
+
+Use **classic `branch_protection`** when:
+- Your GitHub plan or GHES version does not support rulesets
+- You have existing classic rules and don't need to migrate yet
+
+Use **[`rulesets`](../rulesets/)** when:
+- You want `evaluate` mode to dry-run rules before enforcing
+- You need bypass controls per role, team, or GitHub App
+- You want to protect tags (not just branches)
+- You want stacking (multiple rulesets applied to the same branch)

@@ -10,7 +10,7 @@ import { FileTree } from '@astrojs/starlight/components';
 
 Each repository manages **its own** settings by keeping a gh-infra YAML file alongside the code. Changes are applied automatically when merged via a GitHub Actions workflow.
 
-This is the opposite of the [central management](/patterns/central/) pattern — there's no dedicated config repo. Each team owns their repo's infrastructure.
+This is the opposite of the [central management](../central/) pattern — there's no dedicated config repo. Each team owns their repo's infrastructure.
 
 ## Directory Structure
 
@@ -53,5 +53,5 @@ jobs:
 
 ## When Not to Use
 
-- You need to enforce consistent settings across many repos — use [central management](/patterns/central/) with `RepositorySet` instead
+- You need to enforce consistent settings across many repos — use [central management](../central/) with `RepositorySet` instead
 - You want a single audit trail of all infrastructure changes across the org

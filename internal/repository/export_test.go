@@ -197,6 +197,95 @@ func TestToManifest_NilStatusChecks(t *testing.T) {
 	}
 }
 
+func TestToManifest_Rulesets(t *testing.T) {
+	state := &CurrentState{
+		Owner: "myorg",
+		Name:  "myrepo",
+		Rulesets: map[string]*CurrentRuleset{
+			"protect-main": {
+				ID:          42,
+				Name:        "protect-main",
+				Target:      "branch",
+				Enforcement: "active",
+				BypassActors: []CurrentRulesetBypassActor{
+					{ActorID: 5, ActorType: "RepositoryRole", BypassMode: "always"},
+				},
+				Conditions: &CurrentRulesetConditions{
+					RefName: &CurrentRulesetRefCondition{
+						Include: []string{"refs/heads/main"},
+						Exclude: []string{},
+					},
+				},
+				Rules: CurrentRulesetRules{
+					NonFastForward: true,
+					Deletion:       false,
+					PullRequest: &CurrentRulesetPullRequest{
+						RequiredApprovingReviewCount: 1,
+						DismissStaleReviewsOnPush:    true,
+					},
+					RequiredStatusChecks: &CurrentRulesetStatusChecks{
+						StrictRequiredStatusChecksPolicy: true,
+						Contexts: []CurrentRulesetStatusCheck{
+							{Context: "ci/test", IntegrationID: 123},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	repo := ToManifest(state)
+
+	if len(repo.Spec.Rulesets) != 1 {
+		t.Fatalf("expected 1 ruleset, got %d", len(repo.Spec.Rulesets))
+	}
+
+	rs := repo.Spec.Rulesets[0]
+	if rs.Name != "protect-main" {
+		t.Errorf("name: got %q, want %q", rs.Name, "protect-main")
+	}
+	assertStringPtr(t, "target", rs.Target, "branch")
+	assertStringPtr(t, "enforcement", rs.Enforcement, "active")
+	assertBoolPtr(t, "non_fast_forward", rs.Rules.NonFastForward, true)
+	assertBoolPtr(t, "deletion", rs.Rules.Deletion, false)
+
+	if rs.Rules.PullRequest == nil {
+		t.Fatal("expected pull_request rule")
+	}
+	if *rs.Rules.PullRequest.RequiredApprovingReviewCount != 1 {
+		t.Errorf("review count: got %d, want 1", *rs.Rules.PullRequest.RequiredApprovingReviewCount)
+	}
+	assertBoolPtr(t, "dismiss_stale_reviews", rs.Rules.PullRequest.DismissStaleReviewsOnPush, true)
+
+	if rs.Rules.RequiredStatusChecks == nil {
+		t.Fatal("expected required_status_checks rule")
+	}
+	assertBoolPtr(t, "strict", rs.Rules.RequiredStatusChecks.StrictRequiredStatusChecksPolicy, true)
+	if len(rs.Rules.RequiredStatusChecks.Contexts) != 1 {
+		t.Fatalf("expected 1 status check context, got %d", len(rs.Rules.RequiredStatusChecks.Contexts))
+	}
+	if rs.Rules.RequiredStatusChecks.Contexts[0].Context != "ci/test" {
+		t.Errorf("context: got %q, want %q", rs.Rules.RequiredStatusChecks.Contexts[0].Context, "ci/test")
+	}
+	if rs.Rules.RequiredStatusChecks.Contexts[0].IntegrationID == nil || *rs.Rules.RequiredStatusChecks.Contexts[0].IntegrationID != 123 {
+		t.Errorf("integration_id: expected 123")
+	}
+
+	if len(rs.BypassActors) != 1 {
+		t.Fatalf("expected 1 bypass actor, got %d", len(rs.BypassActors))
+	}
+	if rs.BypassActors[0].ActorID != 5 || rs.BypassActors[0].ActorType != "RepositoryRole" {
+		t.Errorf("bypass actor: got %+v", rs.BypassActors[0])
+	}
+
+	if rs.Conditions == nil || rs.Conditions.RefName == nil {
+		t.Fatal("expected conditions with ref_name")
+	}
+	if len(rs.Conditions.RefName.Include) != 1 || rs.Conditions.RefName.Include[0] != "refs/heads/main" {
+		t.Errorf("conditions include: got %v", rs.Conditions.RefName.Include)
+	}
+}
+
 // helpers
 
 func assertBoolPtr(t *testing.T, name string, got *bool, want bool) {
