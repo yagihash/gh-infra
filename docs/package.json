@@ -12,6 +12,8 @@
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@fontsource/noto-sans": "^5.2.10",
     "astro": "^5.9.0",
+    "astro-mermaid": "^2.0.1",
+    "mermaid": "^11.13.0",
     "sharp": "^0.33.0"
   }
 }
