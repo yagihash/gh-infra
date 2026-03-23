@@ -19,12 +19,12 @@ export default defineConfig({
       sidebar: [
         { label: 'Introduction', autogenerate: { directory: 'introduction' } },
         {
-          label: 'YAML DSL Reference',
+          label: 'Resources',
           items: [
-            'reference/overview',
-            { label: 'Repository', autogenerate: { directory: 'reference/repository' } },
-            { label: 'RepositorySet', autogenerate: { directory: 'reference/repository-set' } },
-            { label: 'FileSet', autogenerate: { directory: 'reference/fileset' } },
+            'resources/overview',
+            { label: 'Repository', autogenerate: { directory: 'resources/repository' } },
+            { label: 'RepositorySet', autogenerate: { directory: 'resources/repository-set' } },
+            { label: 'FileSet', autogenerate: { directory: 'resources/fileset' } },
           ],
         },
         { label: 'Commands', autogenerate: { directory: 'commands' } },

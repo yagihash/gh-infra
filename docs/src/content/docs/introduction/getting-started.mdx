@@ -4,7 +4,7 @@ sidebar:
   order: 1
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
 ## Prerequisites
 
@@ -42,66 +42,70 @@ gh infra --help
 
 ## Quick Start
 
-### 1. Import an existing repository
+<Steps>
 
-Start by exporting a repository's current settings to YAML:
+1. **Import an existing repository**
 
-```bash
-gh infra import babarot/my-project > repos/my-project.yaml
-```
+   Start by exporting a repository's current settings to YAML:
 
-This generates a complete YAML manifest reflecting the repository's current state on GitHub.
+   ```bash
+   gh infra import babarot/my-project > repos/my-project.yaml
+   ```
 
-### 2. Edit the YAML
+   This generates a complete YAML manifest reflecting the repository's current state on GitHub.
 
-Open the file and change what you want. For example, enable discussions, disable wiki, and add topics:
+2. **Edit the YAML**
 
-```yaml
-apiVersion: gh-infra/v1
-kind: Repository
-metadata:
-  name: my-project
-  owner: babarot
+   Open the file and change what you want. For example, enable discussions, disable wiki, and add topics:
 
-spec:
-  description: "My awesome project"
-  visibility: public
-  topics:
-    - go
-    - cli
-  features:
-    issues: true
-    projects: false
-    wiki: false
-    discussions: true
-```
+   ```yaml
+   apiVersion: gh-infra/v1
+   kind: Repository
+   metadata:
+     name: my-project
+     owner: babarot
 
-### 3. Preview changes
+   spec:
+     description: "My awesome project"
+     visibility: public
+     topics:
+       - go
+       - cli
+     features:
+       issues: true
+       projects: false
+       wiki: false
+       discussions: true
+   ```
 
-Run `plan` to see what would change without making any modifications:
+3. **Preview changes**
 
-```bash
-gh infra plan ./repos/
-```
+   Run `plan` to see what would change without making any modifications:
 
-```
-Plan: 0 to create, 1 to update, 0 to destroy
+   ```bash
+   gh infra plan ./repos/
+   ```
 
-  ~ babarot/my-project
-      ~ features.wiki: true => false
-      ~ features.discussions: false => true
-      + topics: [go, cli]
-```
+   ```
+   Plan: 0 to create, 1 to update, 0 to destroy
 
-### 4. Apply
+     ~ babarot/my-project
+         ~ features.wiki: true => false
+         ~ features.discussions: false => true
+         + topics: [go, cli]
+   ```
 
-When you're happy with the plan, apply:
+4. **Apply**
 
-```bash
-gh infra apply ./repos/
-```
+   When you're happy with the plan, apply:
 
-gh-infra will show the plan again and ask for confirmation before making changes.
+   ```bash
+   gh infra apply ./repos/
+   ```
+
+   gh-infra will show the plan again and ask for confirmation before making changes.
+
+</Steps>
 
 ## What's Next?
 
@@ -109,8 +113,8 @@ gh-infra supports three resource kinds:
 
 | Kind | What it does |
 |------|-------------|
-| [**Repository**](../reference/repository/) | Manage a single repo's settings |
-| [**RepositorySet**](../reference/repository-set/) | Manage many repos with shared defaults |
-| [**FileSet**](../reference/fileset/) | Distribute files (LICENSE, CODEOWNERS, workflows) across repos |
+| [**Repository**](../resources/repository/) | Manage a single repo's settings |
+| [**RepositorySet**](../resources/repository-set/) | Manage many repos with shared defaults |
+| [**FileSet**](../resources/fileset/) | Distribute files (LICENSE, CODEOWNERS, workflows) across repos |
 
-See the [YAML DSL Reference](../reference/overview/) for the full specification, or check out the [Guides](../patterns/central/) for different usage patterns.
+See the [Resources](../resources/overview/) for the full specification, or check out the [Guides](../patterns/central/) for different usage patterns.
