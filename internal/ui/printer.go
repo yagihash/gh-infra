@@ -227,16 +227,18 @@ func ApplyCancelled() {
 	fmt.Fprintln(DefaultPrinter.out, "Apply cancelled.")
 }
 
-// Confirm shows an interactive yes/no prompt with the given message.
+// Confirm shows a yes/no prompt with the given message.
 func Confirm(title string) (bool, error) {
 	var confirm bool
-	err := huh.NewConfirm().
+	field := huh.NewConfirm().
 		Title(title).
 		Affirmative("Yes").
 		Negative("No").
-		Value(&confirm).
-		Run()
-	if err != nil {
+		Value(&confirm)
+	form := huh.NewForm(huh.NewGroup(field)).
+		WithShowHelp(false).
+		WithAccessible(true)
+	if err := form.Run(); err != nil {
 		return false, err
 	}
 	return confirm, nil
