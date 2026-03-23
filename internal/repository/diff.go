@@ -114,15 +114,13 @@ func diffFeatures(name string, desired *manifest.Repository, current *CurrentSta
 		return nil
 	}
 
-	var changes []Change
+	var fieldChanges []Change
 	f := desired.Spec.Features
 
 	boolDiff := func(field string, desiredVal *bool, currentVal bool) {
 		if desiredVal != nil && *desiredVal != currentVal {
-			changes = append(changes, Change{
+			fieldChanges = append(fieldChanges, Change{
 				Type:     ChangeUpdate,
-				Resource: manifest.ResourceRepository,
-				Name:     name,
 				Field:    field,
 				OldValue: currentVal,
 				NewValue: *desiredVal,
@@ -135,7 +133,17 @@ func diffFeatures(name string, desired *manifest.Repository, current *CurrentSta
 	boolDiff("wiki", f.Wiki, current.Features.Wiki)
 	boolDiff("discussions", f.Discussions, current.Features.Discussions)
 
-	return changes
+	if len(fieldChanges) == 0 {
+		return nil
+	}
+
+	return []Change{{
+		Type:     ChangeUpdate,
+		Resource: manifest.ResourceRepository,
+		Name:     name,
+		Field:    "features",
+		Children: fieldChanges,
+	}}
 }
 
 func diffMergeStrategy(name string, desired *manifest.Repository, current *CurrentState) []Change {
@@ -143,15 +151,13 @@ func diffMergeStrategy(name string, desired *manifest.Repository, current *Curre
 		return nil
 	}
 
-	var changes []Change
+	var fieldChanges []Change
 	ms := desired.Spec.MergeStrategy
 
 	boolDiff := func(field string, desiredVal *bool, currentVal bool) {
 		if desiredVal != nil && *desiredVal != currentVal {
-			changes = append(changes, Change{
+			fieldChanges = append(fieldChanges, Change{
 				Type:     ChangeUpdate,
-				Resource: manifest.ResourceRepository,
-				Name:     name,
 				Field:    field,
 				OldValue: currentVal,
 				NewValue: *desiredVal,
@@ -166,10 +172,8 @@ func diffMergeStrategy(name string, desired *manifest.Repository, current *Curre
 
 	stringDiff := func(field string, desiredVal *string, currentVal string) {
 		if desiredVal != nil && *desiredVal != currentVal {
-			changes = append(changes, Change{
+			fieldChanges = append(fieldChanges, Change{
 				Type:     ChangeUpdate,
-				Resource: manifest.ResourceRepository,
-				Name:     name,
 				Field:    field,
 				OldValue: currentVal,
 				NewValue: *desiredVal,
@@ -182,7 +186,17 @@ func diffMergeStrategy(name string, desired *manifest.Repository, current *Curre
 	stringDiff("squash_merge_commit_title", ms.SquashMergeCommitTitle, current.MergeStrategy.SquashMergeCommitTitle)
 	stringDiff("squash_merge_commit_message", ms.SquashMergeCommitMessage, current.MergeStrategy.SquashMergeCommitMessage)
 
-	return changes
+	if len(fieldChanges) == 0 {
+		return nil
+	}
+
+	return []Change{{
+		Type:     ChangeUpdate,
+		Resource: manifest.ResourceRepository,
+		Name:     name,
+		Field:    "merge_strategy",
+		Children: fieldChanges,
+	}}
 }
 
 func diffBranchProtection(name string, desired *manifest.Repository, current *CurrentState) []Change {
@@ -193,113 +207,141 @@ func diffBranchProtection(name string, desired *manifest.Repository, current *Cu
 		resource := fmt.Sprintf("%s[%s]", manifest.ResourceBranchProtection, dbp.Pattern)
 
 		if !exists {
-			changes = append(changes, Change{
+			parent := Change{
 				Type:     ChangeCreate,
 				Resource: resource,
 				Name:     name,
 				Field:    "branch_protection",
 				NewValue: dbp.Pattern,
-			})
+				Children: []Change{
+					{Type: ChangeCreate, Field: "pattern", NewValue: dbp.Pattern},
+				},
+			}
+			if dbp.RequiredReviews != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "required_reviews", NewValue: *dbp.RequiredReviews,
+				})
+			}
+			if dbp.DismissStaleReviews != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "dismiss_stale_reviews", NewValue: *dbp.DismissStaleReviews,
+				})
+			}
+			if dbp.RequireCodeOwnerReviews != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "require_code_owner_reviews", NewValue: *dbp.RequireCodeOwnerReviews,
+				})
+			}
+			if dbp.EnforceAdmins != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "enforce_admins", NewValue: *dbp.EnforceAdmins,
+				})
+			}
+			if dbp.AllowForcePushes != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "allow_force_pushes", NewValue: *dbp.AllowForcePushes,
+				})
+			}
+			if dbp.AllowDeletions != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "allow_deletions", NewValue: *dbp.AllowDeletions,
+				})
+			}
+			if dbp.RequireStatusChecks != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "require_status_checks.strict", NewValue: dbp.RequireStatusChecks.Strict,
+				})
+				if len(dbp.RequireStatusChecks.Contexts) > 0 {
+					parent.Children = append(parent.Children, Change{
+						Type: ChangeCreate, Field: "require_status_checks.contexts", NewValue: dbp.RequireStatusChecks.Contexts,
+					})
+				}
+			}
+			changes = append(changes, parent)
 			continue
 		}
 
+		var fieldChanges []Change
+
 		if dbp.RequiredReviews != nil && *dbp.RequiredReviews != cbp.RequiredReviews {
-			changes = append(changes, Change{
-				Type:     ChangeUpdate,
-				Resource: resource,
-				Name:     name,
-				Field:    "required_reviews",
-				OldValue: cbp.RequiredReviews,
-				NewValue: *dbp.RequiredReviews,
+			fieldChanges = append(fieldChanges, Change{
+				Type: ChangeUpdate, Field: "required_reviews",
+				OldValue: cbp.RequiredReviews, NewValue: *dbp.RequiredReviews,
 			})
 		}
 
 		if dbp.DismissStaleReviews != nil && *dbp.DismissStaleReviews != cbp.DismissStaleReviews {
-			changes = append(changes, Change{
-				Type:     ChangeUpdate,
-				Resource: resource,
-				Name:     name,
-				Field:    "dismiss_stale_reviews",
-				OldValue: cbp.DismissStaleReviews,
-				NewValue: *dbp.DismissStaleReviews,
+			fieldChanges = append(fieldChanges, Change{
+				Type: ChangeUpdate, Field: "dismiss_stale_reviews",
+				OldValue: cbp.DismissStaleReviews, NewValue: *dbp.DismissStaleReviews,
 			})
 		}
 
 		if dbp.RequireCodeOwnerReviews != nil && *dbp.RequireCodeOwnerReviews != cbp.RequireCodeOwnerReviews {
-			changes = append(changes, Change{
-				Type:     ChangeUpdate,
-				Resource: resource,
-				Name:     name,
-				Field:    "require_code_owner_reviews",
-				OldValue: cbp.RequireCodeOwnerReviews,
-				NewValue: *dbp.RequireCodeOwnerReviews,
+			fieldChanges = append(fieldChanges, Change{
+				Type: ChangeUpdate, Field: "require_code_owner_reviews",
+				OldValue: cbp.RequireCodeOwnerReviews, NewValue: *dbp.RequireCodeOwnerReviews,
 			})
 		}
 
 		if dbp.EnforceAdmins != nil && *dbp.EnforceAdmins != cbp.EnforceAdmins {
-			changes = append(changes, Change{
-				Type:     ChangeUpdate,
-				Resource: resource,
-				Name:     name,
-				Field:    "enforce_admins",
-				OldValue: cbp.EnforceAdmins,
-				NewValue: *dbp.EnforceAdmins,
+			fieldChanges = append(fieldChanges, Change{
+				Type: ChangeUpdate, Field: "enforce_admins",
+				OldValue: cbp.EnforceAdmins, NewValue: *dbp.EnforceAdmins,
 			})
 		}
 
 		if dbp.AllowForcePushes != nil && *dbp.AllowForcePushes != cbp.AllowForcePushes {
-			changes = append(changes, Change{
-				Type:     ChangeUpdate,
-				Resource: resource,
-				Name:     name,
-				Field:    "allow_force_pushes",
-				OldValue: cbp.AllowForcePushes,
-				NewValue: *dbp.AllowForcePushes,
+			fieldChanges = append(fieldChanges, Change{
+				Type: ChangeUpdate, Field: "allow_force_pushes",
+				OldValue: cbp.AllowForcePushes, NewValue: *dbp.AllowForcePushes,
 			})
 		}
 
 		if dbp.AllowDeletions != nil && *dbp.AllowDeletions != cbp.AllowDeletions {
-			changes = append(changes, Change{
-				Type:     ChangeUpdate,
-				Resource: resource,
-				Name:     name,
-				Field:    "allow_deletions",
-				OldValue: cbp.AllowDeletions,
-				NewValue: *dbp.AllowDeletions,
+			fieldChanges = append(fieldChanges, Change{
+				Type: ChangeUpdate, Field: "allow_deletions",
+				OldValue: cbp.AllowDeletions, NewValue: *dbp.AllowDeletions,
 			})
 		}
 
 		if dbp.RequireStatusChecks != nil {
 			if cbp.RequireStatusChecks == nil {
-				changes = append(changes, Change{
-					Type:     ChangeCreate,
-					Resource: resource,
-					Name:     name,
-					Field:    "require_status_checks",
-					NewValue: dbp.RequireStatusChecks,
+				fieldChanges = append(fieldChanges, Change{
+					Type: ChangeCreate, Field: "require_status_checks.strict",
+					NewValue: dbp.RequireStatusChecks.Strict,
 				})
-			} else {
-				if dbp.RequireStatusChecks.Strict != cbp.RequireStatusChecks.Strict {
-					changes = append(changes, Change{
-						Type:     ChangeUpdate,
-						Resource: resource,
-						Name:     name,
-						Field:    "require_status_checks.strict",
-						OldValue: cbp.RequireStatusChecks.Strict,
-						NewValue: dbp.RequireStatusChecks.Strict,
-					})
-				}
-				if !stringSliceEqual(dbp.RequireStatusChecks.Contexts, cbp.RequireStatusChecks.Contexts) {
-					changes = append(changes, Change{
-						Type:     ChangeUpdate,
-						Resource: resource,
-						Name:     name,
-						Field:    "require_status_checks.contexts",
-						OldValue: cbp.RequireStatusChecks.Contexts,
+				if len(dbp.RequireStatusChecks.Contexts) > 0 {
+					fieldChanges = append(fieldChanges, Change{
+						Type: ChangeCreate, Field: "require_status_checks.contexts",
 						NewValue: dbp.RequireStatusChecks.Contexts,
 					})
 				}
+			} else {
+				if dbp.RequireStatusChecks.Strict != cbp.RequireStatusChecks.Strict {
+					fieldChanges = append(fieldChanges, Change{
+						Type: ChangeUpdate, Field: "require_status_checks.strict",
+						OldValue: cbp.RequireStatusChecks.Strict, NewValue: dbp.RequireStatusChecks.Strict,
+					})
+				}
+				if !stringSliceEqual(dbp.RequireStatusChecks.Contexts, cbp.RequireStatusChecks.Contexts) {
+					fieldChanges = append(fieldChanges, Change{
+						Type: ChangeUpdate, Field: "require_status_checks.contexts",
+						OldValue: cbp.RequireStatusChecks.Contexts, NewValue: dbp.RequireStatusChecks.Contexts,
+					})
+				}
 			}
+		}
+
+		if len(fieldChanges) > 0 {
+			changes = append(changes, Change{
+				Type:     ChangeUpdate,
+				Resource: resource,
+				Name:     name,
+				Field:    "branch_protection",
+				NewValue: dbp.Pattern,
+				Children: fieldChanges,
+			})
 		}
 	}
 
@@ -314,47 +356,97 @@ func diffRulesets(name string, desired *manifest.Repository, current *CurrentSta
 		resource := fmt.Sprintf("%s[%s]", manifest.ResourceRuleset, drs.Name)
 
 		if !exists {
-			changes = append(changes, Change{
+			parent := Change{
 				Type:     ChangeCreate,
 				Resource: resource,
 				Name:     name,
 				Field:    "ruleset",
 				NewValue: drs.Name,
-			})
+				Children: []Change{
+					{Type: ChangeCreate, Field: "name", NewValue: drs.Name},
+				},
+			}
+			if drs.Enforcement != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "enforcement", NewValue: *drs.Enforcement,
+				})
+			}
+			if drs.Target != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "target", NewValue: *drs.Target,
+				})
+			}
+			if drs.Rules.NonFastForward != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "rules.non_fast_forward", NewValue: *drs.Rules.NonFastForward,
+				})
+			}
+			if drs.Rules.Deletion != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "rules.deletion", NewValue: *drs.Rules.Deletion,
+				})
+			}
+			if drs.Rules.Creation != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "rules.creation", NewValue: *drs.Rules.Creation,
+				})
+			}
+			if drs.Rules.RequiredLinearHistory != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "rules.required_linear_history", NewValue: *drs.Rules.RequiredLinearHistory,
+				})
+			}
+			if drs.Rules.RequiredSignatures != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "rules.required_signatures", NewValue: *drs.Rules.RequiredSignatures,
+				})
+			}
+			if drs.Rules.PullRequest != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "rules.pull_request", NewValue: "enabled",
+				})
+			}
+			if drs.Rules.RequiredStatusChecks != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "rules.required_status_checks", NewValue: "enabled",
+				})
+			}
+			if len(drs.BypassActors) > 0 {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "bypass_actors", NewValue: fmt.Sprintf("%d actors", len(drs.BypassActors)),
+				})
+			}
+			if drs.Conditions != nil {
+				parent.Children = append(parent.Children, Change{
+					Type: ChangeCreate, Field: "conditions", NewValue: rulesetConditionsSummary2(drs.Conditions),
+				})
+			}
+			changes = append(changes, parent)
 			continue
 		}
 
+		var fieldChanges []Change
+
 		// enforcement
 		if drs.Enforcement != nil && *drs.Enforcement != crs.Enforcement {
-			changes = append(changes, Change{
-				Type:     ChangeUpdate,
-				Resource: resource,
-				Name:     name,
-				Field:    "enforcement",
-				OldValue: crs.Enforcement,
-				NewValue: *drs.Enforcement,
+			fieldChanges = append(fieldChanges, Change{
+				Type: ChangeUpdate, Field: "enforcement",
+				OldValue: crs.Enforcement, NewValue: *drs.Enforcement,
 			})
 		}
 
 		// target
 		if drs.Target != nil && *drs.Target != crs.Target {
-			changes = append(changes, Change{
-				Type:     ChangeUpdate,
-				Resource: resource,
-				Name:     name,
-				Field:    "target",
-				OldValue: crs.Target,
-				NewValue: *drs.Target,
+			fieldChanges = append(fieldChanges, Change{
+				Type: ChangeUpdate, Field: "target",
+				OldValue: crs.Target, NewValue: *drs.Target,
 			})
 		}
 
 		// bypass_actors
 		if !rulesetBypassActorsEqual(drs.BypassActors, crs.BypassActors, resolver) {
-			changes = append(changes, Change{
-				Type:     ChangeUpdate,
-				Resource: resource,
-				Name:     name,
-				Field:    "bypass_actors",
+			fieldChanges = append(fieldChanges, Change{
+				Type: ChangeUpdate, Field: "bypass_actors",
 				OldValue: fmt.Sprintf("%d actors", len(crs.BypassActors)),
 				NewValue: fmt.Sprintf("%d actors", len(drs.BypassActors)),
 			})
@@ -362,11 +454,8 @@ func diffRulesets(name string, desired *manifest.Repository, current *CurrentSta
 
 		// conditions
 		if !rulesetConditionsEqual(drs.Conditions, crs.Conditions) {
-			changes = append(changes, Change{
-				Type:     ChangeUpdate,
-				Resource: resource,
-				Name:     name,
-				Field:    "conditions",
+			fieldChanges = append(fieldChanges, Change{
+				Type: ChangeUpdate, Field: "conditions",
 				OldValue: rulesetConditionsSummary(crs.Conditions),
 				NewValue: rulesetConditionsSummary2(drs.Conditions),
 			})
@@ -375,13 +464,9 @@ func diffRulesets(name string, desired *manifest.Repository, current *CurrentSta
 		// toggle rules
 		rulesetBoolDiff := func(field string, desired *bool, current bool) {
 			if desired != nil && *desired != current {
-				changes = append(changes, Change{
-					Type:     ChangeUpdate,
-					Resource: resource,
-					Name:     name,
-					Field:    field,
-					OldValue: current,
-					NewValue: *desired,
+				fieldChanges = append(fieldChanges, Change{
+					Type: ChangeUpdate, Field: field,
+					OldValue: current, NewValue: *desired,
 				})
 			}
 		}
@@ -394,35 +479,23 @@ func diffRulesets(name string, desired *manifest.Repository, current *CurrentSta
 		// pull_request rule
 		if drs.Rules.PullRequest != nil {
 			if crs.Rules.PullRequest == nil {
-				changes = append(changes, Change{
-					Type:     ChangeCreate,
-					Resource: resource,
-					Name:     name,
-					Field:    "rules.pull_request",
-					NewValue: "enabled",
+				fieldChanges = append(fieldChanges, Change{
+					Type: ChangeCreate, Field: "rules.pull_request", NewValue: "enabled",
 				})
 			} else {
 				pr := drs.Rules.PullRequest
 				cpr := crs.Rules.PullRequest
 				if pr.RequiredApprovingReviewCount != nil && *pr.RequiredApprovingReviewCount != cpr.RequiredApprovingReviewCount {
-					changes = append(changes, Change{
-						Type:     ChangeUpdate,
-						Resource: resource,
-						Name:     name,
-						Field:    "rules.pull_request.required_approving_review_count",
-						OldValue: cpr.RequiredApprovingReviewCount,
-						NewValue: *pr.RequiredApprovingReviewCount,
+					fieldChanges = append(fieldChanges, Change{
+						Type: ChangeUpdate, Field: "rules.pull_request.required_approving_review_count",
+						OldValue: cpr.RequiredApprovingReviewCount, NewValue: *pr.RequiredApprovingReviewCount,
 					})
 				}
 				prBoolDiff := func(field string, desired *bool, current bool) {
 					if desired != nil && *desired != current {
-						changes = append(changes, Change{
-							Type:     ChangeUpdate,
-							Resource: resource,
-							Name:     name,
-							Field:    "rules.pull_request." + field,
-							OldValue: current,
-							NewValue: *desired,
+						fieldChanges = append(fieldChanges, Change{
+							Type: ChangeUpdate, Field: "rules.pull_request." + field,
+							OldValue: current, NewValue: *desired,
 						})
 					}
 				}
@@ -436,37 +509,36 @@ func diffRulesets(name string, desired *manifest.Repository, current *CurrentSta
 		// required_status_checks rule
 		if drs.Rules.RequiredStatusChecks != nil {
 			if crs.Rules.RequiredStatusChecks == nil {
-				changes = append(changes, Change{
-					Type:     ChangeCreate,
-					Resource: resource,
-					Name:     name,
-					Field:    "rules.required_status_checks",
-					NewValue: "enabled",
+				fieldChanges = append(fieldChanges, Change{
+					Type: ChangeCreate, Field: "rules.required_status_checks", NewValue: "enabled",
 				})
 			} else {
 				sc := drs.Rules.RequiredStatusChecks
 				csc := crs.Rules.RequiredStatusChecks
 				if sc.StrictRequiredStatusChecksPolicy != nil && *sc.StrictRequiredStatusChecksPolicy != csc.StrictRequiredStatusChecksPolicy {
-					changes = append(changes, Change{
-						Type:     ChangeUpdate,
-						Resource: resource,
-						Name:     name,
-						Field:    "rules.required_status_checks.strict",
-						OldValue: csc.StrictRequiredStatusChecksPolicy,
-						NewValue: *sc.StrictRequiredStatusChecksPolicy,
+					fieldChanges = append(fieldChanges, Change{
+						Type: ChangeUpdate, Field: "rules.required_status_checks.strict",
+						OldValue: csc.StrictRequiredStatusChecksPolicy, NewValue: *sc.StrictRequiredStatusChecksPolicy,
 					})
 				}
 				if !rulesetStatusChecksEqual(sc.Contexts, csc.Contexts, resolver) {
-					changes = append(changes, Change{
-						Type:     ChangeUpdate,
-						Resource: resource,
-						Name:     name,
-						Field:    "rules.required_status_checks.contexts",
-						OldValue: rulesetStatusCheckNames(csc.Contexts),
-						NewValue: rulesetStatusCheckNames2(sc.Contexts),
+					fieldChanges = append(fieldChanges, Change{
+						Type: ChangeUpdate, Field: "rules.required_status_checks.contexts",
+						OldValue: rulesetStatusCheckNames(csc.Contexts), NewValue: rulesetStatusCheckNames2(sc.Contexts),
 					})
 				}
 			}
+		}
+
+		if len(fieldChanges) > 0 {
+			changes = append(changes, Change{
+				Type:     ChangeUpdate,
+				Resource: resource,
+				Name:     name,
+				Field:    "ruleset",
+				NewValue: drs.Name,
+				Children: fieldChanges,
+			})
 		}
 	}
 

@@ -99,6 +99,18 @@ type ApplyResult struct {
 }
 
 func (e *Executor) applyChange(c Change, repo *manifest.Repository) ApplyResult {
+	// Generic: if this change has children, expand and apply each child.
+	if len(c.Children) > 0 {
+		for _, child := range c.Children {
+			child.Resource = c.Resource
+			child.Name = c.Name
+			if result := e.applyChange(child, repo); result.Err != nil {
+				return ApplyResult{Change: c, Err: result.Err}
+			}
+		}
+		return ApplyResult{Change: c}
+	}
+
 	var err error
 
 	switch {

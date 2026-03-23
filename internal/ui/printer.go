@@ -23,6 +23,10 @@ type Printer interface {
 	ItemCreate(field string, value any)
 	ItemUpdate(field, old, new string)
 	ItemDelete(field string, value any)
+	SubGroupHeader(icon, name string)
+	SubItemCreate(field string, value any)
+	SubItemUpdate(field, old, new string)
+	SubItemDelete(field string, value any)
 	Success(name, detail string)
 	Error(name, detail string)
 	Warning(name, detail string) // stderr
@@ -104,6 +108,34 @@ func (p *StandardPrinter) ItemUpdate(field, oldVal, newVal string) {
 
 func (p *StandardPrinter) ItemDelete(field string, value any) {
 	fmt.Fprintf(p.out, "      %s %-30s  %s\n",
+		Red.Render("-"), field, Red.Render(fmt.Sprintf("%v", value)))
+}
+
+func (p *StandardPrinter) SubGroupHeader(icon, name string) {
+	var styledIcon string
+	switch icon {
+	case "+":
+		styledIcon = Green.Render("+")
+	case "-":
+		styledIcon = Red.Render("-")
+	default:
+		styledIcon = Yellow.Render(icon)
+	}
+	fmt.Fprintf(p.out, "      %s %s\n", styledIcon, Bold.Render(name))
+}
+
+func (p *StandardPrinter) SubItemCreate(field string, value any) {
+	fmt.Fprintf(p.out, "          %s %-26s  %s\n",
+		Green.Render("+"), field, Green.Render(fmt.Sprintf("%v", value)))
+}
+
+func (p *StandardPrinter) SubItemUpdate(field, oldVal, newVal string) {
+	fmt.Fprintf(p.out, "          %s %-26s  %s %s %s\n",
+		Yellow.Render("~"), field, Dim.Render(oldVal), Dim.Render("→"), Bold.Render(newVal))
+}
+
+func (p *StandardPrinter) SubItemDelete(field string, value any) {
+	fmt.Fprintf(p.out, "          %s %-26s  %s\n",
 		Red.Render("-"), field, Red.Render(fmt.Sprintf("%v", value)))
 }
 

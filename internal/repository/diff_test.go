@@ -220,13 +220,21 @@ func TestDiff_Features_BoolFlags(t *testing.T) {
 
 			changes := diffFeatures("org/repo", d, c)
 			if len(changes) != 1 {
-				t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
+				t.Fatalf("expected 1 parent change, got %d: %v", len(changes), changes)
 			}
-			if changes[0].Field != tt.wantField {
-				t.Errorf("expected field %q, got %q", tt.wantField, changes[0].Field)
+			parent := changes[0]
+			if parent.Field != "features" {
+				t.Fatalf("expected parent field features, got %q", parent.Field)
 			}
-			if changes[0].Type != ChangeUpdate {
-				t.Errorf("expected update, got %q", changes[0].Type)
+			if len(parent.Children) != 1 {
+				t.Fatalf("expected 1 child, got %d", len(parent.Children))
+			}
+			child := parent.Children[0]
+			if child.Field != tt.wantField {
+				t.Errorf("expected field %q, got %q", tt.wantField, child.Field)
+			}
+			if child.Type != ChangeUpdate {
+				t.Errorf("expected update, got %q", child.Type)
 			}
 		})
 	}
@@ -292,13 +300,21 @@ func TestDiff_MergeStrategy_BoolFlags(t *testing.T) {
 
 			changes := diffMergeStrategy("org/repo", d, c)
 			if len(changes) != 1 {
-				t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
+				t.Fatalf("expected 1 parent change, got %d: %v", len(changes), changes)
 			}
-			if changes[0].Field != tt.wantField {
-				t.Errorf("expected field %q, got %q", tt.wantField, changes[0].Field)
+			parent := changes[0]
+			if parent.Field != "merge_strategy" {
+				t.Fatalf("expected parent field merge_strategy, got %q", parent.Field)
 			}
-			if changes[0].Type != ChangeUpdate {
-				t.Errorf("expected update, got %q", changes[0].Type)
+			if len(parent.Children) != 1 {
+				t.Fatalf("expected 1 child, got %d", len(parent.Children))
+			}
+			child := parent.Children[0]
+			if child.Field != tt.wantField {
+				t.Errorf("expected field %q, got %q", tt.wantField, child.Field)
+			}
+			if child.Type != ChangeUpdate {
+				t.Errorf("expected update, got %q", child.Type)
 			}
 		})
 	}
@@ -377,9 +393,16 @@ func TestDiff_MergeStrategy_CommitStrings(t *testing.T) {
 
 			changes := diffMergeStrategy("org/repo", d, c)
 			if len(changes) != 1 {
-				t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
+				t.Fatalf("expected 1 parent change, got %d: %v", len(changes), changes)
 			}
-			ch := changes[0]
+			parent := changes[0]
+			if parent.Field != "merge_strategy" {
+				t.Fatalf("expected parent field merge_strategy, got %q", parent.Field)
+			}
+			if len(parent.Children) != 1 {
+				t.Fatalf("expected 1 child, got %d", len(parent.Children))
+			}
+			ch := parent.Children[0]
 			if ch.Field != tt.wantField {
 				t.Errorf("expected field %q, got %q", tt.wantField, ch.Field)
 			}
@@ -411,7 +434,41 @@ func TestDiff_BranchProtection(t *testing.T) {
 		if changes[0].Resource != "BranchProtection[main]" {
 			t.Errorf("expected resource BranchProtection[main], got %q", changes[0].Resource)
 		}
+		if len(changes[0].Children) != 2 {
+			t.Fatalf("expected 2 children (pattern + required_reviews), got %d", len(changes[0].Children))
+		}
+		if changes[0].Children[0].Field != "pattern" {
+			t.Errorf("expected first child field pattern, got %q", changes[0].Children[0].Field)
+		}
+		if changes[0].Children[0].NewValue != "main" {
+			t.Errorf("expected pattern value main, got %v", changes[0].Children[0].NewValue)
+		}
+		if changes[0].Children[1].Field != "required_reviews" {
+			t.Errorf("expected second child field required_reviews, got %q", changes[0].Children[1].Field)
+		}
+		if changes[0].Children[1].NewValue != 2 {
+			t.Errorf("expected child new value 2, got %v", changes[0].Children[1].NewValue)
+		}
 	})
+
+	// helper to get the first child field from a parent change
+	childField := func(t *testing.T, changes []Change, field string) Change {
+		t.Helper()
+		if len(changes) != 1 {
+			t.Fatalf("expected 1 parent change, got %d: %v", len(changes), changes)
+		}
+		parent := changes[0]
+		if parent.Field != "branch_protection" {
+			t.Fatalf("expected parent field branch_protection, got %q", parent.Field)
+		}
+		for _, child := range parent.Children {
+			if child.Field == field {
+				return child
+			}
+		}
+		t.Fatalf("child field %q not found in %d children", field, len(parent.Children))
+		return Change{}
+	}
 
 	t.Run("update required_reviews", func(t *testing.T) {
 		d := baseDesired()
@@ -425,17 +482,12 @@ func TestDiff_BranchProtection(t *testing.T) {
 		}
 
 		changes := diffBranchProtection("org/repo", d, c)
-		if len(changes) != 1 {
-			t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
+		child := childField(t, changes, "required_reviews")
+		if child.OldValue != 1 {
+			t.Errorf("expected old 1, got %v", child.OldValue)
 		}
-		if changes[0].Field != "required_reviews" {
-			t.Errorf("expected field required_reviews, got %q", changes[0].Field)
-		}
-		if changes[0].OldValue != 1 {
-			t.Errorf("expected old 1, got %v", changes[0].OldValue)
-		}
-		if changes[0].NewValue != 3 {
-			t.Errorf("expected new 3, got %v", changes[0].NewValue)
+		if child.NewValue != 3 {
+			t.Errorf("expected new 3, got %v", child.NewValue)
 		}
 	})
 
@@ -448,11 +500,9 @@ func TestDiff_BranchProtection(t *testing.T) {
 		c.BranchProtection["main"] = &CurrentBranchProtection{Pattern: "main", DismissStaleReviews: false}
 
 		changes := diffBranchProtection("org/repo", d, c)
-		if len(changes) != 1 {
-			t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
-		}
-		if changes[0].Field != "dismiss_stale_reviews" {
-			t.Errorf("expected field dismiss_stale_reviews, got %q", changes[0].Field)
+		child := childField(t, changes, "dismiss_stale_reviews")
+		if child.Type != ChangeUpdate {
+			t.Errorf("expected update, got %q", child.Type)
 		}
 	})
 
@@ -465,11 +515,9 @@ func TestDiff_BranchProtection(t *testing.T) {
 		c.BranchProtection["main"] = &CurrentBranchProtection{Pattern: "main", EnforceAdmins: false}
 
 		changes := diffBranchProtection("org/repo", d, c)
-		if len(changes) != 1 {
-			t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
-		}
-		if changes[0].Field != "enforce_admins" {
-			t.Errorf("expected field enforce_admins, got %q", changes[0].Field)
+		child := childField(t, changes, "enforce_admins")
+		if child.Type != ChangeUpdate {
+			t.Errorf("expected update, got %q", child.Type)
 		}
 	})
 
@@ -482,11 +530,9 @@ func TestDiff_BranchProtection(t *testing.T) {
 		c.BranchProtection["main"] = &CurrentBranchProtection{Pattern: "main", AllowForcePushes: false}
 
 		changes := diffBranchProtection("org/repo", d, c)
-		if len(changes) != 1 {
-			t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
-		}
-		if changes[0].Field != "allow_force_pushes" {
-			t.Errorf("expected field allow_force_pushes, got %q", changes[0].Field)
+		child := childField(t, changes, "allow_force_pushes")
+		if child.Type != ChangeUpdate {
+			t.Errorf("expected update, got %q", child.Type)
 		}
 	})
 
@@ -499,11 +545,9 @@ func TestDiff_BranchProtection(t *testing.T) {
 		c.BranchProtection["main"] = &CurrentBranchProtection{Pattern: "main", AllowDeletions: false}
 
 		changes := diffBranchProtection("org/repo", d, c)
-		if len(changes) != 1 {
-			t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
-		}
-		if changes[0].Field != "allow_deletions" {
-			t.Errorf("expected field allow_deletions, got %q", changes[0].Field)
+		child := childField(t, changes, "allow_deletions")
+		if child.Type != ChangeUpdate {
+			t.Errorf("expected update, got %q", child.Type)
 		}
 	})
 
@@ -525,14 +569,9 @@ func TestDiff_BranchProtection(t *testing.T) {
 		}
 
 		changes := diffBranchProtection("org/repo", d, c)
-		if len(changes) != 1 {
-			t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
-		}
-		if changes[0].Type != ChangeCreate {
-			t.Errorf("expected create, got %q", changes[0].Type)
-		}
-		if changes[0].Field != "require_status_checks" {
-			t.Errorf("expected field require_status_checks, got %q", changes[0].Field)
+		child := childField(t, changes, "require_status_checks.strict")
+		if child.Type != ChangeCreate {
+			t.Errorf("expected create, got %q", child.Type)
 		}
 	})
 
@@ -557,11 +596,9 @@ func TestDiff_BranchProtection(t *testing.T) {
 		}
 
 		changes := diffBranchProtection("org/repo", d, c)
-		if len(changes) != 1 {
-			t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
-		}
-		if changes[0].Field != "require_status_checks.strict" {
-			t.Errorf("expected field require_status_checks.strict, got %q", changes[0].Field)
+		child := childField(t, changes, "require_status_checks.strict")
+		if child.Type != ChangeUpdate {
+			t.Errorf("expected update, got %q", child.Type)
 		}
 	})
 
@@ -586,11 +623,9 @@ func TestDiff_BranchProtection(t *testing.T) {
 		}
 
 		changes := diffBranchProtection("org/repo", d, c)
-		if len(changes) != 1 {
-			t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
-		}
-		if changes[0].Field != "require_status_checks.contexts" {
-			t.Errorf("expected field require_status_checks.contexts, got %q", changes[0].Field)
+		child := childField(t, changes, "require_status_checks.contexts")
+		if child.Type != ChangeUpdate {
+			t.Errorf("expected update, got %q", child.Type)
 		}
 	})
 
@@ -911,6 +946,17 @@ func TestStringSliceEqual(t *testing.T) {
 	}
 }
 
+// collectChildFields returns a set of field names from a Change's Children.
+func collectChildFields(changes []Change) map[string]bool {
+	fields := make(map[string]bool)
+	for _, c := range changes {
+		for _, child := range c.Children {
+			fields[child.Field] = true
+		}
+	}
+	return fields
+}
+
 func TestDiff_Rulesets_Create(t *testing.T) {
 	desired := baseDesired()
 	desired.Spec.Rulesets = []manifest.Ruleset{
@@ -933,6 +979,16 @@ func TestDiff_Rulesets_Create(t *testing.T) {
 	}
 	if changes[0].Resource != "Ruleset[protect-main]" {
 		t.Errorf("resource: got %q, want %q", changes[0].Resource, "Ruleset[protect-main]")
+	}
+	fields := collectChildFields(changes)
+	if !fields["name"] {
+		t.Error("expected child field 'name'")
+	}
+	if !fields["enforcement"] {
+		t.Error("expected child field 'enforcement'")
+	}
+	if !fields["rules.non_fast_forward"] {
+		t.Error("expected child field 'rules.non_fast_forward'")
 	}
 }
 
@@ -984,17 +1040,19 @@ func TestDiff_Rulesets_UpdateEnforcement(t *testing.T) {
 	}
 
 	changes := Diff(desired, current)
-	found := false
+	fields := collectChildFields(changes)
+	if !fields["enforcement"] {
+		t.Error("expected enforcement change, not found")
+	}
+	// Verify values
 	for _, c := range changes {
-		if c.Field == "enforcement" {
-			found = true
-			if c.OldValue != "active" || c.NewValue != "evaluate" {
-				t.Errorf("enforcement: old=%v new=%v", c.OldValue, c.NewValue)
+		for _, child := range c.Children {
+			if child.Field == "enforcement" {
+				if child.OldValue != "active" || child.NewValue != "evaluate" {
+					t.Errorf("enforcement: old=%v new=%v", child.OldValue, child.NewValue)
+				}
 			}
 		}
-	}
-	if !found {
-		t.Error("expected enforcement change, not found")
 	}
 }
 
@@ -1021,10 +1079,7 @@ func TestDiff_Rulesets_UpdateToggleRules(t *testing.T) {
 	}
 
 	changes := Diff(desired, current)
-	fields := make(map[string]bool)
-	for _, c := range changes {
-		fields[c.Field] = true
-	}
+	fields := collectChildFields(changes)
 	if !fields["rules.non_fast_forward"] {
 		t.Error("expected rules.non_fast_forward change")
 	}
@@ -1062,10 +1117,7 @@ func TestDiff_Rulesets_UpdatePullRequest(t *testing.T) {
 	}
 
 	changes := Diff(desired, current)
-	fields := make(map[string]bool)
-	for _, c := range changes {
-		fields[c.Field] = true
-	}
+	fields := collectChildFields(changes)
 	if !fields["rules.pull_request.required_approving_review_count"] {
 		t.Error("expected review count change")
 	}
@@ -1105,10 +1157,9 @@ func TestDiff_Rulesets_BypassActorsEqual(t *testing.T) {
 
 	changes := Diff(desired, current, DiffOptions{Resolver: resolver})
 
-	for _, c := range changes {
-		if c.Field == "bypass_actors" {
-			t.Errorf("expected no bypass_actors change (admin=5), but got one")
-		}
+	fields := collectChildFields(changes)
+	if fields["bypass_actors"] {
+		t.Errorf("expected no bypass_actors change (admin=5), but got one")
 	}
 }
 
@@ -1142,13 +1193,8 @@ func TestDiff_Rulesets_BypassActorsChanged(t *testing.T) {
 
 	changes := Diff(desired, current, DiffOptions{Resolver: resolver})
 
-	found := false
-	for _, c := range changes {
-		if c.Field == "bypass_actors" {
-			found = true
-		}
-	}
-	if !found {
+	fields := collectChildFields(changes)
+	if !fields["bypass_actors"] {
 		t.Error("expected bypass_actors change (admin!=write), but got none")
 	}
 }
@@ -1193,10 +1239,9 @@ func TestDiff_Rulesets_StatusChecksEqual(t *testing.T) {
 
 	changes := Diff(desired, current, DiffOptions{Resolver: resolver})
 
-	for _, c := range changes {
-		if c.Field == "rules.required_status_checks.contexts" {
-			t.Error("expected no status checks change, but got one")
-		}
+	fields := collectChildFields(changes)
+	if fields["rules.required_status_checks.contexts"] {
+		t.Error("expected no status checks change, but got one")
 	}
 }
 
@@ -1236,10 +1281,9 @@ func TestDiff_Rulesets_StatusChecksNoApp(t *testing.T) {
 
 	changes := Diff(desired, current, DiffOptions{Resolver: resolver})
 
-	for _, c := range changes {
-		if c.Field == "rules.required_status_checks.contexts" {
-			t.Error("expected no status checks change (both no app), but got one")
-		}
+	fields := collectChildFields(changes)
+	if fields["rules.required_status_checks.contexts"] {
+		t.Error("expected no status checks change (both no app), but got one")
 	}
 }
 
@@ -1284,13 +1328,8 @@ func TestDiff_Rulesets_StatusChecksChanged(t *testing.T) {
 
 	changes := Diff(desired, current, DiffOptions{Resolver: resolver})
 
-	found := false
-	for _, c := range changes {
-		if c.Field == "rules.required_status_checks.contexts" {
-			found = true
-		}
-	}
-	if !found {
+	fields := collectChildFields(changes)
+	if !fields["rules.required_status_checks.contexts"] {
 		t.Error("expected status checks change (different integration ID), but got none")
 	}
 }

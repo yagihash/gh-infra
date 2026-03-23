@@ -29,13 +29,38 @@ func PrintPlanChanges(p ui.Printer, changes []Change) {
 			p.GroupHeader("~", group.name)
 		}
 		for _, c := range group.changes {
-			switch c.Type {
-			case ChangeCreate:
-				p.ItemCreate(c.Field, c.NewValue)
-			case ChangeUpdate:
-				p.ItemUpdate(c.Field, ui.FormatValue(c.OldValue), ui.FormatValue(c.NewValue))
-			case ChangeDelete:
-				p.ItemDelete(c.Field, c.OldValue)
+			if len(c.Children) > 0 {
+				// Hierarchical display: sub-resource with nested fields
+				icon := "~"
+				if c.Type == ChangeCreate {
+					icon = "+"
+				} else if c.Type == ChangeDelete {
+					icon = "-"
+				}
+				header := c.Field
+				if s, ok := c.NewValue.(string); ok && s != "" {
+					header = fmt.Sprintf("%s[%s]", c.Field, s)
+				}
+				p.SubGroupHeader(icon, header)
+				for _, child := range c.Children {
+					switch child.Type {
+					case ChangeCreate:
+						p.SubItemCreate(child.Field, child.NewValue)
+					case ChangeUpdate:
+						p.SubItemUpdate(child.Field, ui.FormatValue(child.OldValue), ui.FormatValue(child.NewValue))
+					case ChangeDelete:
+						p.SubItemDelete(child.Field, child.OldValue)
+					}
+				}
+			} else {
+				switch c.Type {
+				case ChangeCreate:
+					p.ItemCreate(c.Field, c.NewValue)
+				case ChangeUpdate:
+					p.ItemUpdate(c.Field, ui.FormatValue(c.OldValue), ui.FormatValue(c.NewValue))
+				case ChangeDelete:
+					p.ItemDelete(c.Field, c.OldValue)
+				}
 			}
 		}
 		p.GroupEnd()
