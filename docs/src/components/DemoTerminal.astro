@@ -1,17 +1,21 @@
 ---
 // Terminal-styled container for demo GIF with light/dark theme support.
 // Usage: <DemoTerminal />
+const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
 ---
 <div class="demo-terminal">
-  <picture>
-    <source srcset={`${import.meta.env.BASE_URL}demo-light.gif`} media="(prefers-color-scheme: light)" />
-    <img
-      src={`${import.meta.env.BASE_URL}demo.gif`}
-      alt="gh-infra demo showing plan and apply workflow"
-      class="demo-gif"
-      loading="eager"
-    />
-  </picture>
+  <img
+    src={`${base}/demo.gif`}
+    alt="gh-infra demo showing plan and apply workflow"
+    class="demo-gif demo-dark"
+    loading="eager"
+  />
+  <img
+    src={`${base}/demo-light.gif`}
+    alt="gh-infra demo showing plan and apply workflow"
+    class="demo-gif demo-light"
+    loading="eager"
+  />
 </div>
 
 <style>
@@ -31,10 +35,22 @@
     display: block;
   }
 
+  .demo-light {
+    display: none;
+  }
+
   /* Light theme */
   :global([data-theme='light']) .demo-terminal {
-    background: #d5d6db;
+    background: #e1e2e7;
     border: 1px solid #c4c8da;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  }
+
+  :global([data-theme='light']) .demo-dark {
+    display: none;
+  }
+
+  :global([data-theme='light']) .demo-light {
+    display: block;
   }
 </style>
