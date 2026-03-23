@@ -1,8 +1,10 @@
 ---
 title: Apply Strategy
+sidebar:
+  order: 4
 ---
 
-The apply strategy controls **how** file changes are committed to target repositories.
+The apply strategy controls **how** file changes are committed to the target repository.
 
 ## `direct` (default)
 
@@ -34,7 +36,7 @@ Use this when changes need review — for example, updating CI workflows that co
 |----------|---------------------|
 | Updating LICENSE, CODEOWNERS, SECURITY.md | `direct` — low risk, no review needed |
 | Updating CI workflows, Dockerfiles | `pull_request` — changes could break things |
-| Initial rollout to many repos | `pull_request` — lets each team review |
+| Initial rollout to a repo | `pull_request` — lets the team review |
 | Routine sync of already-reviewed templates | `direct` — the template was already reviewed |
 
 ## Empty Repositories

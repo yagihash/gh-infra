@@ -5,7 +5,7 @@ sidebar:
   order: 0
 ---
 
-`FileSet` distributes **files** to multiple repositories — CODEOWNERS, LICENSE, CI workflows, security policies, and any other files you want to keep consistent across repos.
+`FileSet` distributes **files** to **multiple** repositories with shared defaults. Use this when you have many repos that should contain identical files and want to avoid repeating the same configuration in every file. Each repository in the set receives the same files and can override specific ones.
 
 :::tip[Example]
 ```yaml
@@ -25,52 +25,92 @@ spec:
             * @babarot @co-maintainer
 
   files:
-    # Inline content
     - path: .github/CODEOWNERS
       content: |
         * @babarot
 
-    # Inline content with templating (<% %> expanded per repo)
     - path: go.mod
       content: |
         module github.com/<% .Repo.FullName %>
         go 1.24.0
 
-    # From local file
     - path: LICENSE
       source: ./templates/LICENSE
 
-    # From GitHub repository
-    - path: .github/workflows
-      source: github://babarot/shared-config/workflows/
-
-  on_drift: warn                          # warn | overwrite | skip
-  strategy: direct                        # direct | pull_request
+  on_drift: warn
+  strategy: direct
   commit_message: "ci: sync shared files"
 ```
 :::
 
-## When to Use
+## Metadata
+
+```yaml
+metadata:
+  owner: babarot    # GitHub owner or organization
+```
+
+All repositories in the set belong to this owner. Individual repo names are listed in `spec.repositories`.
+
+## Shared Features
+
+All settings available in [File](../file/) — file sources, templating, drift handling, and apply strategies — work identically in `FileSet`. See the File documentation for details:
+
+- [File Sources](../file/sources/) — Inline content, local files, directories, and `github://` references
+- [Templating](../file/templating/) — `<% %>` syntax, built-in variables, custom vars
+- [Drift Handling](../file/drift/) — `warn`, `overwrite`, and `skip` behaviors
+- [Apply Strategy](../file/strategy/) — `direct` vs `pull_request`
+
+## When to Use FileSet
 
 ### The Problem
 
-Teams often share common files across repositories: a standard CODEOWNERS, a LICENSE, CI workflow templates, or a security policy. Without automation, keeping these in sync means:
+Suppose you manage 20 repositories that all need the same CODEOWNERS, LICENSE, and CI workflows. With individual `File` resources, you'd repeat those file definitions in every manifest:
 
-- Manually copying files whenever you update a template
-- Discovering months later that some repos still have the old version
-- No way to audit which repos are out of sync
+```
+repos/
+├── gomi-files.yaml          # CODEOWNERS, LICENSE, ci.yml...
+├── enhancd-files.yaml       # same CODEOWNERS, LICENSE, ci.yml...
+├── oksskolten-files.yaml    # same CODEOWNERS, LICENSE, ci.yml...
+└── ... (17 more files with the same content)
+```
+
+When you need to change a shared file — say, update the CODEOWNERS to add a new team member — you have to edit all 20 files. Miss one, and your repos drift out of sync.
 
 ### The Solution
 
-`FileSet` lets you declare which files should exist in which repos. On `apply`, gh-infra creates a single atomic commit (via the Git Data API) containing all the files — no matter how many there are.
+`FileSet` solves this by declaring files once and distributing them to all target repositories. A single manifest replaces 20:
 
-You can also pull files directly from another GitHub repository using `github://` sources, open pull requests instead of committing directly, and handle drift (manual edits) gracefully.
+```yaml
+spec:
+  repositories:
+    - gomi
+    - enhancd
+    - oksskolten
+    # ... 17 more repos
 
-### Key Features
+  files:
+    # Change once, applies to all 20 repos
+    - path: .github/CODEOWNERS
+      content: |
+        * @babarot @new-team-member
+```
 
-- **Atomic commits** — All files in a single commit, not one commit per file.
-- **Multiple source types** — Inline content, local files, local directories, or remote GitHub repositories.
-- **Templating** — Use `<% .Repo.Name %>` and custom variables to customize content per repo.
-- **Per-repo overrides** — Customize specific files for specific repos while keeping the rest consistent.
-- **Drift detection** — Know when someone has manually edited a managed file.
-- **PR strategy** — Open a pull request for review instead of committing directly.
+### When Not to Use It
+
+`FileSet` isn't always the right choice. Use separate `File` resources when:
+
+- **Each repo has mostly unique files** — the shared `files` block would be nearly empty, so there's no benefit.
+- **You need clean per-repo git blame** — with `FileSet`, all repos share one manifest, so `git blame` shows who changed the file, not which repo was affected.
+- **Different teams own different repos** — separate files let each team manage their own config independently.
+
+### Comparison
+
+| | FileSet | Separate File resources |
+|---|---|---|
+| Shared files | Write once in `files` | Repeated in every manifest |
+| Adding a repo | Add 1 line to `repositories` | Create a new file with full spec |
+| Changing a shared file | Edit one place | Edit every manifest |
+| Per-repo git blame | All changes in one file | Clean, one file per repo |
+| Team ownership | Single file, shared ownership | Each team owns their manifest |
+

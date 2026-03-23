@@ -1,8 +1,10 @@
 ---
 title: Templating
+sidebar:
+  order: 2
 ---
 
-File content can include Go template expressions that are expanded per target repository. This lets you share a single template across repos while customizing values like project names, module paths, and binary names.
+File content can include Go template expressions that are expanded per target repository. This lets you customize values like project names, module paths, and binary names.
 
 ## Quick Example
 
@@ -107,23 +109,3 @@ Error: template Makefile for babarot/gomi: template: :1:12:
 ```
 
 This prevents accidentally committing files with missing values.
-
-## Per-repo Overrides with Vars
-
-Overrides can define their own `vars` for specific repos. If an override doesn't specify `vars`, it inherits from the original file entry:
-
-```yaml
-repositories:
-  - gomi
-  - name: special-repo
-    overrides:
-      - path: Makefile
-        vars:
-          binary_name: "special-binary"   # overrides the default
-
-files:
-  - path: Makefile
-    source: ./templates/Makefile
-    vars:
-      binary_name: "<% .Repo.Name %>"     # default
-```

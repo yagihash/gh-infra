@@ -1,10 +1,12 @@
 ---
 title: Drift Handling
+sidebar:
+  order: 3
 ---
 
 ## What is Drift?
 
-Drift occurs when someone manually edits a file that gh-infra manages. For example, a developer pushes a change to `.github/CODEOWNERS` directly, making it different from what your FileSet declares.
+Drift occurs when someone manually edits a file that gh-infra manages. For example, a developer pushes a change to `.github/CODEOWNERS` directly, making it different from what your manifest declares.
 
 On the next `plan`, gh-infra detects this difference. The `on_drift` field controls what happens next.
 

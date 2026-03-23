@@ -50,6 +50,28 @@ spec:
 ```
 :::
 
+## Metadata
+
+```yaml
+metadata:
+  owner: babarot        # GitHub owner or organization
+  name: my-project      # Repository name
+```
+
+The combination of `owner` and `name` identifies the target repository (`babarot/my-project`).
+
+## Spec
+
+| Section | What you can configure |
+|---|---|
+| [General Settings](./general/) | Description, visibility, topics, features, merge strategy |
+| [Branch Protection](./branch-protection/) | Classic branch protection rules |
+| [Rulesets](./rulesets/) | Modern rulesets with enforcement modes and bypass actors |
+| [Secrets & Variables](./secrets-variables/) | GitHub Actions secrets and repository variables |
+| [Lifecycle](./lifecycle/) | Creating and archiving repositories |
+
+All fields are optional — declare only what you want to manage. Fields not present in the YAML are left unchanged on GitHub.
+
 ## When to Use
 
 Use `Repository` when you want to manage one repo's settings in a dedicated YAML file. This is the simplest resource kind and the starting point for most users.
@@ -60,5 +82,4 @@ It works best when:
 - **You want per-repo change tracking** — each file maps to one repo, so `git blame` tells you exactly who changed what and when.
 - **You're managing a small number of repos** — for 1–5 repos, separate files are easy to maintain.
 
-If you find yourself copying the same settings across many files, consider [RepositorySet](../../repository-set/) instead.
-
+If you find yourself copying the same settings across many files, consider [RepositorySet](../repository-set/) instead.

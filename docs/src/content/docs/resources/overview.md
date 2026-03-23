@@ -4,14 +4,14 @@ sidebar:
   order: 0
 ---
 
-gh-infra manages GitHub infrastructure through four resource kinds:
+gh-infra manages GitHub infrastructure through four resource kinds, organized in two pairs:
 
-| Kind | Scope | Description |
-|------|-------|-------------|
-| [Repository](../repository/) | 1 repo | Settings, features, branch protection, rulesets, secrets, variables |
-| [RepositorySet](../repository-set/) | N repos | Shared defaults across multiple repositories |
-| [File](../file/) | 1 repo | Manage files (CODEOWNERS, LICENSE, workflows, etc.) in a single repo |
-| [FileSet](../fileset/) | N repos | Distribute files across multiple repositories |
+| | 1 repo | N repos |
+|---|---|---|
+| **Repository settings** | [Repository](../repository/) | [RepositorySet](../repository-set/) |
+| **File management** | [File](../file/) | [FileSet](../fileset/) |
+
+The single-repo resource (`Repository`, `File`) manages one repository in detail. The set resource (`RepositorySet`, `FileSet`) applies shared configuration across multiple repositories — each entry can override specific values.
 
 ## Common Structure
 
@@ -21,16 +21,21 @@ All resources share the same top-level structure:
 apiVersion: gh-infra/v1
 kind: <Repository | RepositorySet | File | FileSet>
 metadata:
-  # Repository: name + owner
-  # RepositorySet, FileSet: owner
   owner: <github-owner>
+  name: <repo-name>       # single-repo resources only
 
 spec:
   # Resource-specific fields
 ```
 
-- **Repository** and **File** use `metadata.name` (repo name) and `metadata.owner` (GitHub owner) to identify a single repo.
-- **RepositorySet** and **FileSet** use `metadata.owner` to scope all entries to one owner. Individual repositories are listed in the body.
+### Metadata
+
+| Resource | `metadata.owner` | `metadata.name` | Identifies |
+|---|---|---|---|
+| **Repository** | required | required | A single repo (`owner/name`) |
+| **File** | required | required | A single repo (`owner/name`) |
+| **RepositorySet** | required | — | All repos listed in `repositories` |
+| **FileSet** | required | — | All repos listed in `repositories` |
 
 ## File Organization
 

@@ -5,7 +5,7 @@ sidebar:
   order: 0
 ---
 
-`File` manages **files** in a **single** repository — CODEOWNERS, LICENSE, CI workflows, and any other files you want to keep in a declared state.
+`File` manages **files** in a **single** repository — CODEOWNERS, LICENSE, CI workflows, security policies, and any other files you want to keep in a declared state.
 
 :::tip[Example]
 ```yaml
@@ -17,36 +17,32 @@ metadata:
 
 spec:
   files:
+    # Inline content
     - path: .github/CODEOWNERS
       content: |
         * @babarot
 
+    # Inline content with templating (<% %> expanded per repo)
     - path: go.mod
       content: |
         module github.com/<% .Repo.FullName %>
         go 1.24.0
 
+    # From local file
     - path: LICENSE
       source: ./templates/LICENSE
 
-  on_drift: warn
-  strategy: direct
+    # From GitHub repository
+    - path: .github/workflows/ci.yml
+      source: github://babarot/shared-config/workflows/ci.yml
+
+  on_drift: warn                          # warn | overwrite | skip
+  strategy: direct                        # direct | pull_request
   commit_message: "ci: sync managed files"
 ```
 :::
 
-## File vs FileSet
-
-| Kind | Scope | metadata |
-|------|-------|----------|
-| **File** | 1 repo | `owner` + `name` (identifies the target repo) |
-| **FileSet** | N repos | `owner` (repos listed in `spec.repositories`) |
-
-Use `File` when you manage files for a specific repository. Use `FileSet` when you distribute the same files across multiple repositories.
-
 ## Metadata
-
-`File` uses the same metadata pattern as `Repository`:
 
 ```yaml
 metadata:
@@ -58,18 +54,21 @@ The combination of `owner` and `name` identifies the target repository (`babarot
 
 ## Spec
 
-The spec is the same as `FileSet` but without `repositories` — the target repo is already identified by the metadata.
+| Section | What you can configure |
+|---|---|
+| [File Sources](./sources/) | Inline content, local files, directories, and `github://` references |
+| [Templating](./templating/) | `<% %>` syntax, built-in variables, custom vars |
+| [Drift Handling](./drift/) | How to handle manual edits: `warn`, `overwrite`, or `skip` |
+| [Apply Strategy](./strategy/) | Commit directly or open a pull request |
 
-| Field | Default | Description |
-|-------|---------|-------------|
-| `files` | *(required)* | List of files to manage |
-| `on_drift` | `warn` | How to handle drift: `warn`, `overwrite`, or `skip` |
-| `strategy` | `direct` | Apply strategy: `direct` or `pull_request` |
-| `commit_message` | auto | Custom commit message |
-| `branch` | auto | Branch name for `pull_request` strategy |
+## When to Use
 
-For details on file sources, templating, drift handling, and apply strategies, see the corresponding [FileSet documentation](../fileset/) — these features work identically for both resource kinds.
+Use `File` when you want to manage files in one repo's YAML file. This is the simplest file management resource and the starting point for most users.
 
-## Internal Behavior
+It works best when:
 
-At parse time, `File` is expanded into a `FileSet` with a single repository entry. All downstream processing (plan, apply, templating, drift detection) uses the same code path. This means every feature available in `FileSet` works in `File` as well.
+- **Each repo has its own distinct files** — different CODEOWNERS, different CI workflows, different licenses.
+- **You want per-repo change tracking** — each file maps to one repo, so `git blame` tells you exactly who changed what and when.
+- **You're managing files in a small number of repos** — for 1–5 repos, separate files are easy to maintain.
+
+If you find yourself copying the same files across many repos, consider [FileSet](../fileset/) instead.

@@ -4,6 +4,8 @@ sidebar:
   order: 1
 ---
 
+General settings cover the repository's basic properties, feature toggles, and pull request merge behavior.
+
 ## Basic Settings
 
 ```yaml

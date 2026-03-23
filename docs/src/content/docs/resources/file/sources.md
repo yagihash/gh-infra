@@ -1,8 +1,10 @@
 ---
 title: File Sources
+sidebar:
+  order: 1
 ---
 
-Each file entry in a FileSet specifies **where the content comes from** via `content` (inline) or `source` (external). There are four source types:
+Each file entry specifies **where the content comes from** via `content` (inline) or `source` (external). There are four source types.
 
 ## Inline Content
 
@@ -47,7 +49,7 @@ files:
     source: ./templates/workflows/
 ```
 
-For example, if `./templates/workflows/` contains `ci.yaml` and `release.yaml`, this creates `.github/workflows/ci.yaml` and `.github/workflows/release.yaml` in the target repos.
+For example, if `./templates/workflows/` contains `ci.yaml` and `release.yaml`, this creates `.github/workflows/ci.yaml` and `.github/workflows/release.yaml` in the target repo.
 
 ## GitHub Repository
 
@@ -92,7 +94,7 @@ workflows/
     └── lint.yaml
 ```
 
-This creates `.github/workflows/ci.yaml`, `.github/workflows/release.yaml`, and `.github/workflows/checks/lint.yaml` in each target repo.
+This creates `.github/workflows/ci.yaml`, `.github/workflows/release.yaml`, and `.github/workflows/checks/lint.yaml` in the target repo.
 
 ### Pinning to a version
 
@@ -119,7 +121,7 @@ Pin to a tag (e.g., `@v1.0.0`) in production to avoid unexpected changes when th
 
 ### Combining with other source types
 
-You can mix `github://` sources with local and inline sources in the same FileSet:
+You can mix `github://` sources with local and inline sources in the same manifest:
 
 ```yaml
 files:

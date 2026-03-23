@@ -42,6 +42,25 @@ repositories:
 ```
 :::
 
+## Metadata
+
+```yaml
+metadata:
+  owner: babarot    # GitHub owner or organization
+```
+
+All repositories in the set belong to this owner. Individual repo names are listed in `repositories`.
+
+## Shared Features
+
+All settings available in [Repository](../repository/) — general settings, branch protection, rulesets, secrets, and variables — work identically in `RepositorySet`. See the Repository documentation for field references:
+
+- [General Settings](../repository/general/) — Description, visibility, topics, features, merge strategy
+- [Branch Protection](../repository/branch-protection/) — Classic branch protection rules
+- [Rulesets](../repository/rulesets/) — Modern rulesets with enforcement modes and bypass actors
+- [Secrets & Variables](../repository/secrets-variables/) — GitHub Actions secrets and repository variables
+- [Lifecycle](../repository/lifecycle/) — Creating and archiving repositories
+
 ## When to Use RepositorySet
 
 ### The Problem
