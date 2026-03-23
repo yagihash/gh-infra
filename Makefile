@@ -18,4 +18,13 @@ install:
 clean:
 	rm -f $(BINARY_NAME)
 
-.PHONY: all test build install clean
+docs:
+	mise exec -- npm run dev --prefix docs
+
+docs-build:
+	mise exec -- npm run build --prefix docs
+
+docs-install:
+	mise exec -- npm install --prefix docs
+
+.PHONY: all test build install clean docs docs-build docs-install
