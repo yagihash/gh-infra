@@ -75,10 +75,6 @@ func Importing(name string) {
 	fmt.Fprintf(DefaultPrinter.err, "Importing %s ...\n", name)
 }
 
-func SkipManagedBySelf(name string) {
-	fmt.Fprintf(DefaultPrinter.err, "  %s %s: managed_by=self, skipping\n", Yellow.Render("⚠"), name)
-}
-
 func SkipImportError(name string, err error) {
 	fmt.Fprintf(DefaultPrinter.err, "  %s skipping %s: %v\n", Yellow.Render("⚠"), name, err)
 }

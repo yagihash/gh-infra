@@ -1,0 +1,107 @@
+---
+// Terminal demo component - renders a fake terminal with gh infra plan output
+---
+<div class="terminal" role="img" aria-label="gh infra plan output showing repository changes">
+  <div class="terminal-header">
+    <div class="terminal-buttons">
+      <span class="terminal-btn close"></span>
+      <span class="terminal-btn minimize"></span>
+      <span class="terminal-btn maximize"></span>
+    </div>
+    <div class="terminal-title">Terminal</div>
+  </div>
+  <pre class="terminal-body" set:html={`<span class="t-prompt">$</span> gh infra plan ./repos/
+<span class="t-dim">──────────────────────────────────────────────────────────</span>
+  <span class="t-yellow">~</span> <span class="t-bold">babarot/my-project</span>
+      <span class="t-yellow">~</span> description              <span class="t-dim">My project</span> <span class="t-dim">→</span> <span class="t-bold">My awesome project</span>
+      <span class="t-green">+</span> topics                   <span class="t-green">[go, cli]</span>
+      <span class="t-yellow">~</span> allow_squash_merge       <span class="t-dim">false</span> <span class="t-dim">→</span> <span class="t-bold">true</span>
+      <span class="t-yellow">~</span> auto_delete_head         <span class="t-dim">false</span> <span class="t-dim">→</span> <span class="t-bold">true</span>
+      <span class="t-red">-</span> wiki                     <span class="t-red">true</span>
+
+  <span class="t-green">+</span> <span class="t-bold">babarot/new-project</span>  <span class="t-green">(new)</span>
+      <span class="t-green">+</span> visibility               <span class="t-green">public</span>
+      <span class="t-green">+</span> topics                   <span class="t-green">[go, tools]</span>
+
+<span class="t-dim">──────────────────────────────────────────────────────────</span>
+Plan: <span class="t-bold">1</span> to create, <span class="t-bold">1</span> to update, <span class="t-bold">0</span> to destroy
+To apply, run: <span class="t-bold">gh infra apply</span>`} />
+</div>
+
+<style>
+  .terminal {
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 1rem 0;
+    width: 100%;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Dark theme (default) */
+  .terminal-header {
+    background: #1a1b27;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #292e42;
+  }
+  .terminal-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  .terminal-btn {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .terminal-btn.close { background: #f7768e; }
+  .terminal-btn.minimize { background: #e0af68; }
+  .terminal-btn.maximize { background: #9ece6a; }
+  .terminal-title {
+    flex: 1;
+    text-align: center;
+    color: #565f89;
+    font-size: 12px;
+    margin-right: 44px;
+  }
+  .terminal-body {
+    background: #16161e;
+    color: #a9b1d6;
+    padding: 24px 24px 32px;
+    margin: 0;
+    border: none;
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+  .terminal-body :global(.t-prompt) { color: #7aa2f7; font-weight: bold; }
+  .terminal-body :global(.t-green) { color: #9ece6a; }
+  .terminal-body :global(.t-red) { color: #f7768e; }
+  .terminal-body :global(.t-yellow) { color: #e0af68; }
+  .terminal-body :global(.t-dim) { color: #565f89; }
+  .terminal-body :global(.t-bold) { color: #c0caf5; font-weight: bold; }
+
+  /* Light theme */
+  :global([data-theme='light']) .terminal-header {
+    background: #e1e2e7;
+    border-bottom: 1px solid #c4c8da;
+  }
+  :global([data-theme='light']) .terminal-title {
+    color: #8990b3;
+  }
+  :global([data-theme='light']) .terminal-body {
+    background: #d5d6db;
+    color: #343b58;
+  }
+  :global([data-theme='light']) .terminal-body :global(.t-prompt) { color: #2e7de9; }
+  :global([data-theme='light']) .terminal-body :global(.t-green) { color: #587539; }
+  :global([data-theme='light']) .terminal-body :global(.t-red) { color: #f52a65; }
+  :global([data-theme='light']) .terminal-body :global(.t-yellow) { color: #8c6c3e; }
+  :global([data-theme='light']) .terminal-body :global(.t-dim) { color: #8990b3; }
+  :global([data-theme='light']) .terminal-body :global(.t-bold) { color: #343b58; font-weight: bold; }
+  :global([data-theme='light']) .terminal {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  }
+</style>

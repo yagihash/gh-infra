@@ -23,9 +23,6 @@ const (
 	StrategyDirect      = "direct"
 	StrategyPullRequest = "pull_request"
 
-	// ManagedBy values for repository management mode.
-	ManagedBySelf = "self"
-
 	// Resource type identifiers used in plan changes.
 	ResourceRepository       = "Repository"
 	ResourceBranchProtection = "BranchProtection"
@@ -71,7 +68,6 @@ type Repository struct {
 type RepositoryMetadata struct {
 	Name      string `yaml:"name"`
 	Owner     string `yaml:"owner"`
-	ManagedBy string `yaml:"managed_by,omitempty"`
 }
 
 func (m RepositoryMetadata) FullName() string {

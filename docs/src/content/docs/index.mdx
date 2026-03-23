@@ -1,0 +1,40 @@
+---
+title: gh-infra
+description: Declarative GitHub infrastructure management via YAML
+template: splash
+hero:
+  tagline: Like Terraform, but for GitHub — no state file required.
+  actions:
+    - text: Get Started
+      link: /getting-started/
+      icon: right-arrow
+    - text: Why gh-infra?
+      link: /why/
+      variant: minimal
+    - text: View on GitHub
+      link: https://github.com/babarot/gh-infra
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+import TerminalDemo from '../../components/TerminalDemo.astro';
+
+<TerminalDemo />
+
+## Why gh-infra?
+
+<CardGrid>
+  <Card title="YAML instead of HCL" icon="document">
+    Declare what your repos should look like in plain YAML.
+  </Card>
+  <Card title="No state file" icon="approve-check">
+    GitHub itself is the source of truth. Nothing to store, lock, or lose.
+  </Card>
+  <Card title="Plan before apply" icon="list-format">
+    See exactly what will change before it happens.
+  </Card>
+  <Card title="Just gh and a token" icon="rocket">
+    No GitHub App, no server, no extra infrastructure.
+  </Card>
+</CardGrid>

@@ -1,0 +1,54 @@
+---
+title: Managing Repos Centrally
+sidebar:
+  order: 0
+---
+
+import { FileTree } from '@astrojs/starlight/components';
+
+## The Idea
+
+Keep all your gh-infra YAML files in a **single dedicated repository** (e.g., `github-config`). This is the recommended approach when one person or team is responsible for repository settings across an organization.
+
+## Directory Structure
+
+<FileTree>
+- github-config/
+  - repos/
+    - gomi.yaml
+    - enhancd.yaml
+    - oksskolten.yaml
+    - gh-infra.yaml
+  - files/
+    - common.yaml
+</FileTree>
+
+- `repos/` — One `Repository` or `RepositorySet` file per repo (or group of repos)
+- `files/` — `FileSet` manifests for distributing shared files
+
+## Workflow
+
+```bash
+# Preview all changes across all repos
+gh infra plan ./repos/
+
+# Apply everything
+gh infra apply ./repos/
+```
+
+All changes are reviewed and applied from one place. You get a single `git log` showing the full history of every infrastructure change across all your repositories.
+
+## Mixing with Self-Managed Repos
+
+Some repos may want to manage their own settings (see [Self-Managed Repos](/patterns/self-managed/)). Simply omit those repos from your central YAML files — gh-infra only manages what's declared.
+
+## When to Use This Pattern
+
+- You manage **many repositories** with an org-wide standard
+- You want a **single audit trail** for all infrastructure changes
+- One team is responsible for repository governance (branch protection, merge strategy, etc.)
+
+## When Not to Use
+
+- Individual teams need to control their own repo settings independently
+- You only manage 1–2 repos — the overhead of a dedicated config repo isn't worth it

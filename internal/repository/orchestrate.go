@@ -28,10 +28,6 @@ func FetchAllChanges(repos []*manifest.Repository, filterRepo string, fetcher *F
 			logger.Debug("skip repo (filter)", "repo", repo.Metadata.FullName())
 			continue
 		}
-		if repo.Metadata.ManagedBy == manifest.ManagedBySelf {
-			ui.SkipManagedBySelf(repo.Metadata.FullName())
-			continue
-		}
 		targets = append(targets, repo)
 	}
 

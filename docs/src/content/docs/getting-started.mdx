@@ -1,0 +1,116 @@
+---
+title: Getting Started
+sidebar:
+  order: 1
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Prerequisites
+
+- [**gh CLI**](https://cli.github.com/) installed and authenticated (`gh auth login`)
+- Repositories you want to manage must be accessible with your current `gh` token
+
+## Installation
+
+<Tabs>
+  <TabItem label="gh extension">
+    ```bash
+    gh extension install babarot/gh-infra
+    ```
+    **Recommended.** Installs as a `gh` subcommand — run `gh infra plan`, `gh infra apply`, etc. Authentication is shared with `gh auth`, so no additional token setup is needed.
+  </TabItem>
+  <TabItem label="Homebrew">
+    ```bash
+    brew install babarot/tap/gh-infra
+    ```
+    Installs as a standalone binary. Run as `gh-infra plan` directly. Note that `gh` CLI is still required as gh-infra uses it internally for GitHub API calls.
+  </TabItem>
+  <TabItem label="Go">
+    ```bash
+    go install github.com/babarot/gh-infra/cmd/gh-infra@latest
+    ```
+    Build from source. Installs as a standalone binary, same as Homebrew.
+  </TabItem>
+</Tabs>
+
+Verify the installation:
+
+```bash
+gh infra --help
+```
+
+## Quick Start
+
+### 1. Import an existing repository
+
+Start by exporting a repository's current settings to YAML:
+
+```bash
+gh infra import babarot/my-project > repos/my-project.yaml
+```
+
+This generates a complete YAML manifest reflecting the repository's current state on GitHub.
+
+### 2. Edit the YAML
+
+Open the file and change what you want. For example, enable squash merge and add topics:
+
+```yaml
+apiVersion: gh-infra/v1
+kind: Repository
+metadata:
+  name: my-project
+  owner: babarot
+
+spec:
+  description: "My awesome project"
+  visibility: public
+  topics:
+    - go
+    - cli
+  merge_strategy:
+    allow_squash_merge: true
+    allow_merge_commit: false
+    allow_rebase_merge: false
+    auto_delete_head_branches: true
+```
+
+### 3. Preview changes
+
+Run `plan` to see what would change without making any modifications:
+
+```bash
+gh infra plan ./repos/
+```
+
+```
+Plan: 0 to create, 1 to update, 0 to destroy
+
+  ~ babarot/my-project
+      ~ merge_strategy.allow_squash_merge: false => true
+      ~ merge_strategy.allow_merge_commit: true => false
+      + topics: [go, cli]
+```
+
+### 4. Apply
+
+When you're happy with the plan, apply:
+
+```bash
+gh infra apply ./repos/
+```
+
+gh-infra will show the plan again and ask for confirmation before making changes.
+
+## What's Next?
+
+gh-infra supports three resource kinds:
+
+| Kind | What it does |
+|------|-------------|
+| [**Repository**](/reference/repository/) | Manage a single repo's settings |
+| [**RepositorySet**](/reference/repository-set/) | Manage many repos with shared defaults |
+| [**FileSet**](/reference/fileset/) | Distribute files (LICENSE, CODEOWNERS, workflows) across repos |
+
+See the [YAML DSL Reference](/reference/overview/) for the full specification, or check out the [Guides](/patterns/central/) for different usage patterns.

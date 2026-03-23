@@ -1,0 +1,54 @@
+/* Tokyo Night theme for Starlight */
+
+:root {
+  /* Tokyo Night Storm accent (blue) */
+  --sl-color-accent-low: #1a1b27;
+  --sl-color-accent: #7aa2f7;
+  --sl-color-accent-high: #c0caf5;
+
+  /* Dark background - Tokyo Night Storm */
+  --sl-color-bg-nav: #1a1b27;
+  --sl-color-bg-sidebar: #1a1b27;
+  --sl-color-hairline-light: #292e42;
+  --sl-color-hairline-shade: #3b4261;
+
+  --sl-color-white: #c0caf5;
+  --sl-color-gray-1: #a9b1d6;
+  --sl-color-gray-2: #9aa5ce;
+  --sl-color-gray-3: #565f89;
+  --sl-color-gray-4: #3b4261;
+  --sl-color-gray-5: #292e42;
+  --sl-color-gray-6: #1a1b27;
+  --sl-color-black: #16161e;
+}
+
+/* Replace unknown file type icon (!) with a plain document icon */
+starlight-file-tree .file > .tree-entry > span > span > svg.tree-icon path {
+  d: path('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6');
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-theme='light'] {
+  /* Tokyo Night Light (Day) */
+  --sl-color-accent-low: #d5d6db;
+  --sl-color-accent: #6183bb;
+  --sl-color-accent-high: #1a1b27;
+
+  --sl-color-bg-nav: #d5d6db;
+  --sl-color-bg-sidebar: #d5d6db;
+  --sl-color-hairline-light: #c4c8da;
+  --sl-color-hairline-shade: #b4b5b9;
+
+  --sl-color-white: #343b58;
+  --sl-color-gray-1: #3b4261;
+  --sl-color-gray-2: #565f89;
+  --sl-color-gray-3: #8990b3;
+  --sl-color-gray-4: #b4b5b9;
+  --sl-color-gray-5: #c4c8da;
+  --sl-color-gray-6: #d5d6db;
+  --sl-color-black: #e1e2e7;
+}

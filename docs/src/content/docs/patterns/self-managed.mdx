@@ -1,0 +1,57 @@
+---
+title: Self-Managed Repos
+sidebar:
+  order: 1
+---
+
+import { FileTree } from '@astrojs/starlight/components';
+
+## The Idea
+
+Each repository manages **its own** settings by keeping a gh-infra YAML file alongside the code. Changes are applied automatically when merged via a GitHub Actions workflow.
+
+This is the opposite of the [central management](/patterns/central/) pattern — there's no dedicated config repo. Each team owns their repo's infrastructure.
+
+## Directory Structure
+
+<FileTree>
+- my-project/
+  - .github/
+    - infra.yaml Settings for this repo
+    - workflows/
+      - infra.yaml Workflow that auto-applies on merge
+  - src/
+</FileTree>
+
+## How It Works
+
+1. A developer opens a PR that modifies `.github/infra.yaml`
+2. The team reviews the infrastructure change alongside the code
+3. On merge, a GitHub Actions workflow runs `gh infra apply` automatically
+
+```yaml
+# .github/workflows/infra.yaml
+on:
+  push:
+    branches: [main]
+    paths: [".github/infra.yaml"]
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: gh infra apply .github/infra.yaml --auto-approve
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+## When to Use This Pattern
+
+- Teams want **autonomy** over their own repo settings
+- Infrastructure changes should go through the **same PR review process** as code changes
+- You don't have (or need) a central team managing repo governance
+
+## When Not to Use
+
+- You need to enforce consistent settings across many repos — use [central management](/patterns/central/) with `RepositorySet` instead
+- You want a single audit trail of all infrastructure changes across the org
