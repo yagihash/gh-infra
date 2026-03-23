@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/manifest"
@@ -12,6 +14,7 @@ import (
 	"github.com/babarot/gh-infra/internal/ui"
 	goyaml "github.com/goccy/go-yaml"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/semaphore"
 )
 
 func newImportCmd() *cobra.Command {
@@ -62,6 +65,8 @@ func importSingleRepo(owner, name string, fetcher *repository.Fetcher) error {
 	return nil
 }
 
+const defaultImportParallel = 5
+
 func importAllRepos(owner string, runner gh.Runner, fetcher *repository.Fetcher) error {
 	out, err := runner.Run("repo", "list", owner, "--json", "name", "--limit", manifest.DefaultMaxRepoList)
 	if err != nil {
@@ -75,14 +80,66 @@ func importAllRepos(owner string, runner gh.Runner, fetcher *repository.Fetcher)
 		return fmt.Errorf("parse repo list: %w", err)
 	}
 
+	if len(repos) == 0 {
+		return nil
+	}
+
+	// Start spinner display
+	names := make([]string, len(repos))
 	for i, r := range repos {
-		if i > 0 {
+		names[i] = owner + "/" + r.Name
+	}
+	tracker := ui.RunRefresh(names)
+
+	// Fetch all repos in parallel
+	type importResult struct {
+		data []byte
+		err  error
+	}
+	results := make([]importResult, len(repos))
+	sem := semaphore.NewWeighted(defaultImportParallel)
+	var wg sync.WaitGroup
+
+	for i, r := range repos {
+		wg.Add(1)
+		go func(idx int, name string) {
+			defer wg.Done()
+			_ = sem.Acquire(context.Background(), 1)
+			defer sem.Release(1)
+
+			fullName := owner + "/" + name
+			current, err := fetcher.FetchRepository(owner, name)
+			if err != nil {
+				results[idx] = importResult{err: err}
+				tracker.Error(fullName, err)
+				return
+			}
+			m := repository.ToManifest(current)
+			data, err := goyaml.Marshal(m)
+			results[idx] = importResult{data: data, err: err}
+			if err != nil {
+				tracker.Error(fullName, err)
+			} else {
+				tracker.Done(fullName)
+			}
+		}(i, r.Name)
+	}
+
+	wg.Wait()
+	tracker.Wait()
+
+	// Output in order
+	first := true
+	for i, r := range results {
+		if r.err != nil {
+			ui.SkipImportError(owner+"/"+repos[i].Name, r.err)
+			continue
+		}
+		if !first {
 			fmt.Println("---")
 		}
-		ui.Importing(owner + "/" + r.Name)
-		if err := importSingleRepo(owner, r.Name, fetcher); err != nil {
-			ui.SkipImportError(owner+"/"+r.Name, err)
-		}
+		fmt.Fprint(os.Stdout, string(r.data))
+		first = false
 	}
 	return nil
 }

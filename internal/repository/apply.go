@@ -1,14 +1,17 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/manifest"
 	"github.com/babarot/gh-infra/internal/ui"
+	"golang.org/x/sync/semaphore"
 )
 
 // Executor applies planned changes to GitHub.
@@ -20,29 +23,71 @@ func NewExecutor(runner gh.Runner) *Executor {
 	return &Executor{runner: runner}
 }
 
+const defaultApplyParallel = 5
+
 // Apply executes all changes in the plan result.
+// Changes are grouped by repo and applied in parallel across repos.
+// Within a single repo, changes are applied sequentially to maintain ordering.
 func (e *Executor) Apply(changes []Change, repos []*manifest.Repository) []ApplyResult {
-	// Group changes by repo name
 	repoMap := make(map[string]*manifest.Repository)
 	for _, r := range repos {
 		repoMap[r.Metadata.FullName()] = r
 	}
 
+	groups := groupByName(changes)
+	if len(groups) == 0 {
+		return nil
+	}
+
+	// Start spinner display
+	names := make([]string, len(groups))
+	for i, g := range groups {
+		names[i] = g.name
+	}
+	tracker := ui.RunRefresh(names)
+
+	// Apply repo groups in parallel
+	allResults := make([][]ApplyResult, len(groups))
+	sem := semaphore.NewWeighted(defaultApplyParallel)
+	var wg sync.WaitGroup
+
+	for i, group := range groups {
+		wg.Add(1)
+		go func(idx int, g changeGroup) {
+			defer wg.Done()
+			_ = sem.Acquire(context.Background(), 1)
+			defer sem.Release(1)
+
+			var results []ApplyResult
+			for _, c := range g.changes {
+				result := e.applyChange(c, repoMap[c.Name])
+				results = append(results, result)
+			}
+			allResults[idx] = results
+
+			// Update spinner
+			var firstErr error
+			for _, r := range results {
+				if r.Err != nil {
+					firstErr = r.Err
+					break
+				}
+			}
+			if firstErr != nil {
+				tracker.Error(g.name, firstErr)
+			} else {
+				tracker.Done(g.name)
+			}
+		}(i, group)
+	}
+
+	wg.Wait()
+	tracker.Wait()
+
+	// Flatten in order
 	var results []ApplyResult
-	for _, c := range changes {
-		if c.Type == ChangeNoOp {
-			continue
-		}
-		switch c.Type {
-		case ChangeCreate:
-			ui.Creating(c.Name, c.Field)
-		case ChangeUpdate:
-			ui.Updating(c.Name, c.Field)
-		case ChangeDelete:
-			ui.Destroying(c.Name, c.Field)
-		}
-		result := e.applyChange(c, repoMap[c.Name])
-		results = append(results, result)
+	for _, r := range allResults {
+		results = append(results, r...)
 	}
 	return results
 }

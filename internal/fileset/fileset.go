@@ -1,6 +1,7 @@
 package fileset
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/manifest"
 	"github.com/babarot/gh-infra/internal/ui"
+	"golang.org/x/sync/semaphore"
 )
 
 // FileState represents the current state of a file in a repository.
@@ -219,38 +221,87 @@ type ApplyOptions struct {
 	FileSetName   string
 }
 
+const defaultApplyParallel = 5
+
 // Apply executes the planned file changes using Git Data API.
-// Changes are grouped by target repo and applied as a single commit.
+// Changes are grouped by target repo and applied in parallel across repos.
 func (p *Processor) Apply(changes []FileChange, opts ApplyOptions) []FileApplyResult {
-	// Separate actionable changes from skipped/noop
-	var results []FileApplyResult
 	grouped := groupChangesByTarget(changes)
 
+	// Build ordered repo list for deterministic output
+	type repoEntry struct {
+		name    string
+		changes []FileChange
+	}
+	var repoList []repoEntry
 	for repo, repoChanges := range grouped {
-		// Collect skipped/drift changes
-		var filesToApply []FileChange
-		for _, c := range repoChanges {
-			switch c.Type {
-			case FileCreate, FileUpdate:
-				filesToApply = append(filesToApply, c)
-			case FileDrift:
-				results = append(results, FileApplyResult{Change: c, Skipped: true})
-			case FileSkip, FileNoOp:
-				// do nothing
-			}
-		}
-
-		if len(filesToApply) == 0 {
-			continue
-		}
-
-		ui.Committing(repo, len(filesToApply))
-		err := p.applyToRepo(repo, filesToApply, opts)
-		for _, c := range filesToApply {
-			results = append(results, FileApplyResult{Change: c, Err: err})
-		}
+		repoList = append(repoList, repoEntry{name: repo, changes: repoChanges})
 	}
 
+	if len(repoList) == 0 {
+		return nil
+	}
+
+	// Start spinner display
+	names := make([]string, len(repoList))
+	for i, e := range repoList {
+		names[i] = e.name
+	}
+	tracker := ui.RunRefresh(names)
+
+	// Apply repos in parallel
+	allResults := make([][]FileApplyResult, len(repoList))
+	sem := semaphore.NewWeighted(defaultApplyParallel)
+	var wg sync.WaitGroup
+
+	for i, entry := range repoList {
+		wg.Add(1)
+		go func(idx int, repo string, repoChanges []FileChange) {
+			defer wg.Done()
+			_ = sem.Acquire(context.Background(), 1)
+			defer sem.Release(1)
+
+			var results []FileApplyResult
+			var filesToApply []FileChange
+			for _, c := range repoChanges {
+				switch c.Type {
+				case FileCreate, FileUpdate:
+					filesToApply = append(filesToApply, c)
+				case FileDrift:
+					results = append(results, FileApplyResult{Change: c, Skipped: true})
+				case FileSkip, FileNoOp:
+					// do nothing
+				}
+			}
+
+			if len(filesToApply) == 0 {
+				allResults[idx] = results
+				tracker.Done(repo)
+				return
+			}
+
+			err := p.applyToRepo(repo, filesToApply, opts)
+			for _, c := range filesToApply {
+				results = append(results, FileApplyResult{Change: c, Err: err})
+			}
+			allResults[idx] = results
+
+			if err != nil {
+				tracker.Error(repo, err)
+			} else {
+				tracker.Done(repo)
+			}
+		}(i, entry.name, entry.changes)
+	}
+
+	wg.Wait()
+	tracker.Wait()
+
+	// Flatten in order
+	var results []FileApplyResult
+	for _, r := range allResults {
+		results = append(results, r...)
+	}
 	return results
 }
 
