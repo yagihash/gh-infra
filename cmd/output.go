@@ -56,17 +56,29 @@ func printUnifiedPlan(p ui.Printer, repoChanges []repository.Change, fileChanges
 		// Set unified column width for this repo group
 		p.SetColumnWidth(computeColumnWidth(rChanges, fChanges))
 
-		// Determine header icon
+		// Determine action type for this repo group
 		isNew := false
+		isDestroy := false
 		for _, c := range rChanges {
 			if c.Type == repository.ChangeCreate && c.Field == "repository" {
 				isNew = true
 				break
 			}
+			if c.Type == repository.ChangeDelete && c.Field == "repository" {
+				isDestroy = true
+				break
+			}
 		}
+
+		// Print action header (Terraform-style)
 		if isNew {
-			p.GroupHeader(ui.IconAdd, name+"  "+ui.Green.Render("(new)"))
+			p.ActionHeader(name, "will be created")
+			p.GroupHeader(ui.IconAdd, name)
+		} else if isDestroy {
+			p.ActionHeader(name, "will be destroyed")
+			p.GroupHeader(ui.IconRemove, name)
 		} else {
+			p.ActionHeader(name, "will be updated")
 			p.GroupHeader(ui.IconChange, name)
 		}
 

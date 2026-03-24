@@ -117,14 +117,14 @@ func runPlan(path, filterRepo string, ci, failOnUnknown bool) error {
 
 	repoCreates, repoUpdates, repoDeletes := repository.CountChanges(repoChanges)
 	fileCreates, fileUpdates, fileDeletes, fileDrifts := fileset.CountChanges(fileChanges)
-
-	p.Separator()
-
-	printUnifiedPlan(p, repoChanges, fileChanges)
-
 	creates := repoCreates + fileCreates
 	updates := repoUpdates + fileUpdates
 	deletes := repoDeletes + fileDeletes
+
+	p.Separator()
+	p.Legend(creates > 0, updates > 0, deletes > 0)
+
+	printUnifiedPlan(p, repoChanges, fileChanges)
 	parts := []string{
 		fmt.Sprintf("%s to create", ui.Bold.Render(fmt.Sprintf("%d", creates))),
 		fmt.Sprintf("%s to update", ui.Bold.Render(fmt.Sprintf("%d", updates))),

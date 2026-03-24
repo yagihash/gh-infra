@@ -19,6 +19,8 @@ type Printer interface {
 
 	// stdout: structured output
 	Separator()
+	Legend(creates, updates, deletes bool)
+	ActionHeader(name, action string) // e.g. "# babarot/repo will be created"
 	GroupHeader(icon, name string)
 	GroupEnd()
 	SetColumnWidth(w int) // set field/path column width for Item/SubItem
@@ -103,6 +105,24 @@ func (p *StandardPrinter) Separator() {
 	fmt.Fprintln(p.out)
 	fmt.Fprintln(p.out, Dim.Render(Separator_))
 	fmt.Fprintln(p.out)
+}
+
+func (p *StandardPrinter) Legend(creates, updates, deletes bool) {
+	fmt.Fprintln(p.out, "Resource actions are indicated with the following symbols:")
+	if creates {
+		fmt.Fprintf(p.out, "  %s create\n", Green.Render(IconAdd))
+	}
+	if updates {
+		fmt.Fprintf(p.out, "  %s update\n", Yellow.Render(IconChange))
+	}
+	if deletes {
+		fmt.Fprintf(p.out, "  %s destroy\n", Red.Render(IconRemove))
+	}
+	fmt.Fprintln(p.out)
+}
+
+func (p *StandardPrinter) ActionHeader(name, action string) {
+	fmt.Fprintf(p.out, "  %s %s %s\n", Dim.Render("#"), Bold.Render(name), Dim.Render(action))
 }
 
 func (p *StandardPrinter) GroupHeader(icon, name string) {

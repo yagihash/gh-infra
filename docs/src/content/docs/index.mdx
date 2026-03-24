@@ -20,21 +20,59 @@ hero:
 import { Card, CardGrid } from '@astrojs/starlight/components';
 import DemoTerminal from '../../components/DemoTerminal.astro';
 
+<div class="landing-hero-extra">
+  <p class="hero-subtitle">Define repositories, branch protections, and files in <strong>YAML</strong> — then <code>plan</code> and <code>apply</code> like infrastructure as code.</p>
+</div>
+
 <DemoTerminal />
 
-## Why gh-infra?
+<div class="landing-section">
+
+## Features
 
 <CardGrid>
   <Card title="YAML instead of HCL" icon="document">
-    Declare what your repos should look like in plain YAML.
+    Declare what your repos should look like in plain YAML. No new language to learn.
   </Card>
   <Card title="No state file" icon="approve-check">
     GitHub itself is the source of truth. Nothing to store, lock, or lose.
   </Card>
   <Card title="Plan before apply" icon="list-format">
-    See exactly what will change before it happens.
+    See exactly what will change before it happens — like `terraform plan`.
   </Card>
   <Card title="Just gh and a token" icon="rocket">
-    No GitHub App, no server, no extra infrastructure.
+    No GitHub App, no server, no extra infrastructure. Works anywhere `gh` runs.
   </Card>
 </CardGrid>
+
+</div>
+
+<div class="landing-section how-it-works">
+
+## How it works
+
+<div class="steps">
+  <div class="step">
+    <div class="step-number">1</div>
+    <div class="step-content">
+      <h3>Define</h3>
+      <p>Write YAML files describing your desired GitHub state — repos, branch rules, files, and more.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-number">2</div>
+    <div class="step-content">
+      <h3>Plan</h3>
+      <p>Run <code>gh infra plan</code> to preview changes. See a clear diff of what will be created, updated, or deleted.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-number">3</div>
+    <div class="step-content">
+      <h3>Apply</h3>
+      <p>Run <code>gh infra apply</code> to make it real. Changes are applied safely with confirmation prompts.</p>
+    </div>
+  </div>
+</div>
+
+</div>
