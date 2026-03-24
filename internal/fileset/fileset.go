@@ -71,11 +71,15 @@ func (u planUnit) fullName() string {
 }
 
 // PlanTargetNames returns display tasks for all FileSet targets.
-func PlanTargetNames(fileSets []*manifest.FileSet) []ui.RefreshTask {
+// If filterRepo is non-empty, only targets matching that repo are included.
+func PlanTargetNames(fileSets []*manifest.FileSet, filterRepo string) []ui.RefreshTask {
 	var tasks []ui.RefreshTask
 	for _, fs := range fileSets {
 		for _, target := range fs.Spec.Repositories {
 			fullName := fs.Metadata.Owner + "/" + target.Name
+			if filterRepo != "" && fullName != filterRepo {
+				continue
+			}
 			tasks = append(tasks, ui.RefreshTask{
 				Name:      "Fetching " + fullName + " files",
 				DoneLabel: "Fetched " + fullName + " files",
@@ -97,11 +101,16 @@ func applyTaskKey(repo string) string {
 }
 
 // Plan computes changes for all FileSets concurrently.
-func (p *Processor) Plan(fileSets []*manifest.FileSet, tracker *ui.RefreshTracker) ([]FileChange, error) {
+// If filterRepo is non-empty, only targets matching that repo are processed.
+func (p *Processor) Plan(fileSets []*manifest.FileSet, filterRepo string, tracker *ui.RefreshTracker) ([]FileChange, error) {
 	// Build work units (order-preserving index).
 	var units []planUnit
 	for _, fs := range fileSets {
 		for _, target := range fs.Spec.Repositories {
+			fullName := fs.Metadata.Owner + "/" + target.Name
+			if filterRepo != "" && fullName != filterRepo {
+				continue
+			}
 			files := ResolveFiles(fs, target)
 			units = append(units, planUnit{
 				fileSetName: fs.Metadata.Owner,
@@ -144,8 +153,11 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet, tracker *ui.RefreshTracke
 				}
 				file.Content = rendered
 			}
-			// Mirror mode forces overwrite (mirror = complete sync)
+			// Resolve drift handling: mirror > file-level > spec-level
 			drift := u.onDrift
+			if file.OnDrift != "" {
+				drift = file.OnDrift
+			}
 			if file.SyncMode == manifest.SyncModeMirror {
 				drift = manifest.OnDriftOverwrite
 			}
@@ -332,6 +344,8 @@ type ApplyOptions struct {
 	CommitStrategy string // "push" or "pull_request"
 	Branch         string
 	FileSetName    string
+	PRTitle        string // custom PR title (pull_request only)
+	PRBody         string // custom PR body (pull_request only)
 }
 
 const defaultApplyParallel = 5
@@ -683,24 +697,44 @@ func (p *Processor) createPR(repo, defaultBranch, commitSHA, title string, opts 
 		branchName = fmt.Sprintf("gh-infra/sync-%s", opts.FileSetName)
 	}
 
-	// Create branch pointing to the new commit
+	// Create branch pointing to the new commit; if it already exists, force-update it.
 	_, err := p.runner.Run("api", fmt.Sprintf("repos/%s/git/refs", repo),
 		"--method", "POST",
 		"-f", fmt.Sprintf("ref=refs/heads/%s", branchName),
 		"-f", fmt.Sprintf("sha=%s", commitSHA),
 	)
 	if err != nil {
-		return fmt.Errorf("create branch %s: %w", branchName, err)
+		if strings.Contains(err.Error(), "Reference already exists") {
+			_, err = p.runner.Run("api", fmt.Sprintf("repos/%s/git/refs/heads/%s", repo, branchName),
+				"--method", "PATCH",
+				"-f", fmt.Sprintf("sha=%s", commitSHA),
+				"-F", "force=true",
+			)
+		}
+		if err != nil {
+			return fmt.Errorf("create branch %s: %w", branchName, err)
+		}
 	}
 
-	// Create PR
+	// Create PR (skip if one already exists for this head branch)
+	prTitle := opts.PRTitle
+	if prTitle == "" {
+		prTitle = title
+	}
+	prBody := opts.PRBody
+	if prBody == "" {
+		prBody = fmt.Sprintf("Automated file sync by gh-infra FileSet `%s`.", opts.FileSetName)
+	}
 	_, err = p.runner.Run("pr", "create",
 		"--repo", repo,
 		"--base", defaultBranch,
 		"--head", branchName,
-		"--title", title,
-		"--body", fmt.Sprintf("Automated file sync by gh-infra FileSet `%s`.", opts.FileSetName),
+		"--title", prTitle,
+		"--body", prBody,
 	)
+	if err != nil && strings.Contains(err.Error(), "already exists") {
+		return nil // PR already open for this branch
+	}
 	return err
 }
 

@@ -503,7 +503,6 @@ func TestDerefBool(t *testing.T) {
 	}
 }
 
-
 func TestApplyRuleset_Create(t *testing.T) {
 	mock := &gh.MockRunner{}
 	exec := NewExecutor(mock, nil)

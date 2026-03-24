@@ -17,9 +17,14 @@ type ExitError struct {
 
 func (e *ExitError) Error() string {
 	if e.APIError != nil {
-		return fmt.Sprintf("gh: %s (HTTP %d: %s)", e.Cmd, e.APIError.Status, e.APIError.Message)
+		return fmt.Sprintf("%s (HTTP %d)", e.APIError.Message, e.APIError.Status)
 	}
-	return fmt.Sprintf("gh: %s (exit %d): %s", e.Cmd, e.ExitCode, e.Stderr)
+	// Non-API errors: show stderr without the full command
+	stderr := strings.TrimPrefix(e.Stderr, "gh: ")
+	if stderr != "" {
+		return stderr
+	}
+	return fmt.Sprintf("gh exited with code %d", e.ExitCode)
 }
 
 // APIError represents a parsed GitHub API error response.

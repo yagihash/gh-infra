@@ -56,6 +56,14 @@ func (r *GHRunner) Run(args ...string) ([]byte, error) {
 		}),
 	)
 
+	// Unwrap retry-go's "All attempts fail: #1: ..." wrapper
+	// to surface the underlying error directly.
+	if err != nil {
+		if unwrapped := errors.Unwrap(err); unwrapped != nil {
+			err = unwrapped
+		}
+	}
+
 	return out, err
 }
 

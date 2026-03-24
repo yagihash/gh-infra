@@ -41,6 +41,7 @@ func (r *SourceResolver) ResolveFiles(files []FileEntry, yamlDir string) ([]File
 			for i := range entries {
 				entries[i].Vars = entry.Vars
 				entries[i].SyncMode = entry.SyncMode
+				entries[i].OnDrift = entry.OnDrift
 				if isDir {
 					entries[i].DirScope = entry.Path
 				}
@@ -56,6 +57,7 @@ func (r *SourceResolver) ResolveFiles(files []FileEntry, yamlDir string) ([]File
 			for i := range entries {
 				entries[i].Vars = entry.Vars
 				entries[i].SyncMode = entry.SyncMode
+				entries[i].OnDrift = entry.OnDrift
 				if isDir {
 					entries[i].DirScope = entry.Path
 				}
@@ -63,7 +65,24 @@ func (r *SourceResolver) ResolveFiles(files []FileEntry, yamlDir string) ([]File
 			resolved = append(resolved, entries...)
 		}
 	}
+	// Check for duplicate paths after source expansion
+	if err := checkDuplicatePaths(resolved); err != nil {
+		return nil, err
+	}
 	return resolved, nil
+}
+
+// checkDuplicatePaths returns an error if any file path appears more than once.
+// This catches overlapping source directories (e.g. ".github" and ".github/workflows/").
+func checkDuplicatePaths(files []FileEntry) error {
+	seen := make(map[string]bool, len(files))
+	for _, f := range files {
+		if seen[f.Path] {
+			return fmt.Errorf("duplicate file path %q (check for overlapping source directories)", f.Path)
+		}
+		seen[f.Path] = true
+	}
+	return nil
 }
 
 // resolveLocal handles local file and directory sources.

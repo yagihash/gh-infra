@@ -95,7 +95,7 @@ func (r *StreamReporter) Wait() {
 // NoopReporter discards all progress events. Useful for tests.
 type NoopReporter struct{}
 
-func (NoopReporter) Start(string, []string)                {}
-func (NoopReporter) Done(string, time.Duration, int)       {}
-func (NoopReporter) Error(string, time.Duration, error)    {}
-func (NoopReporter) Wait()                                 {}
+func (NoopReporter) Start(string, []string)             {}
+func (NoopReporter) Done(string, time.Duration, int)    {}
+func (NoopReporter) Error(string, time.Duration, error) {}
+func (NoopReporter) Wait()                              {}

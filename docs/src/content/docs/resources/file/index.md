@@ -39,6 +39,10 @@ spec:
   on_drift: warn                          # warn | overwrite | skip
   commit_strategy: push                    # push | pull_request
   commit_message: "ci: sync managed files"
+  # pr_title: "chore: sync files"         # pull_request only
+  # pr_body: |                            # pull_request only
+  #   ## Summary
+  #   Automated file sync.
 ```
 :::
 
@@ -58,10 +62,13 @@ The combination of `owner` and `name` identifies the target repository (`babarot
 |---|---|---|
 | `files` | *(required)* | List of files to manage — see [File Sources](./sources/) |
 | `files[].sync_mode` | `patch` | Per-entry sync mode: `patch` (add/update) or `mirror` (add/update/delete) — see [Sync Mode](./sync-mode/) |
-| `on_drift` | `warn` | Drift handling: `warn`, `overwrite`, or `skip` — see [Drift Handling](./drift/) |
+| `files[].on_drift` | spec-level | Per-entry drift override — see [Drift Handling](./drift/) |
+| `on_drift` | `warn` | Default drift handling: `warn`, `overwrite`, or `skip` — see [Drift Handling](./drift/) |
 | `commit_strategy` | `push` | Commit method: `push` or `pull_request` — see [Commit Strategy](./commit-strategy/) |
 | `commit_message` | auto | Custom commit message |
 | `branch` | auto | Branch name for `pull_request` strategy |
+| `pr_title` | `commit_message` | Custom PR title (`pull_request` only) |
+| `pr_body` | auto | Custom PR body (`pull_request` only) |
 
 File content supports `<% %>` template syntax for per-repo customization — see [Templating](./templating/).
 
