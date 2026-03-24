@@ -95,7 +95,7 @@ func TestExitError_Error(t *testing.T) {
 				Stderr:   `{"message":"Not Found"}`,
 				APIError: &APIError{Status: 404, Message: "Not Found"},
 			},
-			want: "gh: repo edit owner/repo (HTTP 404: Not Found)",
+			want: "Not Found (HTTP 404)",
 		},
 		{
 			name: "without APIError",
@@ -104,7 +104,7 @@ func TestExitError_Error(t *testing.T) {
 				ExitCode: 1,
 				Stderr:   "something went wrong",
 			},
-			want: "gh: repo edit owner/repo (exit 1): something went wrong",
+			want: "something went wrong",
 		},
 	}
 
