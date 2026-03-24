@@ -179,6 +179,11 @@ func RunRefresh(tasks []RefreshTask) *RefreshTracker {
 	go func() {
 		defer close(tracker.done)
 		_, _ = p.Run()
+		// FIXME(bubbletea): Drain pending terminal query responses that
+		// bubbletea v2 fails to consume during shutdown, causing escape
+		// sequences to leak into the shell. Remove when upstream is fixed.
+		// https://github.com/charmbracelet/bubbletea/issues/1590
+		drainStdinAfterBubbletea()
 	}()
 
 	return tracker
