@@ -69,12 +69,12 @@ func (u planUnit) fullName() string {
 	return u.owner + "/" + u.target.Name
 }
 
-// PlanTargetNames returns the full "owner/repo" names for all FileSet targets.
+// PlanTargetNames returns display names for all FileSet targets.
 func PlanTargetNames(fileSets []*manifest.FileSet) []string {
 	var names []string
 	for _, fs := range fileSets {
 		for _, target := range fs.Spec.Repositories {
-			names = append(names, fs.Metadata.Owner+"/"+target.Name)
+			names = append(names, "Comparing "+fs.Metadata.Owner+"/"+target.Name+" files")
 		}
 	}
 	return names
@@ -109,6 +109,7 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet, tracker *ui.RefreshTracke
 		go func(i int, u planUnit) {
 			defer wg.Done()
 			fullName := u.fullName()
+			displayName := "Comparing " + fullName + " files"
 			var out []FileChange
 			for _, file := range u.files {
 				// Template rendering (deep copy vars to avoid data races)
@@ -117,7 +118,7 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet, tracker *ui.RefreshTracke
 					rendered, err := RenderTemplate(file.Content, fullName, varsCopy)
 					if err != nil {
 						results[i] = unitResult{err: fmt.Errorf("template %s for %s: %w", file.Path, fullName, err)}
-						tracker.Error(fullName, err)
+						tracker.Error(displayName, err)
 						return
 					}
 					file.Content = rendered
@@ -126,7 +127,7 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet, tracker *ui.RefreshTracke
 				out = append(out, change)
 			}
 			results[i] = unitResult{changes: out}
-			tracker.Done(fullName)
+			tracker.Done(displayName)
 		}(i, u)
 	}
 	wg.Wait()
@@ -665,6 +666,7 @@ func PrintPlan(p ui.Printer, changes []FileChange) {
 				maxPathLen = len(c.Path)
 			}
 		}
+		p.SetColumnWidth(maxPathLen)
 		label := fmt.Sprintf("%d file", len(g.changes))
 		if len(g.changes) != 1 {
 			label += "s"
@@ -673,21 +675,18 @@ func PrintPlan(p ui.Printer, changes []FileChange) {
 		for _, c := range g.changes {
 			switch c.Type {
 			case FileCreate:
-				fmt.Fprintf(p.OutWriter(), "      %s %-*s  %s\n",
-					ui.Green.Render("+"), maxPathLen, c.Path, ui.Green.Render("(new file)"))
+				p.FileCreate(c.Path)
 			case FileUpdate:
-				fmt.Fprintf(p.OutWriter(), "      %s %-*s  %s\n",
-					ui.Yellow.Render("~"), maxPathLen, c.Path, ui.Yellow.Render("(content changed)"))
+				p.FileUpdate(c.Path)
 			case FileDrift:
-				fmt.Fprintf(p.OutWriter(), "      %s %-*s  %s  on_drift: %s\n",
-					ui.Yellow.Render("⚠"), maxPathLen, c.Path, ui.Yellow.Render("[drift]"), c.OnDrift)
+				p.FileDrift(c.Path, c.OnDrift)
 			case FileSkip:
-				fmt.Fprintf(p.OutWriter(), "      %s %-*s  %s  on_drift: skip\n",
-					ui.Dim.Render("-"), maxPathLen, c.Path, ui.Dim.Render("[drift]"))
+				p.FileSkip(c.Path)
 			}
 		}
 		p.GroupEnd()
 	}
+	p.SetColumnWidth(0)
 }
 
 // PrintApplyResults prints the results of FileSet apply.
