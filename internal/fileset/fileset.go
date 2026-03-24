@@ -71,11 +71,15 @@ func (u planUnit) fullName() string {
 }
 
 // PlanTargetNames returns display tasks for all FileSet targets.
-func PlanTargetNames(fileSets []*manifest.FileSet) []ui.RefreshTask {
+// If filterRepo is non-empty, only targets matching that repo are included.
+func PlanTargetNames(fileSets []*manifest.FileSet, filterRepo string) []ui.RefreshTask {
 	var tasks []ui.RefreshTask
 	for _, fs := range fileSets {
 		for _, target := range fs.Spec.Repositories {
 			fullName := fs.Metadata.Owner + "/" + target.Name
+			if filterRepo != "" && fullName != filterRepo {
+				continue
+			}
 			tasks = append(tasks, ui.RefreshTask{
 				Name:      "Fetching " + fullName + " files",
 				DoneLabel: "Fetched " + fullName + " files",
@@ -97,11 +101,16 @@ func applyTaskKey(repo string) string {
 }
 
 // Plan computes changes for all FileSets concurrently.
-func (p *Processor) Plan(fileSets []*manifest.FileSet, tracker *ui.RefreshTracker) ([]FileChange, error) {
+// If filterRepo is non-empty, only targets matching that repo are processed.
+func (p *Processor) Plan(fileSets []*manifest.FileSet, filterRepo string, tracker *ui.RefreshTracker) ([]FileChange, error) {
 	// Build work units (order-preserving index).
 	var units []planUnit
 	for _, fs := range fileSets {
 		for _, target := range fs.Spec.Repositories {
+			fullName := fs.Metadata.Owner + "/" + target.Name
+			if filterRepo != "" && fullName != filterRepo {
+				continue
+			}
 			files := ResolveFiles(fs, target)
 			units = append(units, planUnit{
 				fileSetName: fs.Metadata.Owner,
