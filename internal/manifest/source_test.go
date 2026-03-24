@@ -445,3 +445,45 @@ func TestResolveFiles(t *testing.T) {
 		}
 	})
 }
+
+func TestResolveFiles_DirScope_LocalDirectory(t *testing.T) {
+	dir := t.TempDir()
+	subDir := filepath.Join(dir, "configs")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(subDir, "a.yml"), []byte("aaa"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(subDir, "b.yml"), []byte("bbb"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := &SourceResolver{}
+
+	files := []FileEntry{
+		{
+			Path:     ".github/workflows",
+			Source:   "configs",
+			SyncMode: SyncModeMirror,
+		},
+	}
+	result, err := r.ResolveFiles(files, dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result) < 2 {
+		t.Fatalf("expected at least 2 entries, got %d", len(result))
+	}
+
+	// All expanded entries should have DirScope set to the destination path
+	for i, entry := range result {
+		if entry.DirScope != ".github/workflows" {
+			t.Errorf("result[%d].DirScope = %q, want %q", i, entry.DirScope, ".github/workflows")
+		}
+		if entry.SyncMode != SyncModeMirror {
+			t.Errorf("result[%d].SyncMode = %q, want %q", i, entry.SyncMode, SyncModeMirror)
+		}
+	}
+}

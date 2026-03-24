@@ -42,3 +42,34 @@ Use this when you've intentionally allowed a repo to diverge and don't want nois
 | `warn` | Shows drift warning | Skips the file |
 | `overwrite` | Shows diff | Overwrites with declared content |
 | `skip` | No output | No action |
+
+## Interaction with `sync_mode: mirror`
+
+`on_drift` and `sync_mode: mirror` cannot be used together. If any file entry has `sync_mode: mirror`, specifying `on_drift` explicitly is a validation error:
+
+```yaml
+# ✗ Error: on_drift cannot be set when sync_mode "mirror" is used
+spec:
+  on_drift: warn
+  files:
+    - path: .github/workflows
+      source: ./templates/workflows/
+      sync_mode: mirror
+```
+
+This is because mirror means "make the directory exactly match the source" — content drift is always resolved by overwriting, which contradicts `warn` or `skip`.
+
+If you omit `on_drift` (let it default), mirror files silently use `overwrite` while non-mirror files use the default `warn`:
+
+```yaml
+# ✓ Valid: on_drift not specified, defaults apply
+spec:
+  files:
+    - path: .github/workflows
+      source: ./templates/workflows/
+      sync_mode: mirror    # always overwrites
+
+    - path: LICENSE
+      source: ./templates/LICENSE
+      # uses default on_drift: warn
+```

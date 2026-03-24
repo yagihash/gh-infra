@@ -24,6 +24,10 @@ const (
 	CommitStrategyPush        = "push"
 	CommitStrategyPullRequest = "pull_request"
 
+	// SyncMode values for FileEntry directory sync behavior.
+	SyncModePatch  = "patch"  // default: add/update only
+	SyncModeMirror = "mirror" // add/update + delete orphans
+
 	// Resource type identifiers used in plan changes.
 	ResourceRepository       = "Repository"
 	ResourceBranchProtection = "BranchProtection"
@@ -297,10 +301,12 @@ func (fs *FileSet) RepoFullName(repoName string) string {
 }
 
 type FileEntry struct {
-	Path    string            `yaml:"path"`
-	Content string            `yaml:"content,omitempty"`
-	Source  string            `yaml:"source,omitempty"` // local file path
-	Vars    map[string]string `yaml:"vars,omitempty"`   // template variables
+	Path     string            `yaml:"path"`
+	Content  string            `yaml:"content,omitempty"`
+	Source   string            `yaml:"source,omitempty"`    // local file path
+	Vars     map[string]string `yaml:"vars,omitempty"`      // template variables
+	SyncMode string            `yaml:"sync_mode,omitempty"` // patch (default), mirror
+	DirScope string            `yaml:"-"`                   // internal: directory path for mirror mode
 }
 
 // ParseResult holds all parsed resources from a path.

@@ -54,12 +54,13 @@ All repositories in the set belong to this owner. Individual repo names are list
 
 ## Shared Features
 
-All settings available in [File](../file/) — file sources, templating, drift handling, and apply strategies — work identically in `FileSet`. See the File documentation for details:
+All settings available in [File](../file/) — file sources, templating, drift handling, sync modes, and commit strategies — work identically in `FileSet`. See the File documentation for details:
 
 - [File Sources](../file/sources/) — Inline content, local files, directories, and `github://` references
 - [Templating](../file/templating/) — `<% %>` syntax, built-in variables, custom vars
+- [Sync Mode](../file/sync-mode/) — `patch` (add/update) vs `mirror` (add/update/delete orphans)
 - [Drift Handling](../file/drift/) — `warn`, `overwrite`, and `skip` behaviors
-- [Apply Strategy](../file/strategy/) — `direct` vs `pull_request`
+- [Commit Strategy](../file/strategy/) — `push` vs `pull_request`
 
 ## When to Use FileSet
 

@@ -31,6 +31,7 @@ type Printer interface {
 	SubItemDelete(field string, value any)
 	FileCreate(path string)
 	FileUpdate(path string)
+	FileDelete(path string)
 	FileDrift(path, onDrift string)
 	FileSkip(path string)
 	Success(name, detail string)
@@ -163,6 +164,11 @@ func (p *StandardPrinter) FileCreate(path string) {
 func (p *StandardPrinter) FileUpdate(path string) {
 	fmt.Fprintf(p.out, "          %s %-*s  %s\n",
 		Yellow.Render("~"), p.subItemWidth(), path, Yellow.Render("(content changed)"))
+}
+
+func (p *StandardPrinter) FileDelete(path string) {
+	fmt.Fprintf(p.out, "          %s %-*s  %s\n",
+		Red.Render("-"), p.subItemWidth(), path, Red.Render("(deleted)"))
 }
 
 func (p *StandardPrinter) FileDrift(path, onDrift string) {

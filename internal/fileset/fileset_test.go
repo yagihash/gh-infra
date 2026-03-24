@@ -410,7 +410,7 @@ func TestCountChanges(t *testing.T) {
 		{Type: FileSkip},
 	}
 
-	creates, updates, drifts := CountChanges(changes)
+	creates, updates, _, drifts := CountChanges(changes)
 
 	if creates != 2 {
 		t.Errorf("creates: got %d, want 2", creates)
@@ -590,5 +590,171 @@ func TestPrintSummary_AllSuccess(t *testing.T) {
 	}
 	if strings.Contains(output, "skipped") {
 		t.Errorf("should not contain 'skipped', got:\n%s", output)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Mirror mode tests
+// ---------------------------------------------------------------------------
+
+// dirContentsJSON builds a GitHub Contents API JSON response for a directory listing.
+func dirContentsJSON(files []struct{ Path, Type string }) []byte {
+	type item struct {
+		Path string `json:"path"`
+		Type string `json:"type"`
+	}
+	var items []item
+	for _, f := range files {
+		items = append(items, item{Path: f.Path, Type: f.Type})
+	}
+	b, _ := json.Marshal(items)
+	return b
+}
+
+func TestPlan_MirrorDetectsOrphans(t *testing.T) {
+	// file1.yml is declared in YAML, file2.yml is NOT → file2.yml should be FileDelete
+	dirFiles := []struct{ Path, Type string }{
+		{Path: "config/file1.yml", Type: "file"},
+		{Path: "config/file2.yml", Type: "file"},
+	}
+
+	mock := &gh.MockRunner{
+		Responses: map[string][]byte{
+			// file1.yml exists in repo with same content → NoOp
+			contentsKey("owner/repo", "config/file1.yml"): contentsJSON("content1", "sha1"),
+			// directory listing for mirror orphan detection
+			contentsKey("owner/repo", "config"): dirContentsJSON(dirFiles),
+		},
+		Errors: map[string]error{},
+	}
+	p := NewProcessor(mock, ui.NewStandardPrinterWith(&bytes.Buffer{}, &bytes.Buffer{}))
+
+	fileSets := []*manifest.FileSet{
+		{
+			Metadata: manifest.FileSetMetadata{Owner: "owner"},
+			Spec: manifest.FileSetSpec{
+				Repositories: []manifest.FileSetRepository{{Name: "repo"}},
+				Files: []manifest.FileEntry{
+					{
+						Path:     "config/file1.yml",
+						Content:  "content1",
+						SyncMode: manifest.SyncModeMirror,
+						DirScope: "config",
+					},
+				},
+			},
+		},
+	}
+
+	changes, err := p.Plan(fileSets, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Expect 2 changes: NoOp for file1.yml, Delete for file2.yml
+	if len(changes) != 2 {
+		t.Fatalf("expected 2 changes, got %d: %+v", len(changes), changes)
+	}
+
+	var foundDelete bool
+	for _, c := range changes {
+		if c.Path == "config/file2.yml" && c.Type == FileDelete {
+			foundDelete = true
+		}
+	}
+	if !foundDelete {
+		t.Errorf("expected FileDelete for config/file2.yml, changes: %+v", changes)
+	}
+}
+
+func TestPlan_PatchIgnoresOrphans(t *testing.T) {
+	// Same setup but with patch mode — no deletes should be generated
+	dirFiles := []struct{ Path, Type string }{
+		{Path: "config/file1.yml", Type: "file"},
+		{Path: "config/file2.yml", Type: "file"},
+	}
+
+	mock := &gh.MockRunner{
+		Responses: map[string][]byte{
+			contentsKey("owner/repo", "config/file1.yml"): contentsJSON("content1", "sha1"),
+			// directory listing should NOT be called for patch mode, but include it to be safe
+			contentsKey("owner/repo", "config"): dirContentsJSON(dirFiles),
+		},
+		Errors: map[string]error{},
+	}
+	p := NewProcessor(mock, ui.NewStandardPrinterWith(&bytes.Buffer{}, &bytes.Buffer{}))
+
+	fileSets := []*manifest.FileSet{
+		{
+			Metadata: manifest.FileSetMetadata{Owner: "owner"},
+			Spec: manifest.FileSetSpec{
+				Repositories: []manifest.FileSetRepository{{Name: "repo"}},
+				Files: []manifest.FileEntry{
+					{
+						Path:     "config/file1.yml",
+						Content:  "content1",
+						SyncMode: manifest.SyncModePatch,
+						DirScope: "config",
+					},
+				},
+				OnDrift: "warn",
+			},
+		},
+	}
+
+	changes, err := p.Plan(fileSets, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for _, c := range changes {
+		if c.Type == FileDelete {
+			t.Errorf("patch mode should not generate FileDelete, got delete for %s", c.Path)
+		}
+	}
+}
+
+func TestCountChanges_WithDeletes(t *testing.T) {
+	changes := []FileChange{
+		{Type: FileCreate},
+		{Type: FileUpdate},
+		{Type: FileDelete},
+		{Type: FileDelete},
+		{Type: FileDrift},
+		{Type: FileNoOp},
+	}
+
+	creates, updates, deletes, drifts := CountChanges(changes)
+
+	if creates != 1 {
+		t.Errorf("creates: got %d, want 1", creates)
+	}
+	if updates != 1 {
+		t.Errorf("updates: got %d, want 1", updates)
+	}
+	if deletes != 2 {
+		t.Errorf("deletes: got %d, want 2", deletes)
+	}
+	if drifts != 1 {
+		t.Errorf("drifts: got %d, want 1", drifts)
+	}
+}
+
+func TestHasChanges_FileDelete(t *testing.T) {
+	changes := []FileChange{
+		{Type: FileNoOp},
+		{Type: FileDelete},
+	}
+	if !HasChanges(changes) {
+		t.Error("expected HasChanges=true when FileDelete is present")
+	}
+}
+
+func TestHasChanges_OnlyDeletes(t *testing.T) {
+	changes := []FileChange{
+		{Type: FileDelete},
+	}
+	if !HasChanges(changes) {
+		t.Error("expected HasChanges=true when only FileDelete changes exist")
 	}
 }

@@ -1,0 +1,78 @@
+---
+title: Sync Mode
+sidebar:
+  order: 5
+---
+
+import { FileTree } from '@astrojs/starlight/components';
+
+The sync mode controls **what happens to files in the target repository that are not declared in your manifest**.
+
+## `patch` (default)
+
+Only adds and updates files. Extra files in the target directory are left untouched.
+
+```yaml
+files:
+  - path: .github/workflows
+    source: ./templates/workflows/
+    # sync_mode: patch (default — extra files are ignored)
+```
+
+## `mirror`
+
+Makes the target directory an exact mirror of the source. Files not in the source are **deleted** from the target repository.
+
+```yaml
+files:
+  - path: .github/workflows
+    source: ./templates/workflows/
+    sync_mode: mirror
+```
+
+### Example
+
+Source (`./templates/workflows/`) contains two files. Target repo has an additional `repo-dedicated.yml` that is not in the source:
+
+<FileTree>
+- ./templates/workflows/ (source)
+  - ci.yml
+  - release.yml
+</FileTree>
+
+<FileTree>
+- .github/workflows/ (target repo after apply)
+  - ci.yml ← updated
+  - release.yml ← updated
+  - **repo-dedicated.yml** ← **deleted**
+</FileTree>
+
+### Mirror and `on_drift`
+
+`sync_mode: mirror` always overwrites content differences. If you explicitly set `on_drift` while any file uses mirror, gh-infra returns a validation error — the two settings contradict each other.
+
+If you omit `on_drift`, mirror files silently use overwrite while non-mirror files use the default (`warn`). See [Drift Handling](../drift/#interaction-with-sync_mode-mirror) for details.
+
+### Scope
+
+Mirror only affects the directory specified by `path`. Files outside that directory are never touched.
+
+```yaml
+files:
+  - path: .github/workflows
+    source: ./templates/workflows/
+    sync_mode: mirror    # only deletes from .github/workflows/
+
+  - path: README.md
+    content: "# My Project"
+    # README.md is never affected by the mirror above
+```
+
+## When to use mirror
+
+| Scenario | Recommended |
+|----------|-------------|
+| CI workflows that must be identical across repos | `mirror` |
+| Shared config files where repos may add extras | `patch` |
+| Security policies (CODEOWNERS, SECURITY.md) | `patch` |
+| Template directories that should be fully controlled | `mirror` |
