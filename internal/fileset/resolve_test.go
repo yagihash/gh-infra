@@ -62,3 +62,61 @@ func TestResolveFiles_WithOverrides(t *testing.T) {
 		t.Errorf("result[2].Content = %q, want %q", result[2].Content, "original-c")
 	}
 }
+
+func TestResolveFiles_InheritsDirScopeAndSyncMode(t *testing.T) {
+	fs := &manifest.FileSet{
+		Spec: manifest.FileSetSpec{
+			Files: []manifest.FileEntry{
+				{
+					Path:     "config/a.yml",
+					Content:  "original-a",
+					DirScope: "config",
+					SyncMode: manifest.SyncModeMirror,
+					Vars:     map[string]string{"env": "prod"},
+				},
+				{
+					Path:     "config/b.yml",
+					Content:  "original-b",
+					DirScope: "config",
+					SyncMode: manifest.SyncModeMirror,
+				},
+			},
+		},
+	}
+	target := manifest.FileSetRepository{
+		Name: "repo",
+		Overrides: []manifest.FileEntry{
+			// Override content but don't set DirScope or SyncMode
+			{Path: "config/a.yml", Content: "overridden-a"},
+		},
+	}
+
+	result := ResolveFiles(fs, target)
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 files, got %d", len(result))
+	}
+
+	// Check the overridden entry inherits DirScope and SyncMode
+	if result[0].Content != "overridden-a" {
+		t.Errorf("result[0].Content = %q, want %q", result[0].Content, "overridden-a")
+	}
+	if result[0].DirScope != "config" {
+		t.Errorf("result[0].DirScope = %q, want %q (should inherit from original)", result[0].DirScope, "config")
+	}
+	if result[0].SyncMode != manifest.SyncModeMirror {
+		t.Errorf("result[0].SyncMode = %q, want %q (should inherit from original)", result[0].SyncMode, manifest.SyncModeMirror)
+	}
+	// Vars should also be inherited
+	if result[0].Vars == nil || result[0].Vars["env"] != "prod" {
+		t.Errorf("result[0].Vars should inherit from original, got %v", result[0].Vars)
+	}
+
+	// Non-overridden entry should retain its fields
+	if result[1].DirScope != "config" {
+		t.Errorf("result[1].DirScope = %q, want %q", result[1].DirScope, "config")
+	}
+	if result[1].SyncMode != manifest.SyncModeMirror {
+		t.Errorf("result[1].SyncMode = %q, want %q", result[1].SyncMode, manifest.SyncModeMirror)
+	}
+}

@@ -51,6 +51,17 @@ files:
 
 For example, if `./templates/workflows/` contains `ci.yaml` and `release.yaml`, this creates `.github/workflows/ci.yaml` and `.github/workflows/release.yaml` in the target repo.
 
+Add `sync_mode: mirror` to delete files in the target directory that don't exist in the source:
+
+```yaml
+files:
+  - path: .github/workflows
+    source: ./templates/workflows/
+    sync_mode: mirror
+```
+
+See [Sync Mode](../sync-mode/) for details.
+
 ## GitHub Repository
 
 Pull files directly from another GitHub repository using the `github://` scheme. This is useful when a central "shared-config" repo holds your templates — no need to clone it locally.
@@ -95,6 +106,8 @@ workflows/
 ```
 
 This creates `.github/workflows/ci.yaml`, `.github/workflows/release.yaml`, and `.github/workflows/checks/lint.yaml` in the target repo.
+
+Like local directories, `sync_mode: mirror` works with GitHub directory sources to delete orphan files. See [Sync Mode](../sync-mode/).
 
 ### Pinning to a version
 

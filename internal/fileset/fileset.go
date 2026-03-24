@@ -41,6 +41,7 @@ type ChangeType string
 const (
 	FileCreate ChangeType = "create"
 	FileUpdate ChangeType = "update"
+	FileDelete ChangeType = "delete"
 	FileNoOp   ChangeType = "noop"
 	FileDrift  ChangeType = "drift"
 	FileSkip   ChangeType = "skip"
@@ -136,9 +137,43 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet, tracker *ui.RefreshTracke
 					}
 					file.Content = rendered
 				}
-				change := p.planFile(u.fileSetName, fullName, file, u.onDrift)
+				// Mirror mode forces overwrite (mirror = complete sync)
+				drift := u.onDrift
+				if file.SyncMode == manifest.SyncModeMirror {
+					drift = manifest.OnDriftOverwrite
+				}
+				change := p.planFile(u.fileSetName, fullName, file, drift)
 				out = append(out, change)
 			}
+			// Mirror mode: detect orphaned files in target repo
+			allPlannedPaths := make(map[string]bool)
+			for _, change := range out {
+				allPlannedPaths[change.Path] = true
+			}
+			mirrorDirs := make(map[string]bool)
+			for _, file := range u.files {
+				if file.SyncMode == manifest.SyncModeMirror && file.DirScope != "" {
+					mirrorDirs[file.DirScope] = true
+				}
+			}
+			for dirScope := range mirrorDirs {
+				repoFiles, err := p.fetchDirectoryContents(fullName, dirScope)
+				if err != nil {
+					// Directory doesn't exist in repo yet — nothing to delete
+					continue
+				}
+				for _, repoFile := range repoFiles {
+					if !allPlannedPaths[repoFile] {
+						out = append(out, FileChange{
+							Type:    FileDelete,
+							Target:  fullName,
+							Path:    repoFile,
+							FileSet: u.fileSetName,
+						})
+					}
+				}
+			}
+
 			results[i] = unitResult{changes: out}
 			tracker.Done(displayName)
 		}(i, u)
@@ -256,6 +291,36 @@ func (p *Processor) fetchFileContent(repo, path string) (*FileState, error) {
 	}, nil
 }
 
+// fetchDirectoryContents returns all file paths under a directory in a repo (recursively).
+func (p *Processor) fetchDirectoryContents(repo, dirPath string) ([]string, error) {
+	out, err := p.runner.Run("api", fmt.Sprintf("repos/%s/contents/%s", repo, dirPath))
+	if err != nil {
+		return nil, err
+	}
+
+	var items []struct {
+		Path string `json:"path"`
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(out, &items); err != nil {
+		return nil, err
+	}
+
+	var files []string
+	for _, item := range items {
+		if item.Type == "file" {
+			files = append(files, item.Path)
+		} else if item.Type == "dir" {
+			subFiles, err := p.fetchDirectoryContents(repo, item.Path)
+			if err != nil {
+				continue
+			}
+			files = append(files, subFiles...)
+		}
+	}
+	return files, nil
+}
+
 // ApplyOptions configures apply behavior from FileSet spec.
 type ApplyOptions struct {
 	CommitMessage  string
@@ -308,7 +373,7 @@ func (p *Processor) Apply(changes []FileChange, opts ApplyOptions) []FileApplyRe
 			var filesToApply []FileChange
 			for _, c := range repoChanges {
 				switch c.Type {
-				case FileCreate, FileUpdate:
+				case FileCreate, FileUpdate, FileDelete:
 					filesToApply = append(filesToApply, c)
 				case FileDrift:
 					results = append(results, FileApplyResult{Change: c, Skipped: true})
@@ -363,11 +428,12 @@ func groupChangesByTarget(changes []FileChange) map[string][]FileChange {
 }
 
 // treeEntry represents a file entry in a Git tree.
+// SHA is a pointer: non-nil for create/update, nil for delete (GitHub removes the file).
 type treeEntry struct {
-	Path string `json:"path"`
-	Mode string `json:"mode"`
-	Type string `json:"type"`
-	SHA  string `json:"sha"`
+	Path string  `json:"path"`
+	Mode string  `json:"mode"`
+	Type string  `json:"type"`
+	SHA  *string `json:"sha"` // nil = delete file from tree
 }
 
 // applyToRepo creates a single commit with all file changes using Git Data API.
@@ -423,18 +489,29 @@ func (p *Processor) applyViaGitDataAPI(repo, branch, headSHA string, changes []F
 }
 
 // createBlobs creates a Git blob for each file change and returns tree entries.
+// FileDelete entries get a nil SHA which tells the Git Data API to remove the file.
 func (p *Processor) createBlobs(repo string, changes []FileChange) ([]treeEntry, error) {
 	var entries []treeEntry
 	for _, c := range changes {
+		if c.Type == FileDelete {
+			entries = append(entries, treeEntry{
+				Path: c.Path,
+				Mode: "100644",
+				Type: "blob",
+				SHA:  nil, // nil SHA = delete from tree
+			})
+			continue
+		}
 		blobSHA, err := p.createBlob(repo, c.Desired)
 		if err != nil {
 			return nil, fmt.Errorf("create blob for %s: %w", c.Path, err)
 		}
+		sha := blobSHA
 		entries = append(entries, treeEntry{
 			Path: c.Path,
 			Mode: "100644",
 			Type: "blob",
-			SHA:  blobSHA,
+			SHA:  &sha,
 		})
 	}
 	return entries, nil
@@ -691,6 +768,8 @@ func PrintPlan(p ui.Printer, changes []FileChange) {
 				p.FileCreate(c.Path)
 			case FileUpdate:
 				p.FileUpdate(c.Path)
+			case FileDelete:
+				p.FileDelete(c.Path)
 			case FileDrift:
 				p.FileDrift(c.Path, c.OnDrift)
 			case FileSkip:
@@ -726,14 +805,16 @@ func HasChanges(changes []FileChange) bool {
 	return false
 }
 
-// CountChanges returns create, update, drift counts.
-func CountChanges(changes []FileChange) (creates, updates, drifts int) {
+// CountChanges returns create, update, delete, drift counts.
+func CountChanges(changes []FileChange) (creates, updates, deletes, drifts int) {
 	for _, c := range changes {
 		switch c.Type {
 		case FileCreate:
 			creates++
 		case FileUpdate:
 			updates++
+		case FileDelete:
+			deletes++
 		case FileDrift:
 			drifts++
 		}

@@ -36,9 +36,14 @@ func (r *SourceResolver) ResolveFiles(files []FileEntry, yamlDir string) ([]File
 			if err != nil {
 				return nil, fmt.Errorf("resolve %s: %w", entry.Source, err)
 			}
-			// Preserve Vars from the original entry
+			// Preserve metadata from the original entry
+			isDir := len(entries) > 1 || strings.HasSuffix(entry.Source, "/")
 			for i := range entries {
 				entries[i].Vars = entry.Vars
+				entries[i].SyncMode = entry.SyncMode
+				if isDir {
+					entries[i].DirScope = entry.Path
+				}
 			}
 			resolved = append(resolved, entries...)
 		} else {
@@ -46,9 +51,14 @@ func (r *SourceResolver) ResolveFiles(files []FileEntry, yamlDir string) ([]File
 			if err != nil {
 				return nil, fmt.Errorf("resolve %s: %w", entry.Source, err)
 			}
-			// Preserve Vars from the original entry
+			// Preserve metadata from the original entry
+			isDir := len(entries) > 1 || strings.HasSuffix(entry.Source, "/")
 			for i := range entries {
 				entries[i].Vars = entry.Vars
+				entries[i].SyncMode = entry.SyncMode
+				if isDir {
+					entries[i].DirScope = entry.Path
+				}
 			}
 			resolved = append(resolved, entries...)
 		}

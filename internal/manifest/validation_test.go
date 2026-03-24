@@ -565,3 +565,111 @@ func TestValidateOneOf(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+func TestValidateDriftMirrorConflict(t *testing.T) {
+	tests := []struct {
+		name    string
+		onDrift string
+		files   []FileEntry
+		wantErr bool
+	}{
+		{
+			name:    "no conflict: on_drift empty",
+			onDrift: "",
+			files:   []FileEntry{{SyncMode: SyncModeMirror}},
+			wantErr: false,
+		},
+		{
+			name:    "no conflict: no mirror files",
+			onDrift: "warn",
+			files:   []FileEntry{{SyncMode: ""}, {SyncMode: SyncModePatch}},
+			wantErr: false,
+		},
+		{
+			name:    "conflict: on_drift warn + mirror",
+			onDrift: "warn",
+			files:   []FileEntry{{SyncMode: SyncModeMirror}},
+			wantErr: true,
+		},
+		{
+			name:    "conflict: on_drift skip + mirror",
+			onDrift: "skip",
+			files:   []FileEntry{{SyncMode: SyncModeMirror}},
+			wantErr: true,
+		},
+		{
+			name:    "conflict: on_drift overwrite + mirror",
+			onDrift: "overwrite",
+			files:   []FileEntry{{SyncMode: SyncModeMirror}},
+			wantErr: true,
+		},
+		{
+			name:    "conflict: mirror among other files",
+			onDrift: "warn",
+			files:   []FileEntry{{SyncMode: ""}, {SyncMode: SyncModeMirror}},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateDriftMirrorConflict(tt.onDrift, tt.files)
+			if tt.wantErr && err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateFileSet_InvalidSyncMode(t *testing.T) {
+	tests := []struct {
+		name     string
+		syncMode string
+		wantErr  string
+	}{
+		{
+			name:     "invalid sync_mode on FileSet",
+			syncMode: "full",
+			wantErr:  "invalid sync_mode",
+		},
+		{
+			name:     "valid sync_mode patch",
+			syncMode: SyncModePatch,
+		},
+		{
+			name:     "valid sync_mode mirror",
+			syncMode: SyncModeMirror,
+		},
+		{
+			name:     "empty sync_mode is valid (defaults to patch)",
+			syncMode: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &FileSet{
+				Metadata: FileSetMetadata{Owner: "org"},
+				Spec: FileSetSpec{
+					Repositories: []FileSetRepository{{Name: "repo"}},
+					Files:        []FileEntry{{Path: "LICENSE", Content: "MIT", SyncMode: tt.syncMode}},
+				},
+			}
+			err := fs.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("expected no error, got: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want it to contain %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}

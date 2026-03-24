@@ -116,7 +116,7 @@ func runPlan(path, filterRepo string, ci, failOnUnknown bool) error {
 	}
 
 	repoCreates, repoUpdates, repoDeletes := repository.CountChanges(repoChanges)
-	fileCreates, fileUpdates, fileDrifts := fileset.CountChanges(fileChanges)
+	fileCreates, fileUpdates, fileDeletes, fileDrifts := fileset.CountChanges(fileChanges)
 
 	p.Separator()
 
@@ -124,10 +124,11 @@ func runPlan(path, filterRepo string, ci, failOnUnknown bool) error {
 
 	creates := repoCreates + fileCreates
 	updates := repoUpdates + fileUpdates
+	deletes := repoDeletes + fileDeletes
 	parts := []string{
 		fmt.Sprintf("%s to create", ui.Bold.Render(fmt.Sprintf("%d", creates))),
 		fmt.Sprintf("%s to update", ui.Bold.Render(fmt.Sprintf("%d", updates))),
-		fmt.Sprintf("%s to destroy", ui.Bold.Render(fmt.Sprintf("%d", repoDeletes))),
+		fmt.Sprintf("%s to destroy", ui.Bold.Render(fmt.Sprintf("%d", deletes))),
 	}
 	if fileDrifts > 0 {
 		parts = append(parts, fmt.Sprintf("%s drifted", ui.Bold.Render(fmt.Sprintf("%d", fileDrifts))))

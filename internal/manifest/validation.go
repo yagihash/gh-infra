@@ -150,6 +150,9 @@ func (f *File) Validate() error {
 	if len(f.Spec.Files) == 0 {
 		return fmt.Errorf("File %q: spec.files is required", f.Metadata.FullName())
 	}
+	if err := validateDriftMirrorConflict(f.Spec.OnDrift, f.Spec.Files); err != nil {
+		return fmt.Errorf("File %q: %w", f.Metadata.FullName(), err)
+	}
 	if f.Spec.OnDrift != "" {
 		if err := validateOneOf("on_drift", f.Spec.OnDrift,
 			OnDriftWarn, OnDriftOverwrite, OnDriftSkip); err != nil {
@@ -169,6 +172,11 @@ func (f *File) Validate() error {
 		if fe.Content != "" && fe.Source != "" {
 			return fmt.Errorf("File %q: files[%d] (%s) cannot have both content and source", f.Metadata.FullName(), i, fe.Path)
 		}
+		if fe.SyncMode != "" {
+			if err := validateOneOf("sync_mode", fe.SyncMode, SyncModePatch, SyncModeMirror); err != nil {
+				return fmt.Errorf("File %q: files[%d] (%s): %w", f.Metadata.FullName(), i, fe.Path, err)
+			}
+		}
 	}
 	return nil
 }
@@ -183,6 +191,9 @@ func (fs *FileSet) Validate() error {
 	}
 	if len(fs.Spec.Files) == 0 {
 		return fmt.Errorf("FileSet %q: spec.files is required", fs.Metadata.Owner)
+	}
+	if err := validateDriftMirrorConflict(fs.Spec.OnDrift, fs.Spec.Files); err != nil {
+		return fmt.Errorf("FileSet %q: %w", fs.Metadata.Owner, err)
 	}
 	if fs.Spec.OnDrift == "" {
 		fs.Spec.OnDrift = OnDriftWarn
@@ -205,6 +216,11 @@ func (fs *FileSet) Validate() error {
 		if f.Content != "" && f.Source != "" {
 			return fmt.Errorf("FileSet %q: files[%d] (%s) cannot have both content and source", fs.Metadata.Owner, i, f.Path)
 		}
+		if f.SyncMode != "" {
+			if err := validateOneOf("sync_mode", f.SyncMode, SyncModePatch, SyncModeMirror); err != nil {
+				return fmt.Errorf("FileSet %q: files[%d] (%s): %w", fs.Metadata.Owner, i, f.Path, err)
+			}
+		}
 	}
 	repoNames := make(map[string]bool)
 	for _, r := range fs.Spec.Repositories {
@@ -215,6 +231,21 @@ func (fs *FileSet) Validate() error {
 			return fmt.Errorf("FileSet %q: duplicate repository %q", fs.Metadata.Owner, r.Name)
 		}
 		repoNames[r.Name] = true
+	}
+	return nil
+}
+
+// validateDriftMirrorConflict returns an error if on_drift is explicitly set
+// while any file entry uses sync_mode: mirror. Mirror always overwrites,
+// so an explicit on_drift setting would be contradictory.
+func validateDriftMirrorConflict(onDrift string, files []FileEntry) error {
+	if onDrift == "" {
+		return nil // not explicitly set — no conflict
+	}
+	for _, f := range files {
+		if f.SyncMode == SyncModeMirror {
+			return fmt.Errorf("on_drift cannot be set when sync_mode \"mirror\" is used (mirror always overwrites)")
+		}
 	}
 	return nil
 }

@@ -119,6 +119,8 @@ func printUnifiedPlan(p ui.Printer, repoChanges []repository.Change, fileChanges
 					p.FileCreate(c.Path)
 				case fileset.FileUpdate:
 					p.FileUpdate(c.Path)
+				case fileset.FileDelete:
+					p.FileDelete(c.Path)
 				case fileset.FileDrift:
 					p.FileDrift(c.Path, c.OnDrift)
 				case fileset.FileSkip:
