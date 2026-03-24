@@ -32,6 +32,61 @@ starlight-file-tree .file > .tree-entry > span > span > svg.tree-icon path {
   stroke-linejoin: round;
 }
 
+/* ===== Landing page (splash) ===== */
+
+/* Gradient tagline */
+[data-has-hero] .hero > .sl-flex > .tagline {
+  font-size: clamp(1.1rem, 2.8vw, 1.5rem);
+  background: linear-gradient(135deg, #7aa2f7 0%, #bb9af7 50%, #7dcfff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Primary CTA button */
+[data-has-hero] .hero .action {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+[data-has-hero] .hero .action.primary {
+  background: linear-gradient(135deg, #7aa2f7, #bb9af7);
+  border: none;
+  color: #1a1b27;
+  font-weight: 600;
+}
+
+[data-has-hero] .hero .action.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(122, 162, 247, 0.4);
+}
+
+/* Section labels */
+.section-label {
+  text-align: center;
+  margin: 2rem auto 1rem;
+  max-width: 860px;
+}
+
+.section-label-text {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sl-color-gray-3);
+}
+
+.section-label-sub {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--sl-color-gray-4);
+  font-family: var(--sl-font-mono, monospace);
+  letter-spacing: 0.04em;
+}
+
+/* ===== Light theme ===== */
+
 [data-theme='light'] {
   /* Tokyo Night Light (Day) */
   --sl-color-accent-low: #d5d6db;
@@ -51,4 +106,20 @@ starlight-file-tree .file > .tree-entry > span > span > svg.tree-icon path {
   --sl-color-gray-5: #c4c8da;
   --sl-color-gray-6: #d5d6db;
   --sl-color-black: #e1e2e7;
+}
+
+[data-theme='light'] [data-has-hero] .hero > .sl-flex > .tagline {
+  background: linear-gradient(135deg, #6183bb 0%, #9854c5 50%, #2e7de9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+[data-theme='light'] [data-has-hero] .hero .action.primary {
+  background: linear-gradient(135deg, #6183bb, #9854c5);
+  color: #fff;
+}
+
+[data-theme='light'] [data-has-hero] .hero .action.primary:hover {
+  box-shadow: 0 4px 20px rgba(97, 131, 187, 0.4);
 }

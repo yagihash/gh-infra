@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/manifest"
@@ -348,7 +349,7 @@ const defaultApplyParallel = 5
 
 // Apply executes the planned file changes using Git Data API.
 // Changes are grouped by target repo and applied in parallel across repos.
-func (p *Processor) Apply(changes []FileChange, opts ApplyOptions) []FileApplyResult {
+func (p *Processor) Apply(changes []FileChange, opts ApplyOptions, reporter ui.ProgressReporter) []FileApplyResult {
 	grouped := groupChangesByTarget(changes)
 
 	// Build ordered repo list for deterministic output
@@ -365,15 +366,7 @@ func (p *Processor) Apply(changes []FileChange, opts ApplyOptions) []FileApplyRe
 		return nil
 	}
 
-	// Start spinner display
-	tasks := make([]ui.RefreshTask, len(repoList))
-	for i, e := range repoList {
-		tasks[i] = ui.RefreshTask{
-			Name:      applyTaskKey(e.name),
-			DoneLabel: "Applied " + e.name + " files",
-		}
-	}
-	tracker := ui.RunRefresh(tasks)
+	// Progress reporting is handled by the caller-provided reporter
 
 	// Apply repos in parallel
 	allResults := make([][]FileApplyResult, len(repoList))
@@ -402,27 +395,35 @@ func (p *Processor) Apply(changes []FileChange, opts ApplyOptions) []FileApplyRe
 
 			if len(filesToApply) == 0 {
 				allResults[idx] = results
-				tracker.Done(applyTaskKey(repo))
+				reporter.Done(repo, 0, 0)
 				return
 			}
 
+			paths := make([]string, len(filesToApply))
+			for j, c := range filesToApply {
+				paths[j] = c.Path
+			}
+			reporter.Start(repo, paths)
+
+			start := time.Now()
 			err := p.applyToRepo(repo, filesToApply, opts)
+			elapsed := time.Since(start)
+
 			for _, c := range filesToApply {
 				results = append(results, FileApplyResult{Change: c, Err: err})
 			}
 			allResults[idx] = results
 
-			key := applyTaskKey(repo)
 			if err != nil {
-				tracker.Error(key, err)
+				reporter.Error(repo, elapsed, err)
 			} else {
-				tracker.Done(key)
+				reporter.Done(repo, elapsed, len(filesToApply))
 			}
 		}(i, entry.name, entry.changes)
 	}
 
 	wg.Wait()
-	tracker.Wait()
+	reporter.Wait()
 
 	// Flatten in order
 	var results []FileApplyResult

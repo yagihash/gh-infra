@@ -1,0 +1,78 @@
+---
+// Features displayed as a simple table — rows are guaranteed aligned by the browser.
+---
+<table class="features-table">
+  <tbody>
+    <tr class="row-icon">
+      <td><span class="icon">Y</span></td>
+      <td><span class="icon">S</span></td>
+      <td><span class="icon">P</span></td>
+      <td><span class="icon">G</span></td>
+    </tr>
+    <tr class="row-title">
+      <td>YAML, not HCL</td>
+      <td>No state file</td>
+      <td>Plan & Apply</td>
+      <td>Just gh + a token</td>
+    </tr>
+    <tr class="row-desc">
+      <td>No new language. Just YAML.</td>
+      <td>GitHub is the source of truth.</td>
+      <td>Preview every change before it happens.</td>
+      <td>No apps. No servers. No infra.</td>
+    </tr>
+  </tbody>
+</table>
+
+<style>
+  .features-table {
+    width: 100%;
+    max-width: 860px;
+    margin: 0 auto;
+    padding-top: 2rem;
+    border-collapse: collapse;
+    border-top: 1px solid var(--sl-color-gray-5);
+    table-layout: fixed;
+  }
+
+  .features-table td {
+    text-align: center;
+    vertical-align: top;
+    padding: 0.3rem 0.75rem;
+    border: none;
+  }
+
+  .icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(122, 162, 247, 0.15), rgba(187, 154, 247, 0.15));
+    color: #7aa2f7;
+    font-weight: 700;
+    font-size: 0.85rem;
+    font-family: var(--sl-font-mono, monospace);
+  }
+
+  .row-title td {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+    padding-top: 0.5rem;
+  }
+
+  .row-desc td {
+    font-size: 0.8rem;
+    color: var(--sl-color-gray-3);
+    line-height: 1.5;
+    padding-top: 0.2rem;
+    padding-bottom: 1rem;
+  }
+
+  :global([data-theme='light']) .icon {
+    background: linear-gradient(135deg, rgba(97, 131, 187, 0.15), rgba(152, 84, 197, 0.15));
+    color: #6183bb;
+  }
+</style>

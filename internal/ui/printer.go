@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"charm.land/huh/v2"
 	"github.com/charmbracelet/x/term"
@@ -19,6 +20,8 @@ type Printer interface {
 
 	// stdout: structured output
 	Separator()
+	Legend(creates, updates, deletes bool)
+	ActionHeader(name, action string) // e.g. "# babarot/repo will be created"
 	GroupHeader(icon, name string)
 	GroupEnd()
 	SetColumnWidth(w int) // set field/path column width for Item/SubItem
@@ -40,6 +43,9 @@ type Printer interface {
 	ResultSuccess(field, detail string)
 	ResultError(field, detail string)
 	ResultWarning(field, detail string)
+	StreamStart(name, detail string)
+	StreamDone(name, detail string)
+	StreamError(name, detail string)
 	Summary(msg string)
 	Message(msg string)
 
@@ -103,6 +109,24 @@ func (p *StandardPrinter) Separator() {
 	fmt.Fprintln(p.out)
 	fmt.Fprintln(p.out, Dim.Render(Separator_))
 	fmt.Fprintln(p.out)
+}
+
+func (p *StandardPrinter) Legend(creates, updates, deletes bool) {
+	fmt.Fprintln(p.out, "Resource actions are indicated with the following symbols:")
+	if creates {
+		fmt.Fprintf(p.out, "  %s create\n", Green.Render(IconAdd))
+	}
+	if updates {
+		fmt.Fprintf(p.out, "  %s update\n", Yellow.Render(IconChange))
+	}
+	if deletes {
+		fmt.Fprintf(p.out, "  %s destroy\n", Red.Render(IconRemove))
+	}
+	fmt.Fprintln(p.out)
+}
+
+func (p *StandardPrinter) ActionHeader(name, action string) {
+	fmt.Fprintf(p.out, "  %s %s %s\n", Dim.Render("#"), Bold.Render(name), Dim.Render(action))
 }
 
 func (p *StandardPrinter) GroupHeader(icon, name string) {
@@ -235,6 +259,18 @@ func (p *StandardPrinter) ResultWarning(field, detail string) {
 		Yellow.Render(IconWarning), p.itemWidth(), field, detail)
 }
 
+func (p *StandardPrinter) StreamStart(name, detail string) {
+	fmt.Fprintf(p.err, "%s: %s\n", Bold.Render(name), detail)
+}
+
+func (p *StandardPrinter) StreamDone(name, detail string) {
+	fmt.Fprintf(p.err, "%s: %s\n", Bold.Render(name), Green.Render(detail))
+}
+
+func (p *StandardPrinter) StreamError(name, detail string) {
+	fmt.Fprintf(p.err, "%s: %s\n", Bold.Render(name), Red.Render(detail))
+}
+
 func (p *StandardPrinter) Summary(msg string) {
 	fmt.Fprintln(p.out)
 	fmt.Fprintln(p.out, Dim.Render(Separator_))
@@ -272,6 +308,16 @@ func (p *StandardPrinter) Confirm(title string) (bool, error) {
 // DefaultPrinter is the package-level printer instance.
 var DefaultPrinter Printer = NewStandardPrinter()
 
+// OutputMode returns the apply output mode.
+// Set via GH_INFRA_OUTPUT env var: "stream" or "spinner" (default).
+func OutputMode() string {
+	mode := os.Getenv("GH_INFRA_OUTPUT")
+	if mode == "stream" {
+		return "stream"
+	}
+	return "spinner"
+}
+
 // IsInteractive returns true if stderr is a terminal.
 func IsInteractive() bool {
 	f, ok := DefaultPrinter.ErrWriter().(*os.File)
@@ -285,6 +331,14 @@ func IsInteractive() bool {
 // Package-level because main.go cannot inject a Printer.
 func FatalError(err error) {
 	DefaultPrinter.ErrorMessage(err)
+}
+
+// FormatDuration formats a duration for display (e.g. "1s", "2.3s").
+func FormatDuration(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	return fmt.Sprintf("%.1fs", d.Seconds())
 }
 
 // FormatValue formats a value for display.

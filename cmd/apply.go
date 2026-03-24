@@ -119,14 +119,14 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets, failOnUnknown 
 	// Print unified plan
 	repoCreates, repoUpdates, repoDeletes := repository.CountChanges(repoChanges)
 	fileCreates, fileUpdates, fileDeletes, fileDrifts := fileset.CountChanges(fileChanges)
-
-	p.Separator()
-
-	printUnifiedPlan(p, repoChanges, fileChanges)
-
 	creates := repoCreates + fileCreates
 	updates := repoUpdates + fileUpdates
 	deletes := repoDeletes + fileDeletes
+
+	p.Separator()
+	p.Legend(creates > 0, updates > 0, deletes > 0)
+
+	printUnifiedPlan(p, repoChanges, fileChanges)
 	parts := []string{
 		fmt.Sprintf("%s to create", ui.Bold.Render(fmt.Sprintf("%d", creates))),
 		fmt.Sprintf("%s to update", ui.Bold.Render(fmt.Sprintf("%d", updates))),
@@ -152,13 +152,27 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets, failOnUnknown 
 	totalSucceeded := 0
 	totalFailed := 0
 
+	stream := ui.OutputMode() == "stream"
+
 	var allRepoResults []repository.ApplyResult
 	var allFileResults []fileset.FileApplyResult
 
 	// Apply repo changes
 	if hasRepo {
 		executor := repository.NewExecutor(runner, resolver)
-		allRepoResults = executor.Apply(repoChanges, targetRepos)
+		var reporter ui.ProgressReporter
+		if stream {
+			reporter = ui.NewStreamReporter(p, "Applying", "Applied")
+		} else {
+			names := make([]string, 0)
+			for _, c := range repoChanges {
+				if c.Type != repository.ChangeNoOp {
+					names = append(names, c.Name)
+				}
+			}
+			reporter = ui.NewSpinnerReporter(uniqueStrings(names), "Applying", "Applied")
+		}
+		allRepoResults = executor.Apply(repoChanges, targetRepos, reporter)
 		s, f := repository.CountApplyResults(allRepoResults)
 		totalSucceeded += s
 		totalFailed += f
@@ -183,7 +197,17 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets, failOnUnknown 
 				Branch:         fs.Spec.Branch,
 				FileSetName:    fs.Metadata.Owner,
 			}
-			results := processor.Apply(fsChanges, opts)
+			var fileReporter ui.ProgressReporter
+			if stream {
+				fileReporter = ui.NewStreamReporter(p, "Applying", "Applied")
+			} else {
+				var targets []string
+				for _, c := range fsChanges {
+					targets = append(targets, c.Target)
+				}
+				fileReporter = ui.NewSpinnerReporter(uniqueStrings(targets), "Applying", "Applied")
+			}
+			results := processor.Apply(fsChanges, opts, fileReporter)
 			allFileResults = append(allFileResults, results...)
 			for _, r := range results {
 				if r.Skipped {
@@ -198,9 +222,11 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets, failOnUnknown 
 		}
 	}
 
-	// Print unified apply results grouped by repo
-	p.Separator()
-	printUnifiedApplyResults(p, allRepoResults, allFileResults)
+	// Print unified apply results (skip in stream mode — stream output is the result)
+	if !stream {
+		p.Separator()
+		printUnifiedApplyResults(p, allRepoResults, allFileResults)
+	}
 
 	// Unified summary
 	summaryMsg := fmt.Sprintf("Apply complete! %d changes applied", totalSucceeded)
@@ -215,4 +241,16 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets, failOnUnknown 
 	}
 
 	return nil
+}
+
+func uniqueStrings(s []string) []string {
+	seen := make(map[string]bool)
+	var out []string
+	for _, v := range s {
+		if !seen[v] {
+			seen[v] = true
+			out = append(out, v)
+		}
+	}
+	return out
 }

@@ -8,33 +8,109 @@ hero:
     - text: Get Started
       link: ./introduction/getting-started/
       icon: right-arrow
-    - text: Why gh-infra?
-      link: ./introduction/why/
-      variant: minimal
     - text: View on GitHub
       link: https://github.com/babarot/gh-infra
       icon: external
       variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
-import DemoTerminal from '../../components/DemoTerminal.astro';
+import CodeShowcase from '../../components/CodeShowcase.astro';
+import Features from '../../components/Features.astro';
 
-<DemoTerminal />
+export const importLeft = `<span class="hl-prompt">$</span> <span class="hl-cmd">gh infra import</span> babarot/my-project
 
-## Why gh-infra?
+<span class="hl-comment"># Exports current repo settings to YAML</span>`;
 
-<CardGrid>
-  <Card title="YAML instead of HCL" icon="document">
-    Declare what your repos should look like in plain YAML.
-  </Card>
-  <Card title="No state file" icon="approve-check">
-    GitHub itself is the source of truth. Nothing to store, lock, or lose.
-  </Card>
-  <Card title="Plan before apply" icon="list-format">
-    See exactly what will change before it happens.
-  </Card>
-  <Card title="Just gh and a token" icon="rocket">
-    No GitHub App, no server, no extra infrastructure.
-  </Card>
-</CardGrid>
+export const importRight = `<span class="hl-key">apiVersion:</span> gh-infra/v1
+<span class="hl-key">kind:</span> Repository
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> my-project
+  <span class="hl-key">owner:</span> babarot
+
+<span class="hl-key">spec:</span>
+  <span class="hl-key">description:</span> <span class="hl-str">"My awesome project"</span>
+  <span class="hl-key">visibility:</span> public
+  <span class="hl-key">features:</span>
+    <span class="hl-key">wiki:</span> true
+    <span class="hl-key">discussions:</span> false`;
+
+export const planLeft = `<span class="hl-key">apiVersion:</span> gh-infra/v1
+<span class="hl-key">kind:</span> Repository
+<span class="hl-key">metadata:</span>
+  <span class="hl-key">name:</span> my-project
+  <span class="hl-key">owner:</span> babarot
+
+<span class="hl-key">spec:</span>
+  <span class="hl-key">description:</span> <span class="hl-str">"My awesome project"</span>
+  <span class="hl-key">visibility:</span> public
+  <span class="hl-key">features:</span>
+    <span class="hl-key">wiki:</span> <span class="hl-changed">false</span>
+    <span class="hl-key">discussions:</span> <span class="hl-changed">true</span>
+  <span class="hl-key">topics:</span>
+    - <span class="hl-changed">go</span>
+    - <span class="hl-changed">cli</span>`;
+
+export const planRight = `<span class="hl-dim"># babarot/my-project will be updated</span>
+  <span class="hl-change">~</span> <span class="hl-repo">babarot/my-project</span>
+      <span class="hl-change">~</span> features.wiki         <span class="hl-old">true</span> <span class="hl-dim">→</span> <span class="hl-new">false</span>
+      <span class="hl-change">~</span> features.discussions  <span class="hl-old">false</span> <span class="hl-dim">→</span> <span class="hl-new">true</span>
+      <span class="hl-add">+</span> topics                <span class="hl-new">[go, cli]</span>
+
+<span class="hl-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+
+Plan: <span class="hl-repo">0</span> to create, <span class="hl-repo">1</span> to update, <span class="hl-repo">0</span> to destroy
+To apply, run: <span class="hl-repo">gh infra apply</span>`;
+
+<div class="section-label">
+  <span class="section-label-text">Import existing repos</span>
+</div>
+
+<CodeShowcase
+  leftTitle="terminal"
+  rightTitle="repos/my-project.yaml"
+  leftHtml={importLeft}
+  rightHtml={importRight}
+/>
+
+<div class="section-label">
+  <span class="section-label-text">Edit YAML. See the diff.</span>
+</div>
+
+<CodeShowcase
+  leftTitle="repos/my-project.yaml"
+  rightTitle="gh infra plan"
+  leftHtml={planLeft}
+  rightHtml={planRight}
+/>
+
+export const applyLeft = `<span class="hl-prompt">$</span> <span class="hl-cmd">gh infra apply</span> ./repos/
+
+<span class="hl-dim">Do you want to apply these changes?</span>
+  gh-infra will apply the actions
+  described above.
+
+  <span class="hl-dim">Only 'yes' will be accepted.</span>
+  <span class="hl-dim">Enter a value:</span> <span class="hl-new">yes</span>`;
+
+export const applyRight = `<span class="hl-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+
+  <span class="hl-new">✓</span> <span class="hl-repo">babarot/my-project</span>
+      <span class="hl-new">✓</span> features            updated
+      <span class="hl-new">✓</span> topics              updated
+
+<span class="hl-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+
+Apply complete! 2 changes applied.`;
+
+<div class="section-label">
+  <span class="section-label-text">Apply with confidence</span>
+</div>
+
+<CodeShowcase
+  leftTitle="gh infra apply"
+  rightTitle="result"
+  leftHtml={applyLeft}
+  rightHtml={applyRight}
+/>
+
+<Features />

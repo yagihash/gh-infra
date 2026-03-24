@@ -7,6 +7,7 @@ import (
 
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/manifest"
+	"github.com/babarot/gh-infra/internal/ui"
 )
 
 func newTestRepo(owner, name string) *manifest.Repository {
@@ -34,7 +35,7 @@ func TestApplyRepoDescription(t *testing.T) {
 		},
 	}
 
-	results := exec.Apply(changes, []*manifest.Repository{repo})
+	results := exec.Apply(changes, []*manifest.Repository{repo}, ui.NoopReporter{})
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
@@ -66,7 +67,7 @@ func TestApplyHomepage(t *testing.T) {
 		},
 	}
 
-	results := exec.Apply(changes, []*manifest.Repository{repo})
+	results := exec.Apply(changes, []*manifest.Repository{repo}, ui.NoopReporter{})
 	if results[0].Err != nil {
 		t.Fatalf("unexpected error: %v", results[0].Err)
 	}
@@ -92,7 +93,7 @@ func TestApplyVisibility(t *testing.T) {
 		},
 	}
 
-	results := exec.Apply(changes, []*manifest.Repository{repo})
+	results := exec.Apply(changes, []*manifest.Repository{repo}, ui.NoopReporter{})
 	if results[0].Err != nil {
 		t.Fatalf("unexpected error: %v", results[0].Err)
 	}
@@ -123,7 +124,7 @@ func TestApplyTopics(t *testing.T) {
 		},
 	}
 
-	results := exec.Apply(changes, []*manifest.Repository{repo})
+	results := exec.Apply(changes, []*manifest.Repository{repo}, ui.NoopReporter{})
 	if results[0].Err != nil {
 		t.Fatalf("unexpected error: %v", results[0].Err)
 	}
@@ -171,7 +172,7 @@ func TestApplyFeatureToggle(t *testing.T) {
 		},
 	}
 
-	results := exec.Apply(changes, []*manifest.Repository{repo})
+	results := exec.Apply(changes, []*manifest.Repository{repo}, ui.NoopReporter{})
 	if results[0].Err != nil {
 		t.Fatalf("unexpected error: %v", results[0].Err)
 	}
@@ -206,7 +207,7 @@ func TestApplyWithErrNotFound(t *testing.T) {
 		},
 	}
 
-	results := exec.Apply(changes, []*manifest.Repository{repo})
+	results := exec.Apply(changes, []*manifest.Repository{repo}, ui.NoopReporter{})
 	if results[0].Err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -240,7 +241,7 @@ func TestApplyWithErrForbidden(t *testing.T) {
 		},
 	}
 
-	results := exec.Apply(changes, []*manifest.Repository{repo})
+	results := exec.Apply(changes, []*manifest.Repository{repo}, ui.NoopReporter{})
 	if results[0].Err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -269,7 +270,7 @@ func TestApplyVariableSet(t *testing.T) {
 		},
 	}
 
-	results := exec.Apply(changes, []*manifest.Repository{repo})
+	results := exec.Apply(changes, []*manifest.Repository{repo}, ui.NoopReporter{})
 	if results[0].Err != nil {
 		t.Fatalf("unexpected error: %v", results[0].Err)
 	}
@@ -299,7 +300,7 @@ func TestApplySecretSet(t *testing.T) {
 		},
 	}
 
-	results := exec.Apply(changes, []*manifest.Repository{repo})
+	results := exec.Apply(changes, []*manifest.Repository{repo}, ui.NoopReporter{})
 	if results[0].Err != nil {
 		t.Fatalf("unexpected error: %v", results[0].Err)
 	}
@@ -324,7 +325,7 @@ func TestApplySkipsNoOp(t *testing.T) {
 		},
 	}
 
-	results := exec.Apply(changes, []*manifest.Repository{repo})
+	results := exec.Apply(changes, []*manifest.Repository{repo}, ui.NoopReporter{})
 	if len(results) != 0 {
 		t.Fatalf("expected 0 results for noop, got %d", len(results))
 	}
@@ -361,7 +362,7 @@ func TestApplyBranchProtection(t *testing.T) {
 		},
 	}
 
-	results := exec.Apply(changes, []*manifest.Repository{repo})
+	results := exec.Apply(changes, []*manifest.Repository{repo}, ui.NoopReporter{})
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
@@ -536,7 +537,7 @@ func TestApplyRuleset_Create(t *testing.T) {
 		},
 	}
 
-	results := exec.Apply(changes, []*manifest.Repository{repo})
+	results := exec.Apply(changes, []*manifest.Repository{repo}, ui.NoopReporter{})
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
@@ -589,7 +590,7 @@ func TestApplyRuleset_Update(t *testing.T) {
 		},
 	}
 
-	results := exec.Apply(changes, []*manifest.Repository{repo})
+	results := exec.Apply(changes, []*manifest.Repository{repo}, ui.NoopReporter{})
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
