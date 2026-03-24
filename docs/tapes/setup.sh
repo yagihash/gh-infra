@@ -48,4 +48,7 @@ spec:
     auto_delete_head_branches: true
 EOF
 
+# Pass through env vars from host (e.g. GH_INFRA_OUTPUT=stream)
+export GH_INFRA_OUTPUT="${GH_INFRA_OUTPUT:-}"
+
 export PS1='$ '
