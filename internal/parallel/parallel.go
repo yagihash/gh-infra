@@ -1,11 +1,6 @@
 package parallel
 
-import (
-	"context"
-	"sync"
-
-	"golang.org/x/sync/semaphore"
-)
+import "sync"
 
 // Map processes items concurrently and returns results in input order.
 // concurrency controls the maximum number of goroutines running at once.
@@ -15,24 +10,27 @@ func Map[T, R any](items []T, concurrency int, fn func(int, T) R) []R {
 	if len(items) == 0 {
 		return results
 	}
-
-	var sem *semaphore.Weighted
-	if concurrency > 0 {
-		sem = semaphore.NewWeighted(int64(concurrency))
+	if concurrency <= 0 {
+		concurrency = len(items)
 	}
+
+	ch := make(chan int, len(items))
 
 	var wg sync.WaitGroup
-	for i, item := range items {
+	for w := 0; w < concurrency; w++ {
 		wg.Add(1)
-		go func(idx int, item T) {
+		go func() {
 			defer wg.Done()
-			if sem != nil {
-				_ = sem.Acquire(context.Background(), 1)
-				defer sem.Release(1)
+			for i := range ch {
+				results[i] = fn(i, items[i])
 			}
-			results[idx] = fn(idx, item)
-		}(i, item)
+		}()
 	}
+
+	for i := range items {
+		ch <- i
+	}
+	close(ch)
 
 	wg.Wait()
 	return results
