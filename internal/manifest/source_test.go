@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -486,4 +487,50 @@ func TestResolveFiles_DirScope_LocalDirectory(t *testing.T) {
 			t.Errorf("result[%d].SyncMode = %q, want %q", i, entry.SyncMode, SyncModeMirror)
 		}
 	}
+}
+
+func TestResolveFiles_DuplicatePathError(t *testing.T) {
+	dir := t.TempDir()
+
+	r := &SourceResolver{}
+
+	t.Run("inline duplicate paths", func(t *testing.T) {
+		files := []FileEntry{
+			{Path: "README.md", Content: "hello"},
+			{Path: "README.md", Content: "world"},
+		}
+		_, err := r.ResolveFiles(files, dir)
+		if err == nil {
+			t.Fatal("expected error for duplicate paths")
+		}
+		if !strings.Contains(err.Error(), "duplicate file path") {
+			t.Errorf("unexpected error message: %v", err)
+		}
+	})
+
+	t.Run("overlapping source directories", func(t *testing.T) {
+		// Create directory structure: configs/sub/a.txt
+		sub := filepath.Join(dir, "configs", "sub")
+		if err := os.MkdirAll(sub, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(sub, "a.txt"), []byte("aaa"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "configs", "b.txt"), []byte("bbb"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		files := []FileEntry{
+			{Path: ".github", Source: "configs"},         // expands to .github/b.txt, .github/sub/a.txt
+			{Path: ".github/sub", Source: "configs/sub"}, // expands to .github/sub/a.txt (duplicate!)
+		}
+		_, err := r.ResolveFiles(files, dir)
+		if err == nil {
+			t.Fatal("expected error for overlapping source directories")
+		}
+		if !strings.Contains(err.Error(), "duplicate file path") {
+			t.Errorf("unexpected error message: %v", err)
+		}
+	})
 }
