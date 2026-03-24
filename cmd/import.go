@@ -1,18 +1,16 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/manifest"
+	"github.com/babarot/gh-infra/internal/parallel"
 	"github.com/babarot/gh-infra/internal/repository"
 	"github.com/babarot/gh-infra/internal/ui"
 	goyaml "github.com/goccy/go-yaml"
 	"github.com/spf13/cobra"
-	"golang.org/x/sync/semaphore"
 )
 
 func newImportCmd() *cobra.Command {
@@ -88,37 +86,23 @@ func importRepos(p ui.Printer, targets []importTarget, fetcher *repository.Fetch
 		data []byte
 		err  error
 	}
-	results := make([]importResult, len(targets))
-	sem := semaphore.NewWeighted(defaultImportParallel)
-	var wg sync.WaitGroup
-
-	for i, t := range targets {
-		wg.Add(1)
-		go func(idx int, owner, name string) {
-			defer wg.Done()
-			_ = sem.Acquire(context.Background(), 1)
-			defer sem.Release(1)
-
-			fullName := owner + "/" + name
-			key := "Importing " + fullName
-			current, err := fetcher.FetchRepository(owner, name)
-			if err != nil {
-				results[idx] = importResult{err: err}
-				tracker.Error(key, err)
-				return
-			}
-			m := repository.ToManifest(current, resolver)
-			data, err := goyaml.Marshal(m)
-			results[idx] = importResult{data: data, err: err}
-			if err != nil {
-				tracker.Error(key, err)
-			} else {
-				tracker.Done(key)
-			}
-		}(i, t.owner, t.name)
-	}
-
-	wg.Wait()
+	results := parallel.Map(targets, defaultImportParallel, func(_ int, t importTarget) importResult {
+		fullName := t.owner + "/" + t.name
+		key := "Importing " + fullName
+		current, err := fetcher.FetchRepository(t.owner, t.name)
+		if err != nil {
+			tracker.Error(key, err)
+			return importResult{err: err}
+		}
+		m := repository.ToManifest(current, resolver)
+		data, err := goyaml.Marshal(m)
+		if err != nil {
+			tracker.Error(key, err)
+		} else {
+			tracker.Done(key)
+		}
+		return importResult{data: data, err: err}
+	})
 	tracker.Wait()
 
 	// Count results
