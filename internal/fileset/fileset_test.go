@@ -238,7 +238,7 @@ func TestApply_CreateFile(t *testing.T) {
 		},
 	}
 
-	results := p.Apply(changes, ApplyOptions{FileSetName: "test"})
+	results := p.Apply(changes, ApplyOptions{FileSetName: "test"}, ui.NoopReporter{})
 
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
@@ -271,7 +271,7 @@ func TestApply_UpdateFile(t *testing.T) {
 		},
 	}
 
-	results := p.Apply(changes, ApplyOptions{FileSetName: "test"})
+	results := p.Apply(changes, ApplyOptions{FileSetName: "test"}, ui.NoopReporter{})
 
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
@@ -307,7 +307,7 @@ func TestApply_DriftWarnSkipsApply(t *testing.T) {
 		},
 	}
 
-	results := p.Apply(changes, ApplyOptions{FileSetName: "test"})
+	results := p.Apply(changes, ApplyOptions{FileSetName: "test"}, ui.NoopReporter{})
 
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
@@ -332,7 +332,7 @@ func TestApply_NoOpAndSkipNotApplied(t *testing.T) {
 		{Type: FileSkip, Target: "owner/repo", Path: "b.txt"},
 	}
 
-	results := p.Apply(changes, ApplyOptions{FileSetName: "test"})
+	results := p.Apply(changes, ApplyOptions{FileSetName: "test"}, ui.NoopReporter{})
 
 	if len(results) != 0 {
 		t.Errorf("expected 0 results for noop/skip, got %d", len(results))

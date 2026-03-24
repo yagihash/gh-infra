@@ -39,6 +39,7 @@ demos:
 		docker run --rm \
 			-v $(CURDIR)/docs/tapes:/data \
 			-w /data \
+			$(foreach v,$(DEMO_ENV),-e $(v)) \
 			ghcr.io/charmbracelet/vhs $$(basename $$tape); \
 	done
 	@rm -f docs/tapes/.gh-infra

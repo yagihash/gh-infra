@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/manifest"
@@ -29,7 +30,7 @@ const defaultApplyParallel = 5
 // Apply executes all changes in the plan result.
 // Changes are grouped by repo and applied in parallel across repos.
 // Within a single repo, changes are applied sequentially to maintain ordering.
-func (e *Executor) Apply(changes []Change, repos []*manifest.Repository) []ApplyResult {
+func (e *Executor) Apply(changes []Change, repos []*manifest.Repository, reporter ui.ProgressReporter) []ApplyResult {
 	repoMap := make(map[string]*manifest.Repository)
 	for _, r := range repos {
 		repoMap[r.Metadata.FullName()] = r
@@ -39,16 +40,6 @@ func (e *Executor) Apply(changes []Change, repos []*manifest.Repository) []Apply
 	if len(groups) == 0 {
 		return nil
 	}
-
-	// Start spinner display
-	tasks := make([]ui.RefreshTask, len(groups))
-	for i, g := range groups {
-		tasks[i] = ui.RefreshTask{
-			Name:      "Applying " + g.name,
-			DoneLabel: "Applied " + g.name,
-		}
-	}
-	tracker := ui.RunRefresh(tasks)
 
 	// Apply repo groups in parallel
 	allResults := make([][]ApplyResult, len(groups))
@@ -62,14 +53,21 @@ func (e *Executor) Apply(changes []Change, repos []*manifest.Repository) []Apply
 			_ = sem.Acquire(context.Background(), 1)
 			defer sem.Release(1)
 
+			fields := make([]string, 0, len(g.changes))
+			for _, c := range g.changes {
+				fields = append(fields, c.Field)
+			}
+			reporter.Start(g.name, fields)
+
+			start := time.Now()
 			var results []ApplyResult
 			for _, c := range g.changes {
 				result := e.applyChange(c, repoMap[c.Name])
 				results = append(results, result)
 			}
 			allResults[idx] = results
+			elapsed := time.Since(start)
 
-			// Update spinner
 			var firstErr error
 			for _, r := range results {
 				if r.Err != nil {
@@ -77,17 +75,17 @@ func (e *Executor) Apply(changes []Change, repos []*manifest.Repository) []Apply
 					break
 				}
 			}
-			key := "Applying " + g.name
+
 			if firstErr != nil {
-				tracker.Error(key, firstErr)
+				reporter.Error(g.name, elapsed, firstErr)
 			} else {
-				tracker.Done(key)
+				reporter.Done(g.name, elapsed, len(results))
 			}
 		}(i, group)
 	}
 
 	wg.Wait()
-	tracker.Wait()
+	reporter.Wait()
 
 	// Flatten in order
 	var results []ApplyResult
