@@ -9,7 +9,7 @@ gh-infra parallelizes API calls across repositories to minimize execution time, 
 1. **Repositories are independent** — operations on different repos never conflict, so they can run in parallel
 2. **Settings within a repo are ordered** — creating a repo must precede setting its description, branch protection, etc.
 3. **Output order is deterministic** — even though work runs in parallel, plan/apply results are always printed in a consistent order
-4. **Concurrency is bounded** — a semaphore limits parallelism to 5 to avoid GitHub API rate limits
+4. **Concurrency is bounded** — a worker pool limits parallelism to 5 to avoid GitHub API rate limits
 
 ## Phase Overview
 
@@ -39,16 +39,16 @@ Fetches the current state of all repositories from GitHub API in parallel.
 
 ```mermaid
 flowchart TB
-    subgraph sem["Semaphore (max 5 concurrent)"]
+    subgraph pool["Worker Pool (max 5 concurrent)"]
         direction TB
-        subgraph g1["goroutine: repo-A"]
+        subgraph g1["worker: repo-A"]
             direction LR
             a1[gh repo view] --> a2[branches]
             a1 --> a3[rulesets]
             a1 --> a4[secrets]
             a1 --> a5[variables]
         end
-        subgraph g2["goroutine: repo-B"]
+        subgraph g2["worker: repo-B"]
             direction LR
             b1[gh repo view] --> b2[branches]
             b1 --> b3[rulesets]
@@ -57,13 +57,13 @@ flowchart TB
         end
     end
 
-    sem --> results["Collect results by index"]
+    pool --> results["Collect results by index"]
 ```
 
-**Implementation:** `internal/repository/orchestrate.go`
+**Implementation:** `internal/repository/orchestrate.go` via `parallel.Map`
 
-- `sync.WaitGroup` + `semaphore.NewWeighted(5)` for bounded parallelism
-- Each goroutine calls `Fetcher.FetchRepository()`, which internally uses `errgroup` to parallelize sub-fetches (branch protection, rulesets, secrets, variables)
+- `parallel.Map` spawns a fixed pool of 5 worker goroutines that pull jobs from a channel
+- Each worker calls `Fetcher.FetchRepository()`, which internally uses `errgroup` to parallelize sub-fetches (branch protection, rulesets, secrets, variables)
 - Spinner display via `ui.RunRefresh` shows per-repo progress (✓/✗)
 - Results are written to a pre-allocated slice by index — no mutex needed for the result array itself
 - Errors are non-fatal: failed repos are skipped and reported after all fetches complete
@@ -105,9 +105,9 @@ The diff runs immediately after each repo fetch completes (within the same gorou
 
 ```mermaid
 flowchart TB
-    subgraph sem["Semaphore (max 5 concurrent)"]
+    subgraph pool["Worker Pool (max 5 concurrent)"]
         direction TB
-        subgraph ga["goroutine: repo-A"]
+        subgraph ga["worker: repo-A"]
             direction TB
             a1[create repo] --> a2[set description]
             a2 --> a3[set visibility]
@@ -115,20 +115,20 @@ flowchart TB
             a4 --> a5[create branch protection]
             a5 --> a6[create ruleset]
         end
-        subgraph gb["goroutine: repo-B"]
+        subgraph gb["worker: repo-B"]
             direction TB
             b1[update description] --> b2[update merge_strategy]
             b2 --> b3[update branch protection]
         end
     end
 
-    sem --> flat["Flatten results in order"]
+    pool --> flat["Flatten results in order"]
 ```
 
-**Implementation:** `internal/repository/apply.go` `Apply()`
+**Implementation:** `internal/repository/apply.go` `Apply()` via `parallel.Map`
 
 - Changes are grouped by repo name using `groupByName()`
-- **Repo groups run in parallel** — bounded by semaphore (max 5)
+- **Repo groups run in parallel** — bounded by worker pool (max 5)
 - **Changes within a repo run sequentially** — this is critical because:
   - `create repo` must complete before any settings can be applied
   - Branch protection requires the branch to exist
@@ -140,9 +140,9 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    subgraph sem["Semaphore (max 5 concurrent)"]
+    subgraph pool["Worker Pool (max 5 concurrent)"]
         direction TB
-        subgraph ga["goroutine: repo-A (direct push)"]
+        subgraph ga["worker: repo-A (direct push)"]
             direction TB
             a1[get HEAD SHA] --> a2[create blob file-1]
             a2 --> a3[create blob file-2]
@@ -150,7 +150,7 @@ flowchart TB
             a4 --> a5[create commit]
             a5 --> a6[update ref]
         end
-        subgraph gb["goroutine: repo-B (pull request)"]
+        subgraph gb["worker: repo-B (pull request)"]
             direction TB
             b1[get HEAD SHA] --> b2[create blob file-1]
             b2 --> b3[create tree]
@@ -158,13 +158,13 @@ flowchart TB
             b4 --> b5[create pull request]
         end
     end
-    sem --> flat["Flatten results in order"]
+    pool --> flat["Flatten results in order"]
 ```
 
-**Implementation:** `internal/fileset/fileset.go` `Apply()`
+**Implementation:** `internal/fileset/fileset.go` `Apply()` via `parallel.Map`
 
 - Changes are grouped by target repo using `groupChangesByTarget()`
-- **Repos run in parallel** — bounded by semaphore (max 5)
+- **Repos run in parallel** — bounded by worker pool (max 5)
 - **Within each repo, all operations are sequential** — Git Data API requires:
   1. Get HEAD SHA (base commit)
   2. Create blobs for each file
@@ -178,19 +178,19 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    subgraph sem["Semaphore (max 5 concurrent)"]
+    subgraph pool["Worker Pool (max 5 concurrent)"]
         direction TB
-        subgraph ga["goroutine: repo-A"]
+        subgraph ga["worker: repo-A"]
             a1[FetchRepository] --> a2[ToManifest + Marshal]
         end
-        subgraph gb["goroutine: repo-B"]
+        subgraph gb["worker: repo-B"]
             b1[FetchRepository] --> b2[ToManifest + Marshal]
         end
     end
-    sem --> ordered["Output YAML to stdout in argument order"]
+    pool --> ordered["Output YAML to stdout in argument order"]
 ```
 
-**Implementation:** `cmd/import.go`
+**Implementation:** `cmd/import.go` via `parallel.Map`
 
 - Each repo is fetched and marshaled to YAML in parallel
 - Results stored in indexed slice, output in order after all goroutines complete
@@ -200,8 +200,8 @@ flowchart TB
 
 | Point | Mechanism | Why |
 |-------|-----------|-----|
-| Bounded parallelism | `semaphore.NewWeighted(5)` | Avoid GitHub API rate limits (5000 req/hr) |
-| Wait for all fetches | `sync.WaitGroup` | Plan cannot proceed until all repos are fetched |
+| Bounded parallelism | `parallel.Map` with worker pool (5 goroutines) | Avoid GitHub API rate limits (5000 req/hr) |
+| Wait for all fetches | `parallel.Map` blocks until all workers finish | Plan cannot proceed until all repos are fetched |
 | Sub-fetch parallelism | `errgroup.Group` | Branch protection, rulesets, secrets, variables fetched concurrently within a single repo |
 | Result ordering | Pre-allocated `[]T` by index | Goroutines write to their own slot; no mutex needed |
 | Spinner display | `bubbletea.Program` + `p.Send()` | Thread-safe message passing from goroutines to TUI model |
