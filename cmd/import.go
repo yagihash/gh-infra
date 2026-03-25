@@ -134,7 +134,6 @@ func importRepos(p ui.Printer, targets []importTarget, fetcher *repository.Fetch
 
 	// Print errors
 	if failed > 0 {
-		fmt.Fprintln(out)
 		for i, r := range results {
 			if r.err != nil {
 				p.Warning(names[i], fmt.Sprintf("skipping: %v", r.err))

@@ -82,6 +82,16 @@ func NewStandardPrinterWith(out, err io.Writer) *StandardPrinter {
 func (p *StandardPrinter) OutWriter() io.Writer { return p.out }
 func (p *StandardPrinter) ErrWriter() io.Writer { return p.err }
 
+// isOutTerminal reports whether the stdout writer is a terminal.
+// Returns false when stdout is redirected to a file or pipe.
+func (p *StandardPrinter) isOutTerminal() bool {
+	f, ok := p.out.(*os.File)
+	if !ok {
+		return false
+	}
+	return term.IsTerminal(f.Fd())
+}
+
 const Separator_ = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 // Icon constants for plan/apply output.
@@ -108,9 +118,12 @@ func (p *StandardPrinter) BlankLine() {
 }
 
 func (p *StandardPrinter) Separator() {
-	fmt.Fprintln(p.out)
-	fmt.Fprintln(p.out, Dim.Render(Separator_))
-	fmt.Fprintln(p.out)
+	if !p.isOutTerminal() {
+		return
+	}
+	fmt.Fprintln(p.err)
+	fmt.Fprintln(p.err, Dim.Render(Separator_))
+	fmt.Fprintln(p.err)
 }
 
 func (p *StandardPrinter) Legend(creates, updates, deletes bool) {
@@ -278,10 +291,12 @@ func (p *StandardPrinter) StreamError(name, detail string) {
 }
 
 func (p *StandardPrinter) Summary(msg string) {
-	fmt.Fprintln(p.out)
-	fmt.Fprintln(p.out, Dim.Render(Separator_))
-	fmt.Fprintln(p.out)
-	fmt.Fprintln(p.out, msg)
+	if p.isOutTerminal() {
+		fmt.Fprintln(p.err)
+		fmt.Fprintln(p.err, Dim.Render(Separator_))
+	}
+	fmt.Fprintln(p.err)
+	fmt.Fprintln(p.err, msg)
 }
 
 func (p *StandardPrinter) Message(msg string) {
