@@ -37,6 +37,11 @@ func runValidate(path string, failOnUnknown bool) error {
 		return err
 	}
 
+	// Print deprecation warnings
+	for _, w := range parsed.Warnings {
+		p.Warning("deprecation", w)
+	}
+
 	p.Success("Valid", fmt.Sprintf("%d repositories, %d filesets defined", len(parsed.Repositories), len(parsed.FileSets)))
 	for _, r := range parsed.Repositories {
 		p.Message("  - Repository: " + r.Metadata.FullName())

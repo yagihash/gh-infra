@@ -124,8 +124,8 @@ func printUnifiedPlan(p ui.Printer, repoChanges []repository.Change, fileChanges
 			if len(fChanges) != 1 {
 				label += "s"
 			}
-			// Show commit strategy if available
-			strategy := fChanges[0].CommitStrategy
+			// Show apply method if available
+			strategy := fChanges[0].OnApply
 			if strategy != "" {
 				label += ", " + strategy
 			}
@@ -236,8 +236,8 @@ func printUnifiedApplyResults(p ui.Printer, repoResults []repository.ApplyResult
 			} else {
 				p.ResultSuccess(r.Change.Path, fmt.Sprintf("%sd", r.Change.Type))
 			}
-			if r.CommitStrategy != "" {
-				commitStrategy = r.CommitStrategy
+			if r.OnApply != "" {
+				commitStrategy = r.OnApply
 			}
 			if r.PRURL != "" {
 				prURL = r.PRURL

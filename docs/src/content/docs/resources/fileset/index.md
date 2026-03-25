@@ -38,7 +38,7 @@ spec:
       source: ./templates/LICENSE
 
   on_drift: warn
-  commit_strategy: push
+  on_apply: push
   commit_message: "ci: sync shared files"
 ```
 :::
@@ -54,13 +54,13 @@ All repositories in the set belong to this owner. Individual repo names are list
 
 ## Shared Features
 
-All settings available in [File](../file/) — file sources, templating, drift handling, sync modes, and commit strategies — work identically in `FileSet`. See the File documentation for details:
+All settings available in [File](../file/) — file sources, templating, drift handling, reconcile modes, and apply methods — work identically in `FileSet`. See the File documentation for details:
 
 - [File Sources](../file/sources/) — Inline content, local files, directories, and `github://` references
 - [Templating](../file/templating/) — `<% %>` syntax, built-in variables, custom vars
-- [Sync Mode](../file/sync-mode/) — `patch` (add/update) vs `mirror` (add/update/delete orphans)
-- [Drift Handling](../file/drift/) — `warn`, `overwrite`, and `skip` behaviors
-- [Commit Strategy](../file/commit-strategy/) — `push` vs `pull_request`
+- [Reconcile](../file/reconcile/) — `patch` (add/update) vs `mirror` (add/update/delete orphans)
+- [Drift Handling](../file/on-drift/) — `warn`, `overwrite`, and `skip` behaviors
+- [Apply Method](../file/on-apply/) — `push` vs `pull_request`
 
 ## When to Use FileSet
 

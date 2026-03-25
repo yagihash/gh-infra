@@ -466,7 +466,7 @@ func TestResolveFiles_DirScope_LocalDirectory(t *testing.T) {
 		{
 			Path:     ".github/workflows",
 			Source:   "configs",
-			SyncMode: SyncModeMirror,
+			Reconcile: ReconcileMirror,
 		},
 	}
 	result, err := r.ResolveFiles(files, dir)
@@ -483,8 +483,8 @@ func TestResolveFiles_DirScope_LocalDirectory(t *testing.T) {
 		if entry.DirScope != ".github/workflows" {
 			t.Errorf("result[%d].DirScope = %q, want %q", i, entry.DirScope, ".github/workflows")
 		}
-		if entry.SyncMode != SyncModeMirror {
-			t.Errorf("result[%d].SyncMode = %q, want %q", i, entry.SyncMode, SyncModeMirror)
+		if entry.Reconcile != ReconcileMirror {
+			t.Errorf("result[%d].Reconcile = %q, want %q", i, entry.Reconcile, ReconcileMirror)
 		}
 	}
 }

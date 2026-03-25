@@ -1,5 +1,7 @@
 package manifest
 
+import "fmt"
+
 const (
 	// APIVersion is the current API version for all manifest resources.
 	APIVersion = "gh-infra/v1"
@@ -20,14 +22,23 @@ const (
 	OnDriftOverwrite = "overwrite"
 	OnDriftSkip      = "skip"
 
-	// CommitStrategy values for FileSet apply behavior.
-	CommitStrategyPush        = "push"
-	CommitStrategyPullRequest = "pull_request"
+	// OnApply values for FileSet apply behavior.
+	OnApplyPush        = "push"
+	OnApplyPullRequest = "pull_request"
 
-	// SyncMode values for FileEntry sync behavior.
-	SyncModePatch      = "patch"       // default: add/update only
-	SyncModeMirror     = "mirror"      // add/update + delete orphans
-	SyncModeCreateOnly = "create_only" // create if missing, never update
+	// Deprecated: use OnApply* constants instead.
+	CommitStrategyPush        = OnApplyPush
+	CommitStrategyPullRequest = OnApplyPullRequest
+
+	// Reconcile values for FileEntry reconcile behavior.
+	ReconcilePatch      = "patch"       // default: add/update only
+	ReconcileMirror     = "mirror"      // add/update + delete orphans
+	ReconcileCreateOnly = "create_only" // create if missing, never update
+
+	// Deprecated: use Reconcile* constants instead.
+	SyncModePatch      = ReconcilePatch
+	SyncModeMirror     = ReconcileMirror
+	SyncModeCreateOnly = ReconcileCreateOnly
 
 	// Resource type identifiers used in plan changes.
 	ResourceRepository       = "Repository"
@@ -246,13 +257,37 @@ func (m FileMetadata) FullName() string {
 }
 
 type FileSpec struct {
-	Files          []FileEntry `yaml:"files"`
-	OnDrift        string      `yaml:"on_drift,omitempty"`
-	CommitMessage  string      `yaml:"commit_message,omitempty"`
-	CommitStrategy string      `yaml:"commit_strategy,omitempty"` // push (default), pull_request
-	Branch         string      `yaml:"branch,omitempty"`          // branch name for pull_request strategy
-	PRTitle        string      `yaml:"pr_title,omitempty"`        // custom PR title (pull_request only)
-	PRBody         string      `yaml:"pr_body,omitempty"`         // custom PR body (pull_request only)
+	Files         []FileEntry `yaml:"files"`
+	OnDrift       string      `yaml:"on_drift,omitempty"`
+	CommitMessage string      `yaml:"commit_message,omitempty"`
+	OnApply       string      `yaml:"on_apply,omitempty"` // push (default), pull_request
+	Branch        string      `yaml:"branch,omitempty"`   // branch name for pull_request on_apply
+	PRTitle       string      `yaml:"pr_title,omitempty"` // custom PR title (pull_request only)
+	PRBody        string      `yaml:"pr_body,omitempty"`  // custom PR body (pull_request only)
+
+	// Deprecated fields (still parsed for backward compatibility)
+	DeprecatedCommitStrategy string   `yaml:"commit_strategy,omitempty"`
+	DeprecationWarnings      []string `yaml:"-"`
+}
+
+// UnmarshalYAML handles migration from commit_strategy to on_apply.
+func (s *FileSpec) UnmarshalYAML(unmarshal func(any) error) error {
+	type raw FileSpec
+	var r raw
+	if err := unmarshal(&r); err != nil {
+		return err
+	}
+	*s = FileSpec(r)
+	if s.DeprecatedCommitStrategy != "" && s.OnApply != "" {
+		return fmt.Errorf("cannot specify both \"commit_strategy\" and \"on_apply\"")
+	}
+	if s.DeprecatedCommitStrategy != "" {
+		s.DeprecationWarnings = append(s.DeprecationWarnings,
+			"\"commit_strategy\" is deprecated, use \"on_apply\" instead")
+		s.OnApply = s.DeprecatedCommitStrategy
+		s.DeprecatedCommitStrategy = ""
+	}
+	return nil
 }
 
 // FileSet represents a set of files to distribute to target repositories.
@@ -268,14 +303,38 @@ type FileSetMetadata struct {
 }
 
 type FileSetSpec struct {
-	Repositories   []FileSetRepository `yaml:"repositories"`
-	Files          []FileEntry         `yaml:"files"`
-	OnDrift        string              `yaml:"on_drift,omitempty"`        // warn (default), overwrite, skip
-	CommitMessage  string              `yaml:"commit_message,omitempty"`  // custom commit message
-	CommitStrategy string              `yaml:"commit_strategy,omitempty"` // push (default), pull_request
-	Branch         string              `yaml:"branch,omitempty"`          // branch name for pull_request strategy
-	PRTitle        string              `yaml:"pr_title,omitempty"`        // custom PR title (pull_request only)
-	PRBody         string              `yaml:"pr_body,omitempty"`         // custom PR body (pull_request only)
+	Repositories  []FileSetRepository `yaml:"repositories"`
+	Files         []FileEntry         `yaml:"files"`
+	OnDrift       string              `yaml:"on_drift,omitempty"`       // warn (default), overwrite, skip
+	CommitMessage string              `yaml:"commit_message,omitempty"` // custom commit message
+	OnApply       string              `yaml:"on_apply,omitempty"`       // push (default), pull_request
+	Branch        string              `yaml:"branch,omitempty"`         // branch name for pull_request on_apply
+	PRTitle       string              `yaml:"pr_title,omitempty"`       // custom PR title (pull_request only)
+	PRBody        string              `yaml:"pr_body,omitempty"`        // custom PR body (pull_request only)
+
+	// Deprecated fields (still parsed for backward compatibility)
+	DeprecatedCommitStrategy string   `yaml:"commit_strategy,omitempty"`
+	DeprecationWarnings      []string `yaml:"-"`
+}
+
+// UnmarshalYAML handles migration from commit_strategy to on_apply.
+func (s *FileSetSpec) UnmarshalYAML(unmarshal func(any) error) error {
+	type raw FileSetSpec
+	var r raw
+	if err := unmarshal(&r); err != nil {
+		return err
+	}
+	*s = FileSetSpec(r)
+	if s.DeprecatedCommitStrategy != "" && s.OnApply != "" {
+		return fmt.Errorf("cannot specify both \"commit_strategy\" and \"on_apply\"")
+	}
+	if s.DeprecatedCommitStrategy != "" {
+		s.DeprecationWarnings = append(s.DeprecationWarnings,
+			"\"commit_strategy\" is deprecated, use \"on_apply\" instead")
+		s.OnApply = s.DeprecatedCommitStrategy
+		s.DeprecatedCommitStrategy = ""
+	}
+	return nil
 }
 
 // FileSetRepository can be a simple string "repo" or a struct with overrides.
@@ -306,19 +365,44 @@ func (fs *FileSet) RepoFullName(repoName string) string {
 }
 
 type FileEntry struct {
-	Path     string            `yaml:"path"`
-	Content  string            `yaml:"content,omitempty"`
-	Source   string            `yaml:"source,omitempty"`    // local file path
-	Vars     map[string]string `yaml:"vars,omitempty"`      // template variables
-	SyncMode string            `yaml:"sync_mode,omitempty"` // patch (default), mirror
-	OnDrift  string            `yaml:"on_drift,omitempty"`  // per-file drift handling (overrides spec-level)
-	DirScope string            `yaml:"-"`                   // internal: directory path for mirror mode
+	Path      string            `yaml:"path"`
+	Content   string            `yaml:"content,omitempty"`
+	Source    string            `yaml:"source,omitempty"`      // local file path
+	Vars      map[string]string `yaml:"vars,omitempty"`        // template variables
+	Reconcile string            `yaml:"reconcile,omitempty"`   // patch (default), mirror, create_only
+	OnDrift   string            `yaml:"on_drift,omitempty"`    // per-file drift handling (overrides spec-level)
+	DirScope  string            `yaml:"-"`                     // internal: directory path for mirror mode
+
+	// Deprecated fields (still parsed for backward compatibility)
+	DeprecatedSyncMode  string   `yaml:"sync_mode,omitempty"`
+	DeprecationWarnings []string `yaml:"-"`
+}
+
+// UnmarshalYAML handles migration from sync_mode to reconcile.
+func (fe *FileEntry) UnmarshalYAML(unmarshal func(any) error) error {
+	type raw FileEntry
+	var r raw
+	if err := unmarshal(&r); err != nil {
+		return err
+	}
+	*fe = FileEntry(r)
+	if fe.DeprecatedSyncMode != "" && fe.Reconcile != "" {
+		return fmt.Errorf("cannot specify both \"sync_mode\" and \"reconcile\" for %s", fe.Path)
+	}
+	if fe.DeprecatedSyncMode != "" {
+		fe.DeprecationWarnings = append(fe.DeprecationWarnings,
+			fmt.Sprintf("%s: \"sync_mode\" is deprecated, use \"reconcile\" instead", fe.Path))
+		fe.Reconcile = fe.DeprecatedSyncMode
+		fe.DeprecatedSyncMode = ""
+	}
+	return nil
 }
 
 // ParseResult holds all parsed resources from a path.
 type ParseResult struct {
 	Repositories []*Repository
 	FileSets     []*FileSet
+	Warnings     []string // deprecation warnings collected during parse
 }
 
 // Ptr returns a pointer to the given value.

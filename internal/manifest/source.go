@@ -40,7 +40,7 @@ func (r *SourceResolver) ResolveFiles(files []FileEntry, yamlDir string) ([]File
 			isDir := len(entries) > 1 || strings.HasSuffix(entry.Source, "/")
 			for i := range entries {
 				entries[i].Vars = entry.Vars
-				entries[i].SyncMode = entry.SyncMode
+				entries[i].Reconcile = entry.Reconcile
 				entries[i].OnDrift = entry.OnDrift
 				if isDir {
 					entries[i].DirScope = entry.Path
@@ -56,7 +56,7 @@ func (r *SourceResolver) ResolveFiles(files []FileEntry, yamlDir string) ([]File
 			isDir := len(entries) > 1 || strings.HasSuffix(entry.Source, "/")
 			for i := range entries {
 				entries[i].Vars = entry.Vars
-				entries[i].SyncMode = entry.SyncMode
+				entries[i].Reconcile = entry.Reconcile
 				entries[i].OnDrift = entry.OnDrift
 				if isDir {
 					entries[i].DirScope = entry.Path

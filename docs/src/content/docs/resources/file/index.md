@@ -37,7 +37,7 @@ spec:
       source: github://babarot/shared-config/workflows/ci.yml
 
   on_drift: warn                          # warn | overwrite | skip
-  commit_strategy: push                    # push | pull_request
+  on_apply: push                           # push | pull_request
   commit_message: "ci: sync managed files"
   # pr_title: "chore: sync files"         # pull_request only
   # pr_body: |                            # pull_request only
@@ -61,12 +61,12 @@ The combination of `owner` and `name` identifies the target repository (`babarot
 | Field | Default | Description |
 |---|---|---|
 | `files` | *(required)* | List of files to manage — see [File Sources](./sources/) |
-| `files[].sync_mode` | `patch` | Per-entry sync mode: `patch` (add/update), `mirror` (add/update/delete), or `create_only` (create if missing, never update) — see [Sync Mode](./sync-mode/) |
-| `files[].on_drift` | spec-level | Per-entry drift override — see [Drift Handling](./drift/) |
-| `on_drift` | `warn` | Default drift handling: `warn`, `overwrite`, or `skip` — see [Drift Handling](./drift/) |
-| `commit_strategy` | `push` | Commit method: `push` or `pull_request` — see [Commit Strategy](./commit-strategy/) |
+| `files[].reconcile` | `patch` | Per-entry reconcile mode: `patch` (add/update), `mirror` (add/update/delete), or `create_only` (create if missing, never update) — see [Reconcile](./reconcile/). |
+| `files[].on_drift` | spec-level | Per-entry drift override — see [Drift Handling](./on-drift/) |
+| `on_drift` | `warn` | Default drift handling: `warn`, `overwrite`, or `skip` — see [Drift Handling](./on-drift/) |
+| `on_apply` | `push` | Apply method: `push` or `pull_request` — see [On Apply](./on-apply/). |
 | `commit_message` | auto | Custom commit message |
-| `branch` | auto | Branch name for `pull_request` strategy |
+| `branch` | auto | Branch name for `pull_request` mode |
 | `pr_title` | `commit_message` | Custom PR title (`pull_request` only) |
 | `pr_body` | auto | Custom PR body (`pull_request` only) |
 

@@ -23,8 +23,8 @@ func ResolveFiles(fs *manifest.FileSet, target manifest.FileSetRepository) []man
 			if override.DirScope == "" {
 				override.DirScope = f.DirScope
 			}
-			if override.SyncMode == "" {
-				override.SyncMode = f.SyncMode
+			if override.Reconcile == "" {
+				override.Reconcile = f.Reconcile
 			}
 			if override.OnDrift == "" {
 				override.OnDrift = f.OnDrift
