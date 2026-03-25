@@ -49,6 +49,11 @@ func runPlan(path, filterRepo string, ci, failOnUnknown bool) error {
 		return err
 	}
 
+	// Print deprecation warnings
+	for _, w := range parsed.Warnings {
+		p.Warning("deprecation", w)
+	}
+
 	if len(parsed.Repositories) == 0 && len(parsed.FileSets) == 0 {
 		p.Message("No resources found in " + path)
 		return nil

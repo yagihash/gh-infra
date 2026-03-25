@@ -50,6 +50,11 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets, failOnUnknown 
 		return err
 	}
 
+	// Print deprecation warnings
+	for _, w := range parsed.Warnings {
+		p.Warning("deprecation", w)
+	}
+
 	if len(parsed.Repositories) == 0 && len(parsed.FileSets) == 0 {
 		p.Message("No resources found in " + path)
 		return nil
@@ -195,12 +200,12 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets, failOnUnknown 
 				continue
 			}
 			opts := fileset.ApplyOptions{
-				CommitMessage:  fs.Spec.CommitMessage,
-				CommitStrategy: fs.Spec.CommitStrategy,
-				Branch:         fs.Spec.Branch,
-				FileSetName:    fs.Metadata.Owner,
-				PRTitle:        fs.Spec.PRTitle,
-				PRBody:         fs.Spec.PRBody,
+				CommitMessage: fs.Spec.CommitMessage,
+				OnApply:       fs.Spec.OnApply,
+				Branch:        fs.Spec.Branch,
+				FileSetName:   fs.Metadata.Owner,
+				PRTitle:       fs.Spec.PRTitle,
+				PRBody:        fs.Spec.PRBody,
 			}
 			var fileReporter ui.ProgressReporter
 			if stream {

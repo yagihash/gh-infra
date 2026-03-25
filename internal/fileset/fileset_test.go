@@ -192,7 +192,7 @@ func TestPlan_CreateOnly_FileNotExists(t *testing.T) {
 	}
 	p := NewProcessor(mock, ui.NewStandardPrinterWith(&bytes.Buffer{}, &bytes.Buffer{}))
 	fileSets := makeFileSet("owner", "repo", "warn", []manifest.FileEntry{
-		{Path: "VERSION", Content: "0.1.0", SyncMode: manifest.SyncModeCreateOnly},
+		{Path: "VERSION", Content: "0.1.0", Reconcile: manifest.ReconcileCreateOnly},
 	})
 
 	changes, _ := p.Plan(fileSets, "", nil)
@@ -214,7 +214,7 @@ func TestPlan_CreateOnly_FileExists(t *testing.T) {
 	}
 	p := NewProcessor(mock, ui.NewStandardPrinterWith(&bytes.Buffer{}, &bytes.Buffer{}))
 	fileSets := makeFileSet("owner", "repo", "warn", []manifest.FileEntry{
-		{Path: "VERSION", Content: "0.1.0", SyncMode: manifest.SyncModeCreateOnly},
+		{Path: "VERSION", Content: "0.1.0", Reconcile: manifest.ReconcileCreateOnly},
 	})
 
 	changes, _ := p.Plan(fileSets, "", nil)
@@ -768,7 +768,7 @@ func TestPlan_MirrorDetectsOrphans(t *testing.T) {
 					{
 						Path:     "config/file1.yml",
 						Content:  "content1",
-						SyncMode: manifest.SyncModeMirror,
+						Reconcile: manifest.ReconcileMirror,
 						DirScope: "config",
 					},
 				},
@@ -823,7 +823,7 @@ func TestPlan_PatchIgnoresOrphans(t *testing.T) {
 					{
 						Path:     "config/file1.yml",
 						Content:  "content1",
-						SyncMode: manifest.SyncModePatch,
+						Reconcile: manifest.ReconcilePatch,
 						DirScope: "config",
 					},
 				},

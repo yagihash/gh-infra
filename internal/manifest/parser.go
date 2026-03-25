@@ -60,6 +60,7 @@ func ParseAll(path string, opts ...ParseOptions) (*ParseResult, error) {
 		}
 		result.Repositories = append(result.Repositories, parsed.Repositories...)
 		result.FileSets = append(result.FileSets, parsed.FileSets...)
+		result.Warnings = append(result.Warnings, parsed.Warnings...)
 	}
 	return result, nil
 }
@@ -97,17 +98,19 @@ func parseFileAll(path string, opt ParseOptions) (*ParseResult, error) {
 		}
 		result.Repositories = repos
 	case KindFile:
-		fs, err := parseFile(data, path)
+		fs, warnings, err := parseFile(data, path)
 		if err != nil {
 			return nil, err
 		}
 		result.FileSets = []*FileSet{fs}
+		result.Warnings = append(result.Warnings, warnings...)
 	case KindFileSet:
-		fs, err := parseFileSet(data, path)
+		fs, warnings, err := parseFileSet(data, path)
 		if err != nil {
 			return nil, err
 		}
 		result.FileSets = []*FileSet{fs}
+		result.Warnings = append(result.Warnings, warnings...)
 	default:
 		if opt.FailOnUnknown {
 			return nil, fmt.Errorf("%s: unknown kind %q", path, doc.Kind)
@@ -154,14 +157,14 @@ func parseRepositorySet(data []byte, path string) ([]*Repository, error) {
 	return repos, nil
 }
 
-func parseFile(data []byte, path string) (*FileSet, error) {
+func parseFile(data []byte, path string) (*FileSet, []string, error) {
 	var f File
 	if err := yaml.Unmarshal(data, &f); err != nil {
-		return nil, fmt.Errorf("parse File in %s: %w", path, err)
+		return nil, nil, fmt.Errorf("parse File in %s: %w", path, err)
 	}
 
 	if err := f.Validate(); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return nil, nil, fmt.Errorf("%s: %w", path, err)
 	}
 
 	// Expand File into a FileSet with a single repository entry.
@@ -170,51 +173,71 @@ func parseFile(data []byte, path string) (*FileSet, error) {
 		Kind:       KindFileSet,
 		Metadata:   FileSetMetadata{Owner: f.Metadata.Owner},
 		Spec: FileSetSpec{
-			Repositories:   []FileSetRepository{{Name: f.Metadata.Name}},
-			Files:          f.Spec.Files,
-			OnDrift:        f.Spec.OnDrift,
-			CommitMessage:  f.Spec.CommitMessage,
-			CommitStrategy: f.Spec.CommitStrategy,
-			Branch:         f.Spec.Branch,
-			PRTitle:        f.Spec.PRTitle,
-			PRBody:         f.Spec.PRBody,
+			Repositories:  []FileSetRepository{{Name: f.Metadata.Name}},
+			Files:         f.Spec.Files,
+			OnDrift:       f.Spec.OnDrift,
+			CommitMessage: f.Spec.CommitMessage,
+			OnApply:       f.Spec.OnApply,
+			Branch:        f.Spec.Branch,
+			PRTitle:       f.Spec.PRTitle,
+			PRBody:        f.Spec.PRBody,
 		},
 	}
 
 	if err := fs.Validate(); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return nil, nil, fmt.Errorf("%s: %w", path, err)
 	}
 
 	// Resolve source references (local files, directories, GitHub URLs)
 	resolver := DefaultResolver
 	resolved, err := resolver.ResolveFiles(fs.Spec.Files, filepath.Dir(path))
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return nil, nil, fmt.Errorf("%s: %w", path, err)
 	}
 	fs.Spec.Files = resolved
 
-	return fs, nil
+	// Collect deprecation warnings
+	var warnings []string
+	warnings = append(warnings, f.Spec.DeprecationWarnings...)
+	warnings = append(warnings, fs.Spec.DeprecationWarnings...)
+	warnings = append(warnings, collectFileEntryWarnings(fs.Spec.Files)...)
+
+	return fs, warnings, nil
 }
 
-func parseFileSet(data []byte, path string) (*FileSet, error) {
+func parseFileSet(data []byte, path string) (*FileSet, []string, error) {
 	var fs FileSet
 	if err := yaml.Unmarshal(data, &fs); err != nil {
-		return nil, fmt.Errorf("parse FileSet in %s: %w", path, err)
+		return nil, nil, fmt.Errorf("parse FileSet in %s: %w", path, err)
 	}
 
 	if err := fs.Validate(); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return nil, nil, fmt.Errorf("%s: %w", path, err)
 	}
 
 	// Resolve source references (local files, directories, GitHub URLs)
 	resolver := DefaultResolver
 	resolved, err := resolver.ResolveFiles(fs.Spec.Files, filepath.Dir(path))
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return nil, nil, fmt.Errorf("%s: %w", path, err)
 	}
 	fs.Spec.Files = resolved
 
-	return &fs, nil
+	// Collect deprecation warnings
+	var warnings []string
+	warnings = append(warnings, fs.Spec.DeprecationWarnings...)
+	warnings = append(warnings, collectFileEntryWarnings(fs.Spec.Files)...)
+
+	return &fs, warnings, nil
+}
+
+// collectFileEntryWarnings drains deprecation warnings from all FileEntry instances.
+func collectFileEntryWarnings(files []FileEntry) []string {
+	var warnings []string
+	for _, f := range files {
+		warnings = append(warnings, f.DeprecationWarnings...)
+	}
+	return warnings
 }
 
 // expandDir walks a directory and returns a FileEntry for each file,

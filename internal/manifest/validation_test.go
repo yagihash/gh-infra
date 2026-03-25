@@ -574,7 +574,7 @@ func TestValidateFileEntryDrift(t *testing.T) {
 	}{
 		{
 			name:    "no on_drift set",
-			files:   []FileEntry{{Path: "a.txt", SyncMode: SyncModeMirror}},
+			files:   []FileEntry{{Path: "a.txt", Reconcile: ReconcileMirror}},
 			wantErr: false,
 		},
 		{
@@ -584,14 +584,14 @@ func TestValidateFileEntryDrift(t *testing.T) {
 		},
 		{
 			name:    "file-level on_drift + mirror on same file",
-			files:   []FileEntry{{Path: "a.txt", OnDrift: OnDriftWarn, SyncMode: SyncModeMirror}},
+			files:   []FileEntry{{Path: "a.txt", OnDrift: OnDriftWarn, Reconcile: ReconcileMirror}},
 			wantErr: true,
 		},
 		{
 			name: "file-level on_drift on one file, mirror on another",
 			files: []FileEntry{
 				{Path: "a.txt", OnDrift: OnDriftOverwrite},
-				{Path: ".github", SyncMode: SyncModeMirror},
+				{Path: ".github", Reconcile: ReconcileMirror},
 			},
 			wantErr: false,
 		},
@@ -643,7 +643,7 @@ func TestValidateFileSet_OverridesOnDrift(t *testing.T) {
 					{
 						Name: "repo",
 						Overrides: []FileEntry{
-							{Path: "a.txt", Content: "x", OnDrift: OnDriftWarn, SyncMode: SyncModeMirror},
+							{Path: "a.txt", Content: "x", OnDrift: OnDriftWarn, Reconcile: ReconcileMirror},
 						},
 					},
 				},
@@ -676,27 +676,27 @@ func TestValidateFileSet_OverridesOnDrift(t *testing.T) {
 	})
 }
 
-func TestValidateFileSet_InvalidSyncMode(t *testing.T) {
+func TestValidateFileSet_InvalidReconcile(t *testing.T) {
 	tests := []struct {
 		name     string
 		syncMode string
 		wantErr  string
 	}{
 		{
-			name:     "invalid sync_mode on FileSet",
+			name:     "invalid reconcile on FileSet",
 			syncMode: "full",
-			wantErr:  "invalid sync_mode",
+			wantErr:  "invalid reconcile",
 		},
 		{
-			name:     "valid sync_mode patch",
-			syncMode: SyncModePatch,
+			name:     "valid reconcile patch",
+			syncMode: ReconcilePatch,
 		},
 		{
-			name:     "valid sync_mode mirror",
-			syncMode: SyncModeMirror,
+			name:     "valid reconcile mirror",
+			syncMode: ReconcileMirror,
 		},
 		{
-			name:     "empty sync_mode is valid (defaults to patch)",
+			name:     "empty reconcile is valid (defaults to patch)",
 			syncMode: "",
 		},
 	}
@@ -707,7 +707,7 @@ func TestValidateFileSet_InvalidSyncMode(t *testing.T) {
 				Metadata: FileSetMetadata{Owner: "org"},
 				Spec: FileSetSpec{
 					Repositories: []FileSetRepository{{Name: "repo"}},
-					Files:        []FileEntry{{Path: "LICENSE", Content: "MIT", SyncMode: tt.syncMode}},
+					Files:        []FileEntry{{Path: "LICENSE", Content: "MIT", Reconcile: tt.syncMode}},
 				},
 			}
 			err := fs.Validate()

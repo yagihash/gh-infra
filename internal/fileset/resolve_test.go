@@ -63,7 +63,7 @@ func TestResolveFiles_WithOverrides(t *testing.T) {
 	}
 }
 
-func TestResolveFiles_InheritsDirScopeAndSyncMode(t *testing.T) {
+func TestResolveFiles_InheritsDirScopeAndReconcile(t *testing.T) {
 	fs := &manifest.FileSet{
 		Spec: manifest.FileSetSpec{
 			Files: []manifest.FileEntry{
@@ -71,14 +71,14 @@ func TestResolveFiles_InheritsDirScopeAndSyncMode(t *testing.T) {
 					Path:     "config/a.yml",
 					Content:  "original-a",
 					DirScope: "config",
-					SyncMode: manifest.SyncModeMirror,
+					Reconcile: manifest.ReconcileMirror,
 					Vars:     map[string]string{"env": "prod"},
 				},
 				{
 					Path:     "config/b.yml",
 					Content:  "original-b",
 					DirScope: "config",
-					SyncMode: manifest.SyncModeMirror,
+					Reconcile: manifest.ReconcileMirror,
 				},
 			},
 		},
@@ -86,7 +86,7 @@ func TestResolveFiles_InheritsDirScopeAndSyncMode(t *testing.T) {
 	target := manifest.FileSetRepository{
 		Name: "repo",
 		Overrides: []manifest.FileEntry{
-			// Override content but don't set DirScope or SyncMode
+			// Override content but don't set DirScope or Reconcile
 			{Path: "config/a.yml", Content: "overridden-a"},
 		},
 	}
@@ -97,15 +97,15 @@ func TestResolveFiles_InheritsDirScopeAndSyncMode(t *testing.T) {
 		t.Fatalf("expected 2 files, got %d", len(result))
 	}
 
-	// Check the overridden entry inherits DirScope and SyncMode
+	// Check the overridden entry inherits DirScope and Reconcile
 	if result[0].Content != "overridden-a" {
 		t.Errorf("result[0].Content = %q, want %q", result[0].Content, "overridden-a")
 	}
 	if result[0].DirScope != "config" {
 		t.Errorf("result[0].DirScope = %q, want %q (should inherit from original)", result[0].DirScope, "config")
 	}
-	if result[0].SyncMode != manifest.SyncModeMirror {
-		t.Errorf("result[0].SyncMode = %q, want %q (should inherit from original)", result[0].SyncMode, manifest.SyncModeMirror)
+	if result[0].Reconcile != manifest.ReconcileMirror {
+		t.Errorf("result[0].Reconcile = %q, want %q (should inherit from original)", result[0].Reconcile, manifest.ReconcileMirror)
 	}
 	// Vars should also be inherited
 	if result[0].Vars == nil || result[0].Vars["env"] != "prod" {
@@ -116,8 +116,8 @@ func TestResolveFiles_InheritsDirScopeAndSyncMode(t *testing.T) {
 	if result[1].DirScope != "config" {
 		t.Errorf("result[1].DirScope = %q, want %q", result[1].DirScope, "config")
 	}
-	if result[1].SyncMode != manifest.SyncModeMirror {
-		t.Errorf("result[1].SyncMode = %q, want %q", result[1].SyncMode, manifest.SyncModeMirror)
+	if result[1].Reconcile != manifest.ReconcileMirror {
+		t.Errorf("result[1].Reconcile = %q, want %q", result[1].Reconcile, manifest.ReconcileMirror)
 	}
 }
 

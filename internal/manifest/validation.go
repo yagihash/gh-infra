@@ -159,9 +159,9 @@ func (f *File) Validate() error {
 			return fmt.Errorf("File %q: %w", f.Metadata.FullName(), err)
 		}
 	}
-	if f.Spec.CommitStrategy != "" {
-		if err := validateOneOf("commit_strategy", f.Spec.CommitStrategy,
-			CommitStrategyPush, CommitStrategyPullRequest); err != nil {
+	if f.Spec.OnApply != "" {
+		if err := validateOneOf("on_apply", f.Spec.OnApply,
+			OnApplyPush, OnApplyPullRequest); err != nil {
 			return fmt.Errorf("File %q: %w", f.Metadata.FullName(), err)
 		}
 	}
@@ -172,8 +172,8 @@ func (f *File) Validate() error {
 		if fe.Content != "" && fe.Source != "" {
 			return fmt.Errorf("File %q: files[%d] (%s) cannot have both content and source", f.Metadata.FullName(), i, fe.Path)
 		}
-		if fe.SyncMode != "" {
-			if err := validateOneOf("sync_mode", fe.SyncMode, SyncModePatch, SyncModeMirror, SyncModeCreateOnly); err != nil {
+		if fe.Reconcile != "" {
+			if err := validateOneOf("reconcile", fe.Reconcile, ReconcilePatch, ReconcileMirror, ReconcileCreateOnly); err != nil {
 				return fmt.Errorf("File %q: files[%d] (%s): %w", f.Metadata.FullName(), i, fe.Path, err)
 			}
 		}
@@ -202,11 +202,11 @@ func (fs *FileSet) Validate() error {
 		OnDriftWarn, OnDriftOverwrite, OnDriftSkip); err != nil {
 		return fmt.Errorf("FileSet %q: %w", fs.Metadata.Owner, err)
 	}
-	if fs.Spec.CommitStrategy == "" {
-		fs.Spec.CommitStrategy = CommitStrategyPush
+	if fs.Spec.OnApply == "" {
+		fs.Spec.OnApply = OnApplyPush
 	}
-	if err := validateOneOf("commit_strategy", fs.Spec.CommitStrategy,
-		CommitStrategyPush, CommitStrategyPullRequest); err != nil {
+	if err := validateOneOf("on_apply", fs.Spec.OnApply,
+		OnApplyPush, OnApplyPullRequest); err != nil {
 		return fmt.Errorf("FileSet %q: %w", fs.Metadata.Owner, err)
 	}
 	for i, f := range fs.Spec.Files {
@@ -216,8 +216,8 @@ func (fs *FileSet) Validate() error {
 		if f.Content != "" && f.Source != "" {
 			return fmt.Errorf("FileSet %q: files[%d] (%s) cannot have both content and source", fs.Metadata.Owner, i, f.Path)
 		}
-		if f.SyncMode != "" {
-			if err := validateOneOf("sync_mode", f.SyncMode, SyncModePatch, SyncModeMirror, SyncModeCreateOnly); err != nil {
+		if f.Reconcile != "" {
+			if err := validateOneOf("reconcile", f.Reconcile, ReconcilePatch, ReconcileMirror, ReconcileCreateOnly); err != nil {
 				return fmt.Errorf("FileSet %q: files[%d] (%s): %w", fs.Metadata.Owner, i, f.Path, err)
 			}
 		}
@@ -248,11 +248,11 @@ func validateFileEntryDrift(files []FileEntry, prefix string) error {
 				OnDriftWarn, OnDriftOverwrite, OnDriftSkip); err != nil {
 				return fmt.Errorf("%sfiles[%d] (%s): %w", prefix, i, f.Path, err)
 			}
-			if f.SyncMode == SyncModeMirror {
-				return fmt.Errorf("%sfiles[%d] (%s): on_drift cannot be set on a file with sync_mode \"mirror\" (mirror always overwrites)", prefix, i, f.Path)
+			if f.Reconcile == ReconcileMirror {
+				return fmt.Errorf("%sfiles[%d] (%s): on_drift cannot be set on a file with reconcile \"mirror\" (mirror always overwrites)", prefix, i, f.Path)
 			}
-			if f.SyncMode == SyncModeCreateOnly {
-				return fmt.Errorf("%sfiles[%d] (%s): on_drift cannot be set on a file with sync_mode \"create_only\" (create_only never updates)", prefix, i, f.Path)
+			if f.Reconcile == ReconcileCreateOnly {
+				return fmt.Errorf("%sfiles[%d] (%s): on_drift cannot be set on a file with reconcile \"create_only\" (create_only never updates)", prefix, i, f.Path)
 			}
 		}
 	}

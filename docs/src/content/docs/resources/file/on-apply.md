@@ -1,10 +1,10 @@
 ---
-title: Commit Strategy
+title: Apply Method
 sidebar:
   order: 4
 ---
 
-The commit strategy controls **how** file changes are committed to the target repository.
+The apply strategy controls **how** file changes are committed to the target repository.
 
 ## `push` (default)
 
@@ -12,7 +12,7 @@ Commits directly to the default branch using the Git Data API. All files are inc
 
 ```yaml
 spec:
-  commit_strategy: push
+  on_apply: push
 ```
 
 Use this when you trust the changes and want them applied immediately — for example, syncing a LICENSE or CODEOWNERS that doesn't need review.
@@ -23,7 +23,7 @@ Creates a branch, commits all files, and opens a pull request. Reviewers can ins
 
 ```yaml
 spec:
-  commit_strategy: pull_request
+  on_apply: pull_request
   commit_message: "ci: sync shared files"
   # branch: gh-infra/custom-branch   # optional, auto-generated if omitted
   pr_title: "Sync shared files from gh-infra"
@@ -59,7 +59,7 @@ The `pr_body` field supports multi-line YAML (`|`) and Markdown formatting inclu
 
 ## How to Choose
 
-| Scenario | Recommended strategy |
+| Scenario | Recommended |
 |----------|---------------------|
 | Updating LICENSE, CODEOWNERS, SECURITY.md | `push` — low risk, no review needed |
 | Updating CI workflows, Dockerfiles | `pull_request` — changes could break things |
@@ -68,4 +68,4 @@ The `pr_body` field supports multi-line YAML (`|`) and Markdown formatting inclu
 
 ## Empty Repositories
 
-For repositories with no commits yet, gh-infra automatically falls back to the Contents API regardless of the commit strategy setting. This creates one commit per file as the initial commit.
+For repositories with no commits yet, gh-infra automatically falls back to the Contents API regardless of the `on_apply` setting. This creates one commit per file as the initial commit. See [Git Data API vs Contents API](/internals/git-api/) for details.

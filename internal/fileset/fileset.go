@@ -24,16 +24,16 @@ type FileState struct {
 
 // FileChange represents a planned change for a file.
 type FileChange struct {
-	FileSet        string // FileSet owner
-	Target         string // owner/repo
-	Path           string
-	Type           ChangeType
-	Current        string // current content (if exists)
-	Desired        string // desired content
-	SHA            string // current SHA (for updates)
-	OnDrift        string // warn, overwrite, skip
-	Drifted        bool   // file exists but content differs
-	CommitStrategy string // "push" or "pull_request" (from FileSet spec)
+	FileSet string // FileSet owner
+	Target  string // owner/repo
+	Path    string
+	Type    ChangeType
+	Current string // current content (if exists)
+	Desired string // desired content
+	SHA     string // current SHA (for updates)
+	OnDrift string // warn, overwrite, skip
+	Drifted bool   // file exists but content differs
+	OnApply string // "push" or "pull_request" (from FileSet spec)
 }
 
 type ChangeType string
@@ -59,12 +59,12 @@ func NewProcessor(runner gh.Runner, printer ui.Printer) *Processor {
 
 // planUnit represents one (fileSet, repository) pair to process.
 type planUnit struct {
-	fileSetName    string
-	target         manifest.FileSetRepository
-	files          []manifest.FileEntry
-	onDrift        string
-	owner          string
-	commitStrategy string
+	fileSetName string
+	target      manifest.FileSetRepository
+	files       []manifest.FileEntry
+	onDrift     string
+	owner       string
+	onApply     string
 }
 
 // fullName returns the full "owner/repo" name for this unit's target.
@@ -115,12 +115,12 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet, filterRepo string, tracke
 			}
 			files := ResolveFiles(fs, target)
 			units = append(units, planUnit{
-				fileSetName:    fs.Metadata.Owner,
-				target:         target,
-				files:          files,
-				onDrift:        fs.Spec.OnDrift,
-				owner:          fs.Metadata.Owner,
-				commitStrategy: fs.Spec.CommitStrategy,
+				fileSetName: fs.Metadata.Owner,
+				target:      target,
+				files:       files,
+				onDrift:     fs.Spec.OnDrift,
+				owner:       fs.Metadata.Owner,
+				onApply:     fs.Spec.OnApply,
 			})
 		}
 	}
@@ -157,7 +157,7 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet, filterRepo string, tracke
 				file.Content = rendered
 			}
 			// create_only: create if missing, skip entirely if exists
-			if file.SyncMode == manifest.SyncModeCreateOnly {
+			if file.Reconcile == manifest.ReconcileCreateOnly {
 				change := p.planCreateOnly(u.fileSetName, fullName, file)
 				out = append(out, change)
 				continue
@@ -167,7 +167,7 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet, filterRepo string, tracke
 			if file.OnDrift != "" {
 				drift = file.OnDrift
 			}
-			if file.SyncMode == manifest.SyncModeMirror {
+			if file.Reconcile == manifest.ReconcileMirror {
 				drift = manifest.OnDriftOverwrite
 			}
 			change := p.planFile(u.fileSetName, fullName, file, drift)
@@ -180,7 +180,7 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet, filterRepo string, tracke
 		}
 		mirrorDirs := make(map[string]bool)
 		for _, file := range u.files {
-			if file.SyncMode == manifest.SyncModeMirror && file.DirScope != "" {
+			if file.Reconcile == manifest.ReconcileMirror && file.DirScope != "" {
 				mirrorDirs[file.DirScope] = true
 			}
 		}
@@ -204,7 +204,7 @@ func (p *Processor) Plan(fileSets []*manifest.FileSet, filterRepo string, tracke
 
 		// Tag all changes with the commit strategy for display
 		for i := range out {
-			out[i].CommitStrategy = u.commitStrategy
+			out[i].OnApply = u.onApply
 		}
 
 		tracker.Done(displayName)
@@ -374,12 +374,12 @@ func (p *Processor) fetchDirectoryContents(repo, dirPath string) ([]string, erro
 
 // ApplyOptions configures apply behavior from FileSet spec.
 type ApplyOptions struct {
-	CommitMessage  string
-	CommitStrategy string // "push" or "pull_request"
-	Branch         string
-	FileSetName    string
-	PRTitle        string // custom PR title (pull_request only)
-	PRBody         string // custom PR body (pull_request only)
+	CommitMessage string
+	OnApply       string // "push" or "pull_request"
+	Branch        string
+	FileSetName   string
+	PRTitle       string // custom PR title (pull_request only)
+	PRBody        string // custom PR body (pull_request only)
 }
 
 const defaultApplyParallel = 5
@@ -439,7 +439,7 @@ func (p *Processor) Apply(changes []FileChange, opts ApplyOptions, reporter ui.P
 			results = append(results, FileApplyResult{
 				Change:         c,
 				Err:            err,
-				CommitStrategy: opts.CommitStrategy,
+				OnApply: opts.OnApply,
 				PRURL:          prURL,
 			})
 		}
@@ -465,8 +465,8 @@ type FileApplyResult struct {
 	Change         FileChange
 	Err            error
 	Skipped        bool
-	CommitStrategy string // "push" or "pull_request"
-	PRURL          string // non-empty when commit_strategy is pull_request
+	OnApply string // "push" or "pull_request"
+	PRURL   string // non-empty when on_apply is pull_request
 }
 
 func groupChangesByTarget(changes []FileChange) map[string][]FileChange {
@@ -533,7 +533,7 @@ func (p *Processor) applyViaGitDataAPI(repo, branch, headSHA string, changes []F
 	}
 
 	// 4. Update ref or create PR
-	if opts.CommitStrategy == manifest.CommitStrategyPullRequest {
+	if opts.OnApply == manifest.OnApplyPullRequest {
 		return p.createPR(repo, branch, commitSHA, message, opts)
 	}
 	return "", p.updateRef(repo, branch, commitSHA)
