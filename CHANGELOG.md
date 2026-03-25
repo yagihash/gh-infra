@@ -1,5 +1,17 @@
 # Changelog
 
+## [v0.3.0](https://github.com/babarot/gh-infra/compare/v0.2.0...v0.3.0) - 2026-03-25
+### New Features
+- Add interactive diff viewer with on_drift toggle to apply flow by @babarot in https://github.com/babarot/gh-infra/pull/17
+### Bug fixes
+- Fix invalid YAML output from gh infra import by @babarot in https://github.com/babarot/gh-infra/pull/21
+### Improvements
+- FileSet improvements, error handling fixes, and bubbletea escape leak workaround by @babarot in https://github.com/babarot/gh-infra/pull/16
+- Add sync_mode: create_only for seed files by @babarot in https://github.com/babarot/gh-infra/pull/18
+- Improve resource type labels and show commit strategy in output by @babarot in https://github.com/babarot/gh-infra/pull/19
+### Refactorings
+- Refactor concurrency with generics and adopt Go 1.26 features by @babarot in https://github.com/babarot/gh-infra/pull/14
+
 ## [v0.2.0](https://github.com/babarot/gh-infra/compare/v0.1.3...v0.2.0) - 2026-03-24
 ### New Features
 - Add sync_mode: mirror for directory-level file sync by @babarot in https://github.com/babarot/gh-infra/pull/11
