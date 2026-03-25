@@ -45,8 +45,8 @@ func TestDiff_RepoSettings(t *testing.T) {
 		wantCount int
 		wantField string
 		wantType  ChangeType
-		wantOld   interface{}
-		wantNew   interface{}
+		wantOld   any
+		wantNew   any
 	}{
 		{
 			name: "description change",

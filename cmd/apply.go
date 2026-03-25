@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/babarot/gh-infra/internal/fileset"
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/manifest"
 	"github.com/babarot/gh-infra/internal/repository"
 	"github.com/babarot/gh-infra/internal/ui"
-	"github.com/spf13/cobra"
-	"golang.org/x/sync/errgroup"
 )
 
 func newApplyCmd() *cobra.Command {
@@ -147,7 +148,7 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets, failOnUnknown 
 			return err
 		}
 		if !confirmed {
-			p.Message("Apply cancelled.")
+			p.Message("Apply canceled.")
 			return nil
 		}
 		// Apply skip selections from the diff viewer back to fileChanges

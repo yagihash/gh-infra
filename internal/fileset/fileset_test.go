@@ -215,11 +215,11 @@ type WildcardMockRunner struct {
 
 func (m *WildcardMockRunner) Run(args ...string) ([]byte, error) {
 	key := strings.Join(args, " ")
-	m.MockRunner.Called = append(m.MockRunner.Called, args)
-	if err, ok := m.MockRunner.Errors[key]; ok {
+	m.Called = append(m.Called, args)
+	if err, ok := m.Errors[key]; ok {
 		return nil, err
 	}
-	if resp, ok := m.MockRunner.Responses[key]; ok {
+	if resp, ok := m.Responses[key]; ok {
 		return resp, nil
 	}
 	// Return default response for unmatched calls (Git Data API calls with dynamic args)
@@ -590,10 +590,10 @@ func TestPlan_MirrorDetectsOrphans(t *testing.T) {
 				Repositories: []manifest.FileSetRepository{{Name: "repo"}},
 				Files: []manifest.FileEntry{
 					{
-						Path:     "config/file1.yml",
-						Content:  "content1",
+						Path:      "config/file1.yml",
+						Content:   "content1",
 						Reconcile: manifest.ReconcileMirror,
-						DirScope: "config",
+						DirScope:  "config",
 					},
 				},
 			},
@@ -645,10 +645,10 @@ func TestPlan_PatchIgnoresOrphans(t *testing.T) {
 				Repositories: []manifest.FileSetRepository{{Name: "repo"}},
 				Files: []manifest.FileEntry{
 					{
-						Path:     "config/file1.yml",
-						Content:  "content1",
+						Path:      "config/file1.yml",
+						Content:   "content1",
 						Reconcile: manifest.ReconcilePatch,
-						DirScope: "config",
+						DirScope:  "config",
 					},
 				},
 			},

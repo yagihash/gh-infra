@@ -31,7 +31,7 @@ type FileChange struct {
 	Current string // current content (if exists)
 	Desired string // desired content
 	SHA     string // current SHA (for updates)
-	Via string // "push" or "pull_request" (from FileSet spec)
+	Via     string // "push" or "pull_request" (from FileSet spec)
 }
 
 type ChangeType string
@@ -90,11 +90,6 @@ func PlanTargetNames(fileSets []*manifest.FileSet, filterRepo string) []ui.Refre
 // This must match the Name used in PlanTargetNames.
 func planTaskKey(fullName string) string {
 	return "Fetching " + fullName + " (files)"
-}
-
-// applyTaskKey returns the tracker key for a fileset apply target.
-func applyTaskKey(repo string) string {
-	return "Applying " + repo + " (files)"
 }
 
 // Plan computes changes for all FileSets concurrently.

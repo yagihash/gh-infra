@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -218,10 +219,8 @@ func (fs *FileSet) Validate() error {
 
 // validateOneOf checks that value is one of the allowed values.
 func validateOneOf(field, value string, allowed ...string) error {
-	for _, a := range allowed {
-		if value == a {
-			return nil
-		}
+	if slices.Contains(allowed, value) {
+		return nil
 	}
 	return fmt.Errorf("invalid %s %q (must be one of: %s)", field, value, strings.Join(allowed, ", "))
 }

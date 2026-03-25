@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	goyaml "github.com/goccy/go-yaml"
+	"github.com/spf13/cobra"
+
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/manifest"
 	"github.com/babarot/gh-infra/internal/parallel"
 	"github.com/babarot/gh-infra/internal/repository"
 	"github.com/babarot/gh-infra/internal/ui"
-	goyaml "github.com/goccy/go-yaml"
-	"github.com/spf13/cobra"
 )
 
 func newImportCmd() *cobra.Command {

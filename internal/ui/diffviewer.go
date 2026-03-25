@@ -109,11 +109,8 @@ func (m *diffViewModel) View() tea.View {
 		return tea.NewView("")
 	}
 
-	diffWidth := m.width - m.listWidth - 3 // 3 for separator
-	if diffWidth < 10 {
-		diffWidth = 10
-	}
-	visibleHeight := m.height - 3 // reserve 3 for padding + help line
+	diffWidth := max(m.width-m.listWidth-3, 10) // 3 for separator
+	visibleHeight := m.height - 3               // reserve 3 for padding + help line
 
 	// Left pane: file list
 	var listLines []string
@@ -151,14 +148,8 @@ func (m *diffViewModel) View() tea.View {
 	diffLines := m.buildRightPane(entry, diffWidth)
 
 	// Apply scroll
-	start := m.scrollY
-	if start > len(diffLines) {
-		start = len(diffLines)
-	}
-	end := start + visibleHeight
-	if end > len(diffLines) {
-		end = len(diffLines)
-	}
+	start := min(m.scrollY, len(diffLines))
+	end := min(start+visibleHeight, len(diffLines))
 	visible := diffLines[start:end]
 
 	borderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
@@ -182,7 +173,7 @@ func (m *diffViewModel) View() tea.View {
 	// Compose panes
 	sep := lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render("│")
 	var rows []string
-	for i := 0; i < visibleHeight; i++ {
+	for i := range visibleHeight {
 		left := padRight(listLines[i], m.listWidth)
 		right := padRight(coloredLines[i], diffWidth)
 		rows = append(rows, left+" "+sep+" "+right)
@@ -252,22 +243,11 @@ func (m *diffViewModel) buildRightPane(entry DiffEntry, width int) []string {
 
 func (m *diffViewModel) clampScroll() {
 	entry := m.entries[m.cursor]
-	diffWidth := m.width - m.listWidth - 3
-	if diffWidth < 10 {
-		diffWidth = 10
-	}
+	diffWidth := max(m.width-m.listWidth-3, 10)
 	lines := m.buildRightPane(entry, diffWidth)
 	total := len(lines)
-	maxScroll := total - m.diffVisibleLines()
-	if maxScroll < 0 {
-		maxScroll = 0
-	}
-	if m.scrollY > maxScroll {
-		m.scrollY = maxScroll
-	}
-	if m.scrollY < 0 {
-		m.scrollY = 0
-	}
+	maxScroll := max(total-m.diffVisibleLines(), 0)
+	m.scrollY = max(min(m.scrollY, maxScroll), 0)
 }
 
 func renderDiffIcon(icon string) string {

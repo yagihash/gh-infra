@@ -9,6 +9,7 @@ import (
 	"time"
 
 	retry "github.com/avast/retry-go/v4"
+
 	"github.com/babarot/gh-infra/internal/logger"
 )
 

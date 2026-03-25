@@ -668,7 +668,9 @@ func TestBuildRulesetPayload(t *testing.T) {
 	// NOT creation (false)
 	ruleTypes := make(map[string]bool)
 	for _, r := range rules {
-		ruleTypes[r["type"].(string)] = true
+		if typ, ok := r["type"].(string); ok {
+			ruleTypes[typ] = true
+		}
 	}
 	for _, expected := range []string{"pull_request", "required_status_checks", "non_fast_forward", "deletion", "required_signatures"} {
 		if !ruleTypes[expected] {
