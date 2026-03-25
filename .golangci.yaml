@@ -31,4 +31,5 @@ formatters:
     - goimports
   settings:
     goimports:
-      local-prefixes: github.com/babarot/gh-infra
+      local-prefixes:
+        - github.com/babarot/gh-infra
