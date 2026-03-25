@@ -285,8 +285,8 @@ spec:
 	if err == nil {
 		t.Fatal("expected error for invalid visibility, got nil")
 	}
-	if got := err.Error(); !contains(got, "invalid visibility") {
-		t.Errorf("error = %q, want it to contain 'invalid visibility'", got)
+	if got := err.Error(); !contains(got, "invalid spec.visibility") {
+		t.Errorf("error = %q, want it to contain 'invalid spec.visibility'", got)
 	}
 }
 
@@ -312,8 +312,8 @@ spec:
 	if err == nil {
 		t.Fatal("expected error for empty branch protection pattern, got nil")
 	}
-	if got := err.Error(); !contains(got, "branch_protection.pattern") {
-		t.Errorf("error = %q, want it to contain 'branch_protection.pattern'", got)
+	if got := err.Error(); !contains(got, "pattern is required") {
+		t.Errorf("error = %q, want it to contain 'pattern is required'", got)
 	}
 }
 
@@ -598,8 +598,8 @@ spec:
 	if err == nil {
 		t.Fatal("expected error for missing owner, got nil")
 	}
-	if !contains(err.Error(), "metadata.owner is required") {
-		t.Errorf("error = %q, want it to contain 'metadata.owner is required'", err.Error())
+	if !contains(err.Error(), "owner is required") {
+		t.Errorf("error = %q, want it to contain 'owner is required'", err.Error())
 	}
 }
 
@@ -800,8 +800,8 @@ spec:
 	if err == nil {
 		t.Fatal("expected error for missing owner, got nil")
 	}
-	if !contains(err.Error(), "metadata.owner is required") {
-		t.Errorf("error = %q, want it to contain 'metadata.owner is required'", err.Error())
+	if !contains(err.Error(), "owner is required") {
+		t.Errorf("error = %q, want it to contain 'owner is required'", err.Error())
 	}
 }
 
@@ -826,8 +826,8 @@ spec:
 	if err == nil {
 		t.Fatal("expected error for missing name, got nil")
 	}
-	if !contains(err.Error(), "metadata.name is required") {
-		t.Errorf("error = %q, want it to contain 'metadata.name is required'", err.Error())
+	if !contains(err.Error(), "name is required") {
+		t.Errorf("error = %q, want it to contain 'name is required'", err.Error())
 	}
 }
 
