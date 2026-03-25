@@ -109,10 +109,10 @@ type RepositorySpec struct {
 	Topics           []string           `yaml:"topics,omitempty"`
 	Features         *Features          `yaml:"features,omitempty"`
 	MergeStrategy    *MergeStrategy     `yaml:"merge_strategy,omitempty"`
-	BranchProtection []BranchProtection `yaml:"branch_protection,omitempty" validate:"unique=Pattern"`
-	Rulesets         []Ruleset          `yaml:"rulesets,omitempty"          validate:"unique=Name"`
-	Secrets          []Secret           `yaml:"secrets,omitempty"           validate:"unique=Name"`
-	Variables        []Variable         `yaml:"variables,omitempty"         validate:"unique=Name"`
+	BranchProtection []BranchProtection `yaml:"branch_protection,omitempty" validate:"unique=pattern"`
+	Rulesets         []Ruleset          `yaml:"rulesets,omitempty"          validate:"unique=name"`
+	Secrets          []Secret           `yaml:"secrets,omitempty"           validate:"unique=name"`
+	Variables        []Variable         `yaml:"variables,omitempty"         validate:"unique=name"`
 }
 
 type Features struct {
@@ -265,8 +265,8 @@ type FileSpec struct {
 	PRBody        string      `yaml:"pr_body,omitempty"`
 
 	// Deprecated fields (still parsed for backward compatibility)
-	DeprecatedCommitStrategy string   `yaml:"commit_strategy,omitempty" deprecated:"Via:use \"via\" instead"`
-	DeprecatedOnApply        string   `yaml:"on_apply,omitempty"        deprecated:"Via:use \"via\" instead"`
+	DeprecatedCommitStrategy string   `yaml:"commit_strategy,omitempty" deprecated:"via:use \"via\" instead"`
+	DeprecatedOnApply        string   `yaml:"on_apply,omitempty"        deprecated:"via:use \"via\" instead"`
 	DeprecatedOnDrift        string   `yaml:"on_drift,omitempty"        deprecated:":and will be ignored"`
 	DeprecationWarnings      []string `yaml:"-"`
 }
@@ -315,8 +315,8 @@ type FileSetSpec struct {
 	PRBody        string              `yaml:"pr_body,omitempty"`
 
 	// Deprecated fields (still parsed for backward compatibility)
-	DeprecatedCommitStrategy string   `yaml:"commit_strategy,omitempty" deprecated:"Via:use \"via\" instead"`
-	DeprecatedOnApply        string   `yaml:"on_apply,omitempty"        deprecated:"Via:use \"via\" instead"`
+	DeprecatedCommitStrategy string   `yaml:"commit_strategy,omitempty" deprecated:"via:use \"via\" instead"`
+	DeprecatedOnApply        string   `yaml:"on_apply,omitempty"        deprecated:"via:use \"via\" instead"`
 	DeprecatedOnDrift        string   `yaml:"on_drift,omitempty"        deprecated:":and will be ignored"`
 	DeprecationWarnings      []string `yaml:"-"`
 }
@@ -372,14 +372,14 @@ func (fs *FileSet) RepoFullName(repoName string) string {
 
 type FileEntry struct {
 	Path      string            `yaml:"path"                validate:"required"`
-	Content   string            `yaml:"content,omitempty" validate:"exclusive=Source"`
+	Content   string            `yaml:"content,omitempty" validate:"exclusive=source"`
 	Source    string            `yaml:"source,omitempty"`
 	Vars      map[string]string `yaml:"vars,omitempty"`
 	Reconcile string            `yaml:"reconcile,omitempty" validate:"omitempty,oneof=patch mirror create_only"`
 	DirScope  string            `yaml:"-"`
 
 	// Deprecated fields (still parsed for backward compatibility)
-	DeprecatedSyncMode  string   `yaml:"sync_mode,omitempty" deprecated:"Reconcile:use \"reconcile\" instead"`
+	DeprecatedSyncMode  string   `yaml:"sync_mode,omitempty" deprecated:"reconcile:use \"reconcile\" instead"`
 	DeprecatedOnDrift   string   `yaml:"on_drift,omitempty"  deprecated:":and will be ignored"`
 	DeprecationWarnings []string `yaml:"-"`
 }

@@ -21,8 +21,8 @@ import (
 //	validate:"required"              — string non-empty or slice non-empty
 //	validate:"oneof=a b c"           — value must be one of the listed values
 //	validate:"omitempty,oneof=a b c" — skip if zero/nil, otherwise check oneof
-//	validate:"unique=Name"           — slice elements must have unique values for the given field
-//	validate:"exclusive=Source"       — this field and the named field cannot both be non-empty
+//	validate:"unique=name"            — slice elements must have unique values for the named yaml field
+//	validate:"exclusive=source"       — this field and the named yaml field cannot both be non-empty
 func ValidateStruct(prefix string, v any) error {
 	return validateStructRecursive(prefix, "", v)
 }
@@ -114,10 +114,10 @@ func validateField(fieldPath string, fv reflect.Value, tag string, parentStruct 
 // MigrateDeprecated processes deprecated tags on the direct fields of a struct.
 // It migrates values to their target fields and returns collected warnings.
 //
-// Tag syntax:
+// Tag syntax (target is a yaml field name):
 //
-//	deprecated:"TargetField:message"  — migrate value to TargetField, warn
-//	deprecated:":message"             — no migration target, just warn and clear
+//	deprecated:"via:message"   — migrate value to the field with yaml:"via", warn
+//	deprecated:":message"      — no migration target, just warn and clear
 //
 // Returns an error if a deprecated field and its migration target are both set.
 func MigrateDeprecated(v any) ([]string, error) {
@@ -128,11 +128,12 @@ func MigrateDeprecated(v any) ([]string, error) {
 	if rv.Kind() != reflect.Struct {
 		return nil, nil
 	}
+	rt := rv.Type()
 
 	var warnings []string
 
-	for i := range rv.NumField() {
-		field := rv.Type().Field(i)
+	for i := range rt.NumField() {
+		field := rt.Field(i)
 		tag := field.Tag.Get("deprecated")
 		if tag == "" {
 			continue
@@ -144,21 +145,21 @@ func MigrateDeprecated(v any) ([]string, error) {
 			continue
 		}
 
-		target, msg := parseDeprecatedTag(tag)
+		targetYAML, msg := parseDeprecatedTag(tag)
 
-		if target != "" {
-			targetField := rv.FieldByName(target)
-			if !targetField.IsValid() || !targetField.CanSet() {
-				return nil, fmt.Errorf("deprecated tag references invalid field %q", target)
+		if targetYAML != "" {
+			// Resolve yaml name to Go field
+			sf, ok := goFieldByYAMLName(rt, targetYAML)
+			if !ok {
+				return nil, fmt.Errorf("deprecated tag references unknown yaml field %q", targetYAML)
+			}
+			targetField := rv.FieldByName(sf.Name)
+			if !targetField.CanSet() {
+				return nil, fmt.Errorf("deprecated tag references unsettable field %q", targetYAML)
 			}
 			// Check conflict: both deprecated and target are set
 			if targetField.Kind() == reflect.String && targetField.String() != "" {
-				yamlOld := yamlFieldName(field)
-				yamlNew := ""
-				if tf, ok := rv.Type().FieldByName(target); ok {
-					yamlNew = yamlFieldName(tf)
-				}
-				return nil, fmt.Errorf("cannot specify both %q and %q", yamlOld, yamlNew)
+				return nil, fmt.Errorf("cannot specify both %q and %q", yamlFieldName(field), targetYAML)
 			}
 			// Migrate value
 			targetField.Set(fv)
@@ -198,6 +199,17 @@ func yamlFieldName(f reflect.StructField) string {
 	}
 	name, _, _ := strings.Cut(tag, ",")
 	return name
+}
+
+// goFieldByYAMLName looks up a struct field by its yaml tag name.
+// Returns the field and true if found, or zero value and false if not.
+func goFieldByYAMLName(rt reflect.Type, yamlName string) (reflect.StructField, bool) {
+	for f := range rt.Fields() {
+		if yamlFieldName(f) == yamlName {
+			return f, true
+		}
+	}
+	return reflect.StructField{}, false
 }
 
 // checkRequired verifies a field is non-empty.
@@ -240,9 +252,19 @@ func checkOneOf(name string, fv reflect.Value, allowed []string) error {
 }
 
 // checkUnique verifies that elements of a slice have unique values for the given field.
-// e.g. validate:"unique=Name" on a []Secret checks that no two secrets share the same Name.
-func checkUnique(fieldPath string, fv reflect.Value, keyField string) error {
-	if fv.Kind() != reflect.Slice || fv.IsNil() {
+// keyYAML is the yaml field name (e.g. "name", "pattern").
+// e.g. validate:"unique=name" on a []Secret checks that no two secrets share the same name.
+func checkUnique(fieldPath string, fv reflect.Value, keyYAML string) error {
+	if fv.Kind() != reflect.Slice || fv.IsNil() || fv.Len() == 0 {
+		return nil
+	}
+	// Resolve yaml name to Go field name from the element type
+	elemType := fv.Type().Elem()
+	if elemType.Kind() == reflect.Ptr {
+		elemType = elemType.Elem()
+	}
+	sf, ok := goFieldByYAMLName(elemType, keyYAML)
+	if !ok {
 		return nil
 	}
 	seen := make(map[string]bool)
@@ -254,7 +276,7 @@ func checkUnique(fieldPath string, fv reflect.Value, keyField string) error {
 		if elem.Kind() != reflect.Struct {
 			continue
 		}
-		kf := elem.FieldByName(keyField)
+		kf := elem.FieldByName(sf.Name)
 		if !kf.IsValid() || kf.Kind() != reflect.String {
 			continue
 		}
@@ -263,7 +285,7 @@ func checkUnique(fieldPath string, fv reflect.Value, keyField string) error {
 			continue
 		}
 		if seen[val] {
-			return fmt.Errorf("duplicate %s %q in %s", strings.ToLower(keyField), val, fieldPath)
+			return fmt.Errorf("duplicate %s %q in %s", keyYAML, val, fieldPath)
 		}
 		seen[val] = true
 	}
@@ -271,21 +293,23 @@ func checkUnique(fieldPath string, fv reflect.Value, keyField string) error {
 }
 
 // checkExclusive verifies that this field and another named field are not both non-empty.
-// e.g. validate:"exclusive=Source" on Content checks that content and source aren't both set.
-func checkExclusive(fieldPath string, fv reflect.Value, parent reflect.Value, otherGoName string) error {
+// otherYAML is the yaml field name of the other field (e.g. "source").
+// e.g. validate:"exclusive=source" on content checks that content and source aren't both set.
+func checkExclusive(fieldPath string, fv reflect.Value, parent reflect.Value, otherYAML string) error {
 	if isZero(fv) {
 		return nil
 	}
-	other := parent.FieldByName(otherGoName)
-	if !other.IsValid() || isZero(other) {
+	// Resolve yaml name to Go field name
+	if parent.Kind() != reflect.Struct {
 		return nil
 	}
-	// Look up yaml name of the other field for the error message
-	otherYAML := otherGoName
-	if parent.Kind() == reflect.Struct {
-		if sf, ok := parent.Type().FieldByName(otherGoName); ok {
-			otherYAML = yamlFieldName(sf)
-		}
+	sf, ok := goFieldByYAMLName(parent.Type(), otherYAML)
+	if !ok {
+		return nil
+	}
+	other := parent.FieldByName(sf.Name)
+	if !other.IsValid() || isZero(other) {
+		return nil
 	}
 	// Extract the field name from the path (last segment)
 	thisYAML := fieldPath

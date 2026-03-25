@@ -134,7 +134,7 @@ func TestValidateStruct_OmitemptyString(t *testing.T) {
 func TestMigrateDeprecated_Basic(t *testing.T) {
 	type S struct {
 		Via            string   `yaml:"via"`
-		OldCommit      string   `yaml:"commit_strategy" deprecated:"Via:use 'via' instead"`
+		OldCommit      string   `yaml:"commit_strategy" deprecated:"via:use 'via' instead"`
 		DeprecWarnings []string `yaml:"-"`
 	}
 	s := S{OldCommit: "push"}
@@ -159,7 +159,7 @@ func TestMigrateDeprecated_Basic(t *testing.T) {
 func TestMigrateDeprecated_Conflict(t *testing.T) {
 	type S struct {
 		Via       string `yaml:"via"`
-		OldCommit string `yaml:"commit_strategy" deprecated:"Via:use 'via' instead"`
+		OldCommit string `yaml:"commit_strategy" deprecated:"via:use 'via' instead"`
 	}
 	s := S{Via: "push", OldCommit: "pull_request"}
 	_, err := MigrateDeprecated(&s)
@@ -191,7 +191,7 @@ func TestMigrateDeprecated_NoTarget(t *testing.T) {
 func TestMigrateDeprecated_EmptyField(t *testing.T) {
 	type S struct {
 		Via       string `yaml:"via"`
-		OldCommit string `yaml:"commit_strategy" deprecated:"Via:use 'via' instead"`
+		OldCommit string `yaml:"commit_strategy" deprecated:"via:use 'via' instead"`
 	}
 	s := S{Via: "push", OldCommit: ""}
 	warnings, err := MigrateDeprecated(&s)
@@ -208,7 +208,7 @@ func TestValidateStruct_Unique(t *testing.T) {
 		Name string `yaml:"name"`
 	}
 	type S struct {
-		Items []Item `yaml:"items" validate:"unique=Name"`
+		Items []Item `yaml:"items" validate:"unique=name"`
 	}
 	// No duplicates
 	if err := ValidateStruct("", &S{Items: []Item{{Name: "a"}, {Name: "b"}}}); err != nil {
@@ -230,7 +230,7 @@ func TestValidateStruct_Unique(t *testing.T) {
 
 func TestValidateStruct_Exclusive(t *testing.T) {
 	type S struct {
-		Content string `yaml:"content" validate:"exclusive=Source"`
+		Content string `yaml:"content" validate:"exclusive=source"`
 		Source  string `yaml:"source"`
 	}
 	// Neither set
