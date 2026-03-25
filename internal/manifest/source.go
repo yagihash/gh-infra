@@ -197,8 +197,6 @@ func (r *SourceResolver) resolveGitHubDir(data []byte, owner, repo, dirPath, ref
 			subSource := fmt.Sprintf("%s%s/%s/%s/", githubScheme, owner, repo, item.Path)
 			if ref != "" {
 				subSource = fmt.Sprintf("%s%s/%s/%s/@%s", githubScheme, owner, repo, item.Path, ref)
-				// Fix: directory with ref
-				subSource = fmt.Sprintf("%s%s/%s/%s/", githubScheme, owner, repo, item.Path)
 			}
 			subEntries, err := r.resolveGitHub(subSource, destPath)
 			if err != nil {

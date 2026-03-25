@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -24,7 +25,10 @@ func RunConfirmWithDiff(title string, diffEntries []DiffEntry) (confirmed bool, 
 	if err != nil {
 		return false, err
 	}
-	cm := result.(*confirmDiffModel)
+	cm, ok := result.(*confirmDiffModel)
+	if !ok {
+		return false, fmt.Errorf("unexpected model type: %T", result)
+	}
 	return cm.confirmed, nil
 }
 
@@ -32,7 +36,7 @@ func RunConfirmWithDiff(title string, diffEntries []DiffEntry) (confirmed bool, 
 var errFallback = fmt.Errorf("fallback")
 
 // ErrFallback returns true if the error signals a fallback to plain Confirm.
-func ErrFallback(err error) bool { return err == errFallback }
+func ErrFallback(err error) bool { return errors.Is(err, errFallback) }
 
 // confirmDiffModel is a bubbletea model for the y/n/d confirmation prompt.
 type confirmDiffModel struct {
@@ -96,17 +100,17 @@ func (m *confirmDiffModel) View() tea.View {
 		b.WriteString("\n")
 		b.WriteString(Dim.Render("  Skipped files (will not be applied):") + "\n")
 		for _, e := range skipped {
-			b.WriteString(fmt.Sprintf("    %s\n", Dim.Render(e.Path)))
+			fmt.Fprintf(&b, "    %s\n", Dim.Render(e.Path))
 		}
 	}
 
-	b.WriteString(fmt.Sprintf("\n%s %s (%s / %s / %s)\n",
+	fmt.Fprintf(&b, "\n%s %s (%s / %s / %s)\n",
 		huhIndigo.Render(">"),
 		huhIndigo.Render(m.title),
 		Green.Render("(y)")+"es",
 		Red.Render("(n)")+"o",
 		Yellow.Render("(d)")+"iff",
-	))
+	)
 	return tea.NewView(b.String())
 }
 

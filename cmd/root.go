@@ -3,10 +3,11 @@ package cmd
 import (
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/logger"
 	"github.com/babarot/gh-infra/internal/manifest"
-	"github.com/spf13/cobra"
 )
 
 var (

@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/babarot/gh-infra/internal/gh"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/babarot/gh-infra/internal/gh"
 )
 
 // Fetcher retrieves current repository state from GitHub.

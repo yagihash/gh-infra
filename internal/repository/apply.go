@@ -246,7 +246,11 @@ func (e *Executor) applyRepoSetting(c Change, repo *manifest.Repository) error {
 		return wrapError(err, fullName, c.Field)
 
 	case "archived":
-		if c.NewValue.(bool) {
+		archived, ok := c.NewValue.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type for archived: %T", c.NewValue)
+		}
+		if archived {
 			_, err := e.runner.Run("repo", "archive", fullName, "--yes")
 			return wrapError(err, fullName, c.Field)
 		}
@@ -257,21 +261,29 @@ func (e *Executor) applyRepoSetting(c Change, repo *manifest.Repository) error {
 		return e.applyTopics(fullName, repo)
 
 	case "issues":
-		return e.toggleFeature(fullName, "enable-issues", c.NewValue.(bool))
+		v, _ := c.NewValue.(bool)
+		return e.toggleFeature(fullName, "enable-issues", v)
 	case "projects":
-		return e.toggleFeature(fullName, "enable-projects", c.NewValue.(bool))
+		v, _ := c.NewValue.(bool)
+		return e.toggleFeature(fullName, "enable-projects", v)
 	case "wiki":
-		return e.toggleFeature(fullName, "enable-wiki", c.NewValue.(bool))
+		v, _ := c.NewValue.(bool)
+		return e.toggleFeature(fullName, "enable-wiki", v)
 	case "discussions":
-		return e.toggleFeature(fullName, "enable-discussions", c.NewValue.(bool))
+		v, _ := c.NewValue.(bool)
+		return e.toggleFeature(fullName, "enable-discussions", v)
 	case "allow_merge_commit":
-		return e.toggleFeature(fullName, "enable-merge-commit", c.NewValue.(bool))
+		v, _ := c.NewValue.(bool)
+		return e.toggleFeature(fullName, "enable-merge-commit", v)
 	case "allow_squash_merge":
-		return e.toggleFeature(fullName, "enable-squash-merge", c.NewValue.(bool))
+		v, _ := c.NewValue.(bool)
+		return e.toggleFeature(fullName, "enable-squash-merge", v)
 	case "allow_rebase_merge":
-		return e.toggleFeature(fullName, "enable-rebase-merge", c.NewValue.(bool))
+		v, _ := c.NewValue.(bool)
+		return e.toggleFeature(fullName, "enable-rebase-merge", v)
 	case "auto_delete_head_branches":
-		return e.toggleFeature(fullName, "delete-branch-on-merge", c.NewValue.(bool))
+		v, _ := c.NewValue.(bool)
+		return e.toggleFeature(fullName, "delete-branch-on-merge", v)
 
 	case "merge_commit_title", "merge_commit_message", "squash_merge_commit_title", "squash_merge_commit_message":
 		return e.updateRepoField(owner+"/"+name, c.Field, fmt.Sprintf("%v", c.NewValue))
@@ -302,7 +314,7 @@ func (e *Executor) applyTopics(fullName string, repo *manifest.Repository) error
 	}
 
 	currentTopics := make(map[string]bool)
-	for _, t := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+	for t := range strings.SplitSeq(strings.TrimSpace(string(out)), "\n") {
 		if t != "" {
 			currentTopics[t] = true
 		}
@@ -341,8 +353,8 @@ func (e *Executor) applyBranchProtection(c Change, repo *manifest.Repository) er
 	// Find the matching branch protection rule from desired state
 	var pattern string
 	// Extract pattern from resource name like "BranchProtection[main]"
-	if strings.HasPrefix(c.Resource, manifest.ResourceBranchProtection+"[") {
-		pattern = strings.TrimSuffix(strings.TrimPrefix(c.Resource, manifest.ResourceBranchProtection+"["), "]")
+	if after, ok := strings.CutPrefix(c.Resource, manifest.ResourceBranchProtection+"["); ok {
+		pattern = strings.TrimSuffix(after, "]")
 	}
 
 	var bp *manifest.BranchProtection
@@ -356,30 +368,7 @@ func (e *Executor) applyBranchProtection(c Change, repo *manifest.Repository) er
 		return fmt.Errorf("branch protection rule %q not found in desired state", pattern)
 	}
 
-	// Build the protection payload
-	payload := buildBranchProtectionPayload(bp)
-	payloadJSON, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal branch protection payload: %w", err)
-	}
-
-	endpoint := fmt.Sprintf("repos/%s/%s/branches/%s/protection", owner, name, pattern)
-	_, err = e.runner.Run("api", endpoint, "--method", "PUT", "--input", "-",
-		"--header", "Accept: application/vnd.github+json",
-	)
-	// The gh api command doesn't support --input - from pipe via Runner,
-	// so we use a different approach with -f flags
-	if err != nil {
-		// Fallback: use raw body via environment
-		_, err = e.runner.Run("api", endpoint,
-			"--method", "PUT",
-			"--header", "Accept: application/vnd.github+json",
-			"--raw-field", fmt.Sprintf("payload=%s", string(payloadJSON)),
-		)
-	}
-
-	// Actually, gh api supports --input, but our Runner doesn't pipe stdin.
-	// Use the field-based approach instead.
+	// Use the field-based API approach (Runner doesn't pipe stdin).
 	return e.applyBranchProtectionViaAPI(owner, name, bp)
 }
 

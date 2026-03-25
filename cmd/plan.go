@@ -5,13 +5,14 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/babarot/gh-infra/internal/fileset"
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/manifest"
 	"github.com/babarot/gh-infra/internal/repository"
 	"github.com/babarot/gh-infra/internal/ui"
-	"github.com/spf13/cobra"
-	"golang.org/x/sync/errgroup"
 )
 
 func newPlanCmd() *cobra.Command {

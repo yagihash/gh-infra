@@ -215,11 +215,11 @@ type WildcardMockRunner struct {
 
 func (m *WildcardMockRunner) Run(args ...string) ([]byte, error) {
 	key := strings.Join(args, " ")
-	m.MockRunner.Called = append(m.MockRunner.Called, args)
-	if err, ok := m.MockRunner.Errors[key]; ok {
+	m.Called = append(m.Called, args)
+	if err, ok := m.Errors[key]; ok {
 		return nil, err
 	}
-	if resp, ok := m.MockRunner.Responses[key]; ok {
+	if resp, ok := m.Responses[key]; ok {
 		return resp, nil
 	}
 	// Return default response for unmatched calls (Git Data API calls with dynamic args)

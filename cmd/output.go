@@ -85,11 +85,14 @@ func printUnifiedPlan(p ui.Printer, repoChanges []repository.Change, fileChanges
 		// Print repository changes
 		for _, c := range rChanges {
 			if len(c.Children) > 0 {
-				icon := ui.IconChange
-				if c.Type == repository.ChangeCreate {
+				var icon string
+				switch c.Type {
+				case repository.ChangeCreate:
 					icon = ui.IconAdd
-				} else if c.Type == repository.ChangeDelete {
+				case repository.ChangeDelete:
 					icon = ui.IconRemove
+				default:
+					icon = ui.IconChange
 				}
 				header := c.Field
 				if s, ok := c.NewValue.(string); ok && s != "" {

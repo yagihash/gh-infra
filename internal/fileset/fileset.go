@@ -92,11 +92,6 @@ func planTaskKey(fullName string) string {
 	return "Fetching " + fullName + " (files)"
 }
 
-// applyTaskKey returns the tracker key for a fileset apply target.
-func applyTaskKey(repo string) string {
-	return "Applying " + repo + " (files)"
-}
-
 // Plan computes changes for all FileSets concurrently.
 // If filterRepo is non-empty, only targets matching that repo are processed.
 func (p *Processor) Plan(fileSets []*manifest.FileSet, filterRepo string, tracker *ui.RefreshTracker) ([]FileChange, error) {
