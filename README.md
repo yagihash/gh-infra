@@ -36,6 +36,53 @@ gh-infra takes a different approach:
 gh extension install babarot/gh-infra
 ```
 
+## Quick Start
+
+### 1. Import an existing repository
+
+```bash
+gh infra import babarot/my-project > my-project.yaml
+```
+
+### 2. Edit the YAML to your desired state
+
+```diff
+  apiVersion: gh-infra/v1
+  kind: Repository
+  metadata:
+    name: my-project
+    owner: babarot
+
+  spec:
+    description: "My awesome project"
+    visibility: public
+    topics:
+      - go
+      - cli
+    features:
+      issues: true
+-     projects: false
++     projects: true
+      wiki: false
+      discussions: true
+```
+
+### 3. Plan and apply
+
+```bash
+gh infra plan
+gh infra apply
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `plan [path]` | Show diff between YAML and current GitHub state |
+| `apply [path]` | Apply changes (with confirmation prompt) |
+| `import <owner/repo>` | Export existing repo settings as YAML |
+| `validate [path]` | Check YAML syntax and schema |
+
 ## Path Resolution
 
 `plan`, `apply`, and `validate` accept an optional `[path]` argument:
@@ -48,73 +95,9 @@ gh extension install babarot/gh-infra
 
 YAML files that are not gh-infra manifests (e.g., GitHub Actions workflows, docker-compose) are silently skipped. Use `--fail-on-unknown` to treat them as errors instead.
 
-## Quick Start
+## Documentation
 
-### 1. Import an existing repository
-
-```bash
-gh infra import babarot/my-project > repos/my-project.yaml
-```
-
-### 2. Edit the YAML to your desired state
-
-```yaml
-apiVersion: gh-infra/v1
-kind: Repository
-metadata:
-  name: my-project
-  owner: babarot
-
-spec:
-  description: "My awesome project"
-  visibility: public
-  topics:
-    - go
-    - cli
-  features:
-    issues: true
-    projects: false
-    wiki: false
-    discussions: true
-```
-
-### 3. Plan and apply
-
-```bash
-gh infra plan ./repos/
-gh infra apply ./repos/
-```
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `plan [path]` | Show diff between YAML and current GitHub state |
-| `apply [path]` | Apply changes (with confirmation prompt) |
-| `import <owner/repo>` | Export existing repo settings as YAML |
-| `validate [path]` | Check YAML syntax and schema |
-
-### Flags
-
-```
-Global:
-  -V, --verbose             Show gh command execution details (shorthand for --log-level=debug)
-      --log-level <level>   Log level: trace, debug, info, warn, error
-
-plan:
-  -r, --repo <owner/repo>   Target a specific repository
-      --ci                  Exit with code 1 if changes detected
-      --fail-on-unknown     Error on YAML files with unknown Kind
-
-apply:
-  -r, --repo <owner/repo>   Target a specific repository
-      --auto-approve        Skip confirmation prompt
-      --force-secrets       Re-set all secrets (even existing ones)
-      --fail-on-unknown     Error on YAML files with unknown Kind
-
-validate:
-      --fail-on-unknown     Error on YAML files with unknown Kind
-```
+For full documentation — YAML reference, usage patterns, and guides — visit **[babarot.github.io/gh-infra](https://babarot.github.io/gh-infra/introduction/getting-started/)**.
 
 ## License
 
