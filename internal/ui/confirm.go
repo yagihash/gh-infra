@@ -44,6 +44,7 @@ type confirmDiffModel struct {
 	diffEntries []DiffEntry
 	confirmed   bool
 	showDiff    bool
+	done        bool
 }
 
 func newConfirmDiffModel(title string, entries []DiffEntry) confirmDiffModel {
@@ -58,9 +59,11 @@ func (m *confirmDiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "y", "Y":
 			m.confirmed = true
+			m.done = true
 			return m, tea.Quit
 		case "n", "N", "esc", "ctrl+c":
 			m.confirmed = false
+			m.done = true
 			return m, tea.Quit
 		case "d", "D":
 			m.showDiff = true
@@ -88,6 +91,19 @@ var huhIndigo = lipgloss.NewStyle().Foreground(lipgloss.Color("#7571F9")).Bold(t
 
 func (m *confirmDiffModel) View() tea.View {
 	var b strings.Builder
+
+	if m.done {
+		answer := Red.Render("No")
+		if m.confirmed {
+			answer = Green.Render("Yes")
+		}
+		fmt.Fprintf(&b, "\n%s %s %s\n\n",
+			huhIndigo.Render(">"),
+			huhIndigo.Render(m.title),
+			answer,
+		)
+		return tea.NewView(b.String())
+	}
 
 	// Show skipped files if any
 	var skipped []DiffEntry
