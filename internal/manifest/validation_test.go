@@ -45,7 +45,7 @@ func TestValidateRepository(t *testing.T) {
 					Visibility: Ptr("secret"),
 				},
 			},
-			wantErr: "invalid visibility",
+			wantErr: "invalid spec.visibility",
 		},
 		{
 			name: "valid visibility public passes",
@@ -82,7 +82,7 @@ func TestValidateRepository(t *testing.T) {
 					BranchProtection: []BranchProtection{{Pattern: ""}},
 				},
 			},
-			wantErr: "branch_protection.pattern is required",
+			wantErr: "pattern is required",
 		},
 		{
 			name: "valid branch protection passes",
@@ -114,7 +114,7 @@ func TestValidateRepository(t *testing.T) {
 					MergeStrategy: &MergeStrategy{SquashMergeCommitTitle: Ptr("INVALID")},
 				},
 			},
-			wantErr: "invalid squash_merge_commit_title",
+			wantErr: "invalid spec.merge_strategy.squash_merge_commit_title",
 		},
 		{
 			name: "valid squash_merge_commit_message",
@@ -133,7 +133,7 @@ func TestValidateRepository(t *testing.T) {
 					MergeStrategy: &MergeStrategy{SquashMergeCommitMessage: Ptr("NOPE")},
 				},
 			},
-			wantErr: "invalid squash_merge_commit_message",
+			wantErr: "invalid spec.merge_strategy.squash_merge_commit_message",
 		},
 		{
 			name: "valid merge_commit_title",
@@ -152,7 +152,7 @@ func TestValidateRepository(t *testing.T) {
 					MergeStrategy: &MergeStrategy{MergeCommitTitle: Ptr("BAD")},
 				},
 			},
-			wantErr: "invalid merge_commit_title",
+			wantErr: "invalid spec.merge_strategy.merge_commit_title",
 		},
 		{
 			name: "valid merge_commit_message",
@@ -171,7 +171,7 @@ func TestValidateRepository(t *testing.T) {
 					MergeStrategy: &MergeStrategy{MergeCommitMessage: Ptr("WRONG")},
 				},
 			},
-			wantErr: "invalid merge_commit_message",
+			wantErr: "invalid spec.merge_strategy.merge_commit_message",
 		},
 		// Secrets/variables validation
 		{
@@ -182,7 +182,7 @@ func TestValidateRepository(t *testing.T) {
 					Secrets: []Secret{{Name: "", Value: "v"}},
 				},
 			},
-			wantErr: "secrets[].name is required",
+			wantErr: "name is required",
 		},
 		{
 			name: "empty variable name fails",
@@ -192,7 +192,7 @@ func TestValidateRepository(t *testing.T) {
 					Variables: []Variable{{Name: "", Value: "v"}},
 				},
 			},
-			wantErr: "variables[].name is required",
+			wantErr: "name is required",
 		},
 	}
 
@@ -266,7 +266,7 @@ func TestValidateFile(t *testing.T) {
 					Files: []FileEntry{{Path: ""}},
 				},
 			},
-			wantErr: "files[0].path is required",
+			wantErr: "path is required",
 		},
 		{
 			name: "content and source both set",
@@ -364,7 +364,7 @@ func TestValidateFileSet(t *testing.T) {
 					Files:        []FileEntry{{Path: ""}},
 				},
 			},
-			wantErr: "files[0].path is required",
+			wantErr: "path is required",
 		},
 	}
 
@@ -417,7 +417,7 @@ func TestValidateRulesets(t *testing.T) {
 			setup: func(r *Repository) {
 				r.Spec.Rulesets = []Ruleset{{Name: ""}}
 			},
-			wantErr: "rulesets[].name is required",
+			wantErr: "name is required",
 		},
 		{
 			name: "duplicate name",
@@ -427,7 +427,7 @@ func TestValidateRulesets(t *testing.T) {
 					{Name: "dup", Rules: RulesetRules{}},
 				}
 			},
-			wantErr: "duplicate ruleset name",
+			wantErr: "duplicate name",
 		},
 		{
 			name: "invalid enforcement",
@@ -555,19 +555,6 @@ func TestValidateRulesets(t *testing.T) {
 				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestValidateOneOf(t *testing.T) {
-	if err := validateOneOf("field", "a", "a", "b", "c"); err != nil {
-		t.Errorf("expected no error, got: %v", err)
-	}
-	err := validateOneOf("field", "d", "a", "b", "c")
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if !strings.Contains(err.Error(), "must be one of: a, b, c") {
-		t.Errorf("unexpected error: %v", err)
 	}
 }
 

@@ -36,7 +36,7 @@ spec:
     - path: .github/workflows/ci.yml
       source: github://babarot/shared-config/workflows/ci.yml
 
-  via: pus                                # push | pull_request
+  via: push                               # push | pull_request
   commit_message: "ci: sync managed files"
   # pr_title: "chore: sync files"         # pull_request only
   # pr_body: |                            # pull_request only

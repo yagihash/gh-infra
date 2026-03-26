@@ -93,8 +93,8 @@ type Repository struct {
 }
 
 type RepositoryMetadata struct {
-	Name  string `yaml:"name"`
-	Owner string `yaml:"owner"`
+	Name  string `yaml:"name"  validate:"required"`
+	Owner string `yaml:"owner" validate:"required"`
 }
 
 func (m RepositoryMetadata) FullName() string {
@@ -104,15 +104,15 @@ func (m RepositoryMetadata) FullName() string {
 type RepositorySpec struct {
 	Description      *string            `yaml:"description,omitempty"`
 	Homepage         *string            `yaml:"homepage,omitempty"`
-	Visibility       *string            `yaml:"visibility,omitempty"`
+	Visibility       *string            `yaml:"visibility,omitempty" validate:"omitempty,oneof=public private internal"`
 	Archived         *bool              `yaml:"archived,omitempty"`
 	Topics           []string           `yaml:"topics,omitempty"`
 	Features         *Features          `yaml:"features,omitempty"`
 	MergeStrategy    *MergeStrategy     `yaml:"merge_strategy,omitempty"`
-	BranchProtection []BranchProtection `yaml:"branch_protection,omitempty"`
-	Rulesets         []Ruleset          `yaml:"rulesets,omitempty"`
-	Secrets          []Secret           `yaml:"secrets,omitempty"`
-	Variables        []Variable         `yaml:"variables,omitempty"`
+	BranchProtection []BranchProtection `yaml:"branch_protection,omitempty" validate:"unique=pattern"`
+	Rulesets         []Ruleset          `yaml:"rulesets,omitempty"          validate:"unique=name"`
+	Secrets          []Secret           `yaml:"secrets,omitempty"           validate:"unique=name"`
+	Variables        []Variable         `yaml:"variables,omitempty"         validate:"unique=name"`
 }
 
 type Features struct {
@@ -127,14 +127,14 @@ type MergeStrategy struct {
 	AllowSquashMerge         *bool   `yaml:"allow_squash_merge,omitempty"`
 	AllowRebaseMerge         *bool   `yaml:"allow_rebase_merge,omitempty"`
 	AutoDeleteHeadBranches   *bool   `yaml:"auto_delete_head_branches,omitempty"`
-	SquashMergeCommitTitle   *string `yaml:"squash_merge_commit_title,omitempty"`
-	SquashMergeCommitMessage *string `yaml:"squash_merge_commit_message,omitempty"`
-	MergeCommitTitle         *string `yaml:"merge_commit_title,omitempty"`
-	MergeCommitMessage       *string `yaml:"merge_commit_message,omitempty"`
+	SquashMergeCommitTitle   *string `yaml:"squash_merge_commit_title,omitempty"   validate:"omitempty,oneof=PR_TITLE COMMIT_OR_PR_TITLE"`
+	SquashMergeCommitMessage *string `yaml:"squash_merge_commit_message,omitempty" validate:"omitempty,oneof=COMMIT_MESSAGES PR_BODY BLANK"`
+	MergeCommitTitle         *string `yaml:"merge_commit_title,omitempty"          validate:"omitempty,oneof=MERGE_MESSAGE PR_TITLE"`
+	MergeCommitMessage       *string `yaml:"merge_commit_message,omitempty"        validate:"omitempty,oneof=PR_TITLE PR_BODY BLANK"`
 }
 
 type BranchProtection struct {
-	Pattern                 string        `yaml:"pattern"`
+	Pattern                 string        `yaml:"pattern" validate:"required"`
 	RequiredReviews         *int          `yaml:"required_reviews,omitempty"`
 	DismissStaleReviews     *bool         `yaml:"dismiss_stale_reviews,omitempty"`
 	RequireCodeOwnerReviews *bool         `yaml:"require_code_owner_reviews,omitempty"`
@@ -152,21 +152,21 @@ type StatusChecks struct {
 
 // Ruleset represents a GitHub repository ruleset.
 type Ruleset struct {
-	Name         string               `yaml:"name"`
-	Target       *string              `yaml:"target,omitempty"`      // "branch" (default) or "tag"
-	Enforcement  *string              `yaml:"enforcement,omitempty"` // "active", "evaluate", "disabled"
+	Name         string               `yaml:"name"                  validate:"required"`
+	Target       *string              `yaml:"target,omitempty"      validate:"omitempty,oneof=branch tag"`
+	Enforcement  *string              `yaml:"enforcement,omitempty" validate:"omitempty,oneof=active evaluate disabled"`
 	BypassActors []RulesetBypassActor `yaml:"bypass_actors,omitempty"`
 	Conditions   *RulesetConditions   `yaml:"conditions,omitempty"`
 	Rules        RulesetRules         `yaml:"rules"`
 }
 
 type RulesetBypassActor struct {
-	Role       string `yaml:"role,omitempty"`        // admin, write, maintain
+	Role       string `yaml:"role,omitempty" validate:"omitempty,oneof=admin write maintain"`
 	Team       string `yaml:"team,omitempty"`        // team slug
 	App        string `yaml:"app,omitempty"`         // GitHub App slug
 	OrgAdmin   *bool  `yaml:"org-admin,omitempty"`   // true = OrganizationAdmin
 	CustomRole string `yaml:"custom-role,omitempty"` // Enterprise Cloud custom role name
-	BypassMode string `yaml:"bypass_mode"`
+	BypassMode string `yaml:"bypass_mode" validate:"oneof=always pull_request exempt"`
 }
 
 type RulesetConditions struct {
@@ -207,12 +207,12 @@ type RulesetStatusCheck struct {
 }
 
 type Secret struct {
-	Name  string `yaml:"name"`
+	Name  string `yaml:"name" validate:"required"`
 	Value string `yaml:"value"`
 }
 
 type Variable struct {
-	Name  string `yaml:"name"`
+	Name  string `yaml:"name" validate:"required"`
 	Value string `yaml:"value"`
 }
 
@@ -248,8 +248,8 @@ type File struct {
 }
 
 type FileMetadata struct {
-	Name  string `yaml:"name"`
-	Owner string `yaml:"owner"`
+	Name  string `yaml:"name"  validate:"required"`
+	Owner string `yaml:"owner" validate:"required"`
 }
 
 func (m FileMetadata) FullName() string {
@@ -257,21 +257,21 @@ func (m FileMetadata) FullName() string {
 }
 
 type FileSpec struct {
-	Files         []FileEntry `yaml:"files"`
+	Files         []FileEntry `yaml:"files" validate:"required"`
 	CommitMessage string      `yaml:"commit_message,omitempty"`
-	Via           string      `yaml:"via,omitempty"`      // push (default), pull_request
-	Branch        string      `yaml:"branch,omitempty"`   // branch name for pull_request via
-	PRTitle       string      `yaml:"pr_title,omitempty"` // custom PR title (pull_request only)
-	PRBody        string      `yaml:"pr_body,omitempty"`  // custom PR body (pull_request only)
+	Via           string      `yaml:"via,omitempty" validate:"omitempty,oneof=push pull_request"`
+	Branch        string      `yaml:"branch,omitempty"`
+	PRTitle       string      `yaml:"pr_title,omitempty"`
+	PRBody        string      `yaml:"pr_body,omitempty"`
 
 	// Deprecated fields (still parsed for backward compatibility)
-	DeprecatedCommitStrategy string   `yaml:"commit_strategy,omitempty"`
-	DeprecatedOnApply        string   `yaml:"on_apply,omitempty"`
-	DeprecatedOnDrift        string   `yaml:"on_drift,omitempty"`
+	DeprecatedCommitStrategy string   `yaml:"commit_strategy,omitempty" deprecated:"via:use \"via\" instead"`
+	DeprecatedOnApply        string   `yaml:"on_apply,omitempty"        deprecated:"via:use \"via\" instead"`
+	DeprecatedOnDrift        string   `yaml:"on_drift,omitempty"        deprecated:":and will be ignored"`
 	DeprecationWarnings      []string `yaml:"-"`
 }
 
-// UnmarshalYAML handles migration from commit_strategy/on_apply to via.
+// UnmarshalYAML handles migration from deprecated fields.
 func (s *FileSpec) UnmarshalYAML(unmarshal func(any) error) error {
 	type raw FileSpec
 	var r raw
@@ -279,33 +279,17 @@ func (s *FileSpec) UnmarshalYAML(unmarshal func(any) error) error {
 		return err
 	}
 	*s = FileSpec(r)
-	// Check for conflicting deprecated fields
+	// TODO: remove once commit_strategy and on_apply are fully removed.
+	// Both are deprecated aliases for Via; MigrateDeprecated cannot detect
+	// this conflict because it processes fields sequentially.
 	if s.DeprecatedCommitStrategy != "" && s.DeprecatedOnApply != "" {
 		return fmt.Errorf("cannot specify both \"commit_strategy\" and \"on_apply\"")
 	}
-	if s.DeprecatedCommitStrategy != "" && s.Via != "" {
-		return fmt.Errorf("cannot specify both \"commit_strategy\" and \"via\"")
+	warnings, err := MigrateDeprecated(s)
+	if err != nil {
+		return err
 	}
-	if s.DeprecatedOnApply != "" && s.Via != "" {
-		return fmt.Errorf("cannot specify both \"on_apply\" and \"via\"")
-	}
-	if s.DeprecatedCommitStrategy != "" {
-		s.DeprecationWarnings = append(s.DeprecationWarnings,
-			"\"commit_strategy\" is deprecated, use \"via\" instead")
-		s.Via = s.DeprecatedCommitStrategy
-		s.DeprecatedCommitStrategy = ""
-	}
-	if s.DeprecatedOnApply != "" {
-		s.DeprecationWarnings = append(s.DeprecationWarnings,
-			"\"on_apply\" is deprecated, use \"via\" instead")
-		s.Via = s.DeprecatedOnApply
-		s.DeprecatedOnApply = ""
-	}
-	if s.DeprecatedOnDrift != "" {
-		s.DeprecationWarnings = append(s.DeprecationWarnings,
-			"\"on_drift\" is deprecated and will be ignored")
-		s.DeprecatedOnDrift = ""
-	}
+	s.DeprecationWarnings = warnings
 	return nil
 }
 
@@ -318,26 +302,26 @@ type FileSet struct {
 }
 
 type FileSetMetadata struct {
-	Owner string `yaml:"owner"`
+	Owner string `yaml:"owner" validate:"required"`
 }
 
 type FileSetSpec struct {
-	Repositories  []FileSetRepository `yaml:"repositories"`
-	Files         []FileEntry         `yaml:"files"`
-	CommitMessage string              `yaml:"commit_message,omitempty"` // custom commit message
-	Via           string              `yaml:"via,omitempty"`            // push (default), pull_request
-	Branch        string              `yaml:"branch,omitempty"`         // branch name for pull_request via
-	PRTitle       string              `yaml:"pr_title,omitempty"`       // custom PR title (pull_request only)
-	PRBody        string              `yaml:"pr_body,omitempty"`        // custom PR body (pull_request only)
+	Repositories  []FileSetRepository `yaml:"repositories" validate:"required,unique=Name"`
+	Files         []FileEntry         `yaml:"files"        validate:"required"`
+	CommitMessage string              `yaml:"commit_message,omitempty"`
+	Via           string              `yaml:"via,omitempty" validate:"omitempty,oneof=push pull_request"`
+	Branch        string              `yaml:"branch,omitempty"`
+	PRTitle       string              `yaml:"pr_title,omitempty"`
+	PRBody        string              `yaml:"pr_body,omitempty"`
 
 	// Deprecated fields (still parsed for backward compatibility)
-	DeprecatedCommitStrategy string   `yaml:"commit_strategy,omitempty"`
-	DeprecatedOnApply        string   `yaml:"on_apply,omitempty"`
-	DeprecatedOnDrift        string   `yaml:"on_drift,omitempty"`
+	DeprecatedCommitStrategy string   `yaml:"commit_strategy,omitempty" deprecated:"via:use \"via\" instead"`
+	DeprecatedOnApply        string   `yaml:"on_apply,omitempty"        deprecated:"via:use \"via\" instead"`
+	DeprecatedOnDrift        string   `yaml:"on_drift,omitempty"        deprecated:":and will be ignored"`
 	DeprecationWarnings      []string `yaml:"-"`
 }
 
-// UnmarshalYAML handles migration from commit_strategy/on_apply to via.
+// UnmarshalYAML handles migration from deprecated fields.
 func (s *FileSetSpec) UnmarshalYAML(unmarshal func(any) error) error {
 	type raw FileSetSpec
 	var r raw
@@ -345,39 +329,23 @@ func (s *FileSetSpec) UnmarshalYAML(unmarshal func(any) error) error {
 		return err
 	}
 	*s = FileSetSpec(r)
-	// Check for conflicting deprecated fields
+	// TODO: remove once commit_strategy and on_apply are fully removed.
+	// Both are deprecated aliases for Via; MigrateDeprecated cannot detect
+	// this conflict because it processes fields sequentially.
 	if s.DeprecatedCommitStrategy != "" && s.DeprecatedOnApply != "" {
 		return fmt.Errorf("cannot specify both \"commit_strategy\" and \"on_apply\"")
 	}
-	if s.DeprecatedCommitStrategy != "" && s.Via != "" {
-		return fmt.Errorf("cannot specify both \"commit_strategy\" and \"via\"")
+	warnings, err := MigrateDeprecated(s)
+	if err != nil {
+		return err
 	}
-	if s.DeprecatedOnApply != "" && s.Via != "" {
-		return fmt.Errorf("cannot specify both \"on_apply\" and \"via\"")
-	}
-	if s.DeprecatedCommitStrategy != "" {
-		s.DeprecationWarnings = append(s.DeprecationWarnings,
-			"\"commit_strategy\" is deprecated, use \"via\" instead")
-		s.Via = s.DeprecatedCommitStrategy
-		s.DeprecatedCommitStrategy = ""
-	}
-	if s.DeprecatedOnApply != "" {
-		s.DeprecationWarnings = append(s.DeprecationWarnings,
-			"\"on_apply\" is deprecated, use \"via\" instead")
-		s.Via = s.DeprecatedOnApply
-		s.DeprecatedOnApply = ""
-	}
-	if s.DeprecatedOnDrift != "" {
-		s.DeprecationWarnings = append(s.DeprecationWarnings,
-			"\"on_drift\" is deprecated and will be ignored")
-		s.DeprecatedOnDrift = ""
-	}
+	s.DeprecationWarnings = warnings
 	return nil
 }
 
 // FileSetRepository can be a simple string "repo" or a struct with overrides.
 type FileSetRepository struct {
-	Name      string      `yaml:"name"`
+	Name      string      `yaml:"name" validate:"required"`
 	Overrides []FileEntry `yaml:"overrides,omitempty"`
 }
 
@@ -403,20 +371,20 @@ func (fs *FileSet) RepoFullName(repoName string) string {
 }
 
 type FileEntry struct {
-	Path      string            `yaml:"path"`
-	Content   string            `yaml:"content,omitempty"`
-	Source    string            `yaml:"source,omitempty"`    // local file path
-	Vars      map[string]string `yaml:"vars,omitempty"`      // template variables
-	Reconcile string            `yaml:"reconcile,omitempty"` // patch (default), mirror, create_only
-	DirScope  string            `yaml:"-"`                   // internal: directory path for mirror mode
+	Path      string            `yaml:"path"                validate:"required"`
+	Content   string            `yaml:"content,omitempty" validate:"exclusive=source"`
+	Source    string            `yaml:"source,omitempty"`
+	Vars      map[string]string `yaml:"vars,omitempty"`
+	Reconcile string            `yaml:"reconcile,omitempty" validate:"omitempty,oneof=patch mirror create_only"`
+	DirScope  string            `yaml:"-"`
 
 	// Deprecated fields (still parsed for backward compatibility)
-	DeprecatedSyncMode  string   `yaml:"sync_mode,omitempty"`
-	DeprecatedOnDrift   string   `yaml:"on_drift,omitempty"`
+	DeprecatedSyncMode  string   `yaml:"sync_mode,omitempty" deprecated:"reconcile:use \"reconcile\" instead"`
+	DeprecatedOnDrift   string   `yaml:"on_drift,omitempty"  deprecated:":and will be ignored"`
 	DeprecationWarnings []string `yaml:"-"`
 }
 
-// UnmarshalYAML handles migration from sync_mode to reconcile.
+// UnmarshalYAML handles migration from deprecated fields.
 func (fe *FileEntry) UnmarshalYAML(unmarshal func(any) error) error {
 	type raw FileEntry
 	var r raw
@@ -424,20 +392,20 @@ func (fe *FileEntry) UnmarshalYAML(unmarshal func(any) error) error {
 		return err
 	}
 	*fe = FileEntry(r)
-	if fe.DeprecatedSyncMode != "" && fe.Reconcile != "" {
-		return fmt.Errorf("cannot specify both \"sync_mode\" and \"reconcile\" for %s", fe.Path)
+	warnings, err := MigrateDeprecated(fe)
+	if err != nil {
+		if fe.Path != "" {
+			return fmt.Errorf("%s: %w", fe.Path, err)
+		}
+		return err
 	}
-	if fe.DeprecatedSyncMode != "" {
-		fe.DeprecationWarnings = append(fe.DeprecationWarnings,
-			fmt.Sprintf("%s: \"sync_mode\" is deprecated, use \"reconcile\" instead", fe.Path))
-		fe.Reconcile = fe.DeprecatedSyncMode
-		fe.DeprecatedSyncMode = ""
+	// Prefix warnings with path for context
+	for i, w := range warnings {
+		if fe.Path != "" {
+			warnings[i] = fe.Path + ": " + w
+		}
 	}
-	if fe.DeprecatedOnDrift != "" {
-		fe.DeprecationWarnings = append(fe.DeprecationWarnings,
-			fmt.Sprintf("%s: \"on_drift\" is deprecated and will be ignored", fe.Path))
-		fe.DeprecatedOnDrift = ""
-	}
+	fe.DeprecationWarnings = warnings
 	return nil
 }
 
