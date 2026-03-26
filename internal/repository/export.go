@@ -125,5 +125,30 @@ func ToManifest(r *CurrentState, resolver *manifest.Resolver) *manifest.Reposito
 		})
 	}
 
+	// Actions
+	if r.Actions.Enabled || r.Actions.AllowedActions != "" {
+		actions := &manifest.Actions{
+			Enabled:                manifest.Ptr(r.Actions.Enabled),
+			CanApprovePullRequests: manifest.Ptr(r.Actions.CanApprovePullRequests),
+		}
+		if r.Actions.AllowedActions != "" {
+			actions.AllowedActions = manifest.Ptr(r.Actions.AllowedActions)
+		}
+		if r.Actions.WorkflowPermissions != "" {
+			actions.WorkflowPermissions = manifest.Ptr(r.Actions.WorkflowPermissions)
+		}
+		if r.Actions.SelectedActions != nil {
+			actions.SelectedActions = &manifest.SelectedActions{
+				GithubOwnedAllowed: manifest.Ptr(r.Actions.SelectedActions.GithubOwnedAllowed),
+				VerifiedAllowed:    manifest.Ptr(r.Actions.SelectedActions.VerifiedAllowed),
+				PatternsAllowed:    r.Actions.SelectedActions.PatternsAllowed,
+			}
+		}
+		if r.Actions.ForkPRApproval != "" {
+			actions.ForkPRApproval = manifest.Ptr(r.Actions.ForkPRApproval)
+		}
+		repo.Spec.Actions = actions
+	}
+
 	return repo
 }
