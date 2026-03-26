@@ -217,6 +217,28 @@ metadata:
 	}
 }
 
+func TestParsePath_UnknownField_ReturnsError(t *testing.T) {
+	dir := t.TempDir()
+	content := `
+apiVersion: gh-infra/v1
+kind: Repository
+metadata:
+  name: test
+  owner: testowner
+spec:
+  recocile: create_only
+`
+	path := filepath.Join(dir, "typo.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := ParseAll(path)
+	if err == nil {
+		t.Fatal("expected error for unknown field 'recocile', got nil")
+	}
+}
+
 func TestParsePath_MissingName_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
 	content := `

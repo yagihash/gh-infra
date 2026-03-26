@@ -162,7 +162,7 @@ func parseDocument(data []byte, path string, docNum int, opt ParseOptions) (*Par
 
 func parseRepository(data []byte, path string) ([]*Repository, error) {
 	var repo Repository
-	if err := yaml.Unmarshal(data, &repo); err != nil {
+	if err := yaml.NewDecoder(bytes.NewReader(data), yaml.DisallowUnknownField()).Decode(&repo); err != nil {
 		return nil, fmt.Errorf("parse Repository in %s: %w", path, err)
 	}
 	if err := repo.Validate(); err != nil {
@@ -173,7 +173,7 @@ func parseRepository(data []byte, path string) ([]*Repository, error) {
 
 func parseRepositorySet(data []byte, path string) ([]*Repository, error) {
 	var set RepositorySet
-	if err := yaml.Unmarshal(data, &set); err != nil {
+	if err := yaml.NewDecoder(bytes.NewReader(data), yaml.DisallowUnknownField()).Decode(&set); err != nil {
 		return nil, fmt.Errorf("parse RepositorySet in %s: %w", path, err)
 	}
 
@@ -198,7 +198,7 @@ func parseRepositorySet(data []byte, path string) ([]*Repository, error) {
 
 func parseFile(data []byte, path string) (*FileSet, []string, error) {
 	var f File
-	if err := yaml.Unmarshal(data, &f); err != nil {
+	if err := yaml.NewDecoder(bytes.NewReader(data), yaml.DisallowUnknownField()).Decode(&f); err != nil {
 		return nil, nil, fmt.Errorf("parse File in %s: %w", path, err)
 	}
 
@@ -245,7 +245,7 @@ func parseFile(data []byte, path string) (*FileSet, []string, error) {
 
 func parseFileSet(data []byte, path string) (*FileSet, []string, error) {
 	var fs FileSet
-	if err := yaml.Unmarshal(data, &fs); err != nil {
+	if err := yaml.NewDecoder(bytes.NewReader(data), yaml.DisallowUnknownField()).Decode(&fs); err != nil {
 		return nil, nil, fmt.Errorf("parse FileSet in %s: %w", path, err)
 	}
 
