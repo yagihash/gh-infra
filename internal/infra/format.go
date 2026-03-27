@@ -1,4 +1,4 @@
-package cmd
+package infra
 
 import (
 	"fmt"
@@ -8,9 +8,9 @@ import (
 	"github.com/babarot/gh-infra/internal/ui"
 )
 
-// printUnifiedPlan prints repository and fileset changes grouped by repo name.
+// printPlan prints repository and fileset changes grouped by repo name.
 // FileSet changes for a repo are displayed after its repository changes.
-func printUnifiedPlan(p ui.Printer, repoChanges []repository.Change, fileChanges []fileset.FileChange) {
+func printPlan(p ui.Printer, repoChanges []repository.Change, fileChanges []fileset.Change) {
 	// Build ordered list of unique repo names (preserving appearance order)
 	seen := make(map[string]bool)
 	var repoNames []string
@@ -24,7 +24,7 @@ func printUnifiedPlan(p ui.Printer, repoChanges []repository.Change, fileChanges
 		}
 	}
 	for _, c := range fileChanges {
-		if c.Type == fileset.FileNoOp {
+		if c.Type == fileset.ChangeNoOp {
 			continue
 		}
 		if !seen[c.Target] {
@@ -34,9 +34,9 @@ func printUnifiedPlan(p ui.Printer, repoChanges []repository.Change, fileChanges
 	}
 
 	// Index changes by repo name
-	fileByTarget := make(map[string][]fileset.FileChange)
+	fileByTarget := make(map[string][]fileset.Change)
 	for _, c := range fileChanges {
-		if c.Type == fileset.FileNoOp {
+		if c.Type == fileset.ChangeNoOp {
 			continue
 		}
 		fileByTarget[c.Target] = append(fileByTarget[c.Target], c)
@@ -100,24 +100,10 @@ func printUnifiedPlan(p ui.Printer, repoChanges []repository.Change, fileChanges
 				}
 				p.SubGroupHeader(icon, header)
 				for _, child := range c.Children {
-					switch child.Type {
-					case repository.ChangeCreate:
-						p.SubItemCreate(child.Field, child.NewValue)
-					case repository.ChangeUpdate:
-						p.SubItemUpdate(child.Field, ui.FormatValue(child.OldValue), ui.FormatValue(child.NewValue))
-					case repository.ChangeDelete:
-						p.SubItemDelete(child.Field, child.OldValue)
-					}
+					p.PrintChange(changeToItem(child, true))
 				}
 			} else {
-				switch c.Type {
-				case repository.ChangeCreate:
-					p.ItemCreate(c.Field, c.NewValue)
-				case repository.ChangeUpdate:
-					p.ItemUpdate(c.Field, ui.FormatValue(c.OldValue), ui.FormatValue(c.NewValue))
-				case repository.ChangeDelete:
-					p.ItemDelete(c.Field, c.OldValue)
-				}
+				p.PrintChange(changeToItem(c, false))
 			}
 		}
 
@@ -135,14 +121,7 @@ func printUnifiedPlan(p ui.Printer, repoChanges []repository.Change, fileChanges
 			p.SubGroupHeader(ui.IconChange, fmt.Sprintf("FileSet: %s", ui.Bold.Render(label)))
 			for _, c := range fChanges {
 				added, removed := fileset.DiffStat(c.Current, c.Desired)
-				switch c.Type {
-				case fileset.FileCreate:
-					p.FileCreate(c.Path, added)
-				case fileset.FileUpdate:
-					p.FileUpdate(c.Path, added, removed)
-				case fileset.FileDelete:
-					p.FileDelete(c.Path, removed)
-				}
+				p.PrintFileChange(fileChangeToItem(c, added, removed))
 			}
 		}
 
@@ -153,9 +132,9 @@ func printUnifiedPlan(p ui.Printer, repoChanges []repository.Change, fileChanges
 	p.SetColumnWidth(0)
 }
 
-// printUnifiedApplyResults prints apply results grouped by repo name,
-// mirroring the hierarchical structure of printUnifiedPlan.
-func printUnifiedApplyResults(p ui.Printer, repoResults []repository.ApplyResult, fileResults []fileset.FileApplyResult) {
+// printApplyResults prints apply results grouped by repo name,
+// mirroring the hierarchical structure of PrintPlan.
+func printApplyResults(p ui.Printer, repoResults []repository.ApplyResult, fileResults []fileset.ApplyResult) {
 	// Build ordered list of unique repo names (preserving appearance order)
 	seen := make(map[string]bool)
 	var repoNames []string
@@ -179,7 +158,7 @@ func printUnifiedApplyResults(p ui.Printer, repoResults []repository.ApplyResult
 	for _, r := range repoResults {
 		repoByName[r.Change.Name] = append(repoByName[r.Change.Name], r)
 	}
-	fileByTarget := make(map[string][]fileset.FileApplyResult)
+	fileByTarget := make(map[string][]fileset.ApplyResult)
 	for _, r := range fileResults {
 		fileByTarget[r.Change.Target] = append(fileByTarget[r.Change.Target], r)
 	}
@@ -219,9 +198,9 @@ func printUnifiedApplyResults(p ui.Printer, repoResults []repository.ApplyResult
 
 		for _, r := range repoByName[name] {
 			if r.Err != nil {
-				p.ResultError(r.Change.Field, r.Err.Error())
+				p.PrintResult(ui.ResultItem{Icon: ui.IconError, Field: r.Change.Field, Detail: r.Err.Error()})
 			} else {
-				p.ResultSuccess(r.Change.Field, fmt.Sprintf("%sd", r.Change.Type))
+				p.PrintResult(ui.ResultItem{Icon: ui.IconSuccess, Field: r.Change.Field, Detail: fmt.Sprintf("%sd", r.Change.Type)})
 			}
 		}
 
@@ -229,9 +208,9 @@ func printUnifiedApplyResults(p ui.Printer, repoResults []repository.ApplyResult
 		var commitStrategy string
 		for _, r := range fileByTarget[name] {
 			if r.Err != nil {
-				p.ResultError(r.Change.Path, r.Err.Error())
+				p.PrintResult(ui.ResultItem{Icon: ui.IconError, Field: r.Change.Path, Detail: r.Err.Error()})
 			} else {
-				p.ResultSuccess(r.Change.Path, fmt.Sprintf("%sd", r.Change.Type))
+				p.PrintResult(ui.ResultItem{Icon: ui.IconSuccess, Field: r.Change.Path, Detail: fmt.Sprintf("%sd", r.Change.Type)})
 			}
 			if r.Via != "" {
 				commitStrategy = r.Via
@@ -255,7 +234,7 @@ func printUnifiedApplyResults(p ui.Printer, repoResults []repository.ApplyResult
 }
 
 // computeColumnWidth returns the max field/path width across both repo and file changes.
-func computeColumnWidth(rChanges []repository.Change, fChanges []fileset.FileChange) int {
+func computeColumnWidth(rChanges []repository.Change, fChanges []fileset.Change) int {
 	w := 0
 	for _, c := range rChanges {
 		if len(c.Children) > 0 {
@@ -276,4 +255,32 @@ func computeColumnWidth(rChanges []repository.Change, fChanges []fileset.FileCha
 		}
 	}
 	return w
+}
+
+// changeToItem converts a repository.Change to a ui.ChangeItem.
+func changeToItem(c repository.Change, sub bool) ui.ChangeItem {
+	switch c.Type {
+	case repository.ChangeCreate:
+		return ui.ChangeItem{Icon: ui.IconAdd, Field: c.Field, Value: c.NewValue, Sub: sub}
+	case repository.ChangeUpdate:
+		return ui.ChangeItem{Icon: ui.IconChange, Field: c.Field, Old: ui.FormatValue(c.OldValue), New: ui.FormatValue(c.NewValue), Sub: sub}
+	case repository.ChangeDelete:
+		return ui.ChangeItem{Icon: ui.IconRemove, Field: c.Field, Value: c.OldValue, Sub: sub}
+	default:
+		return ui.ChangeItem{Field: c.Field, Sub: sub}
+	}
+}
+
+// fileChangeToItem converts a fileset.FileChange to a ui.FileItem.
+func fileChangeToItem(c fileset.Change, added, removed int) ui.FileItem {
+	switch c.Type {
+	case fileset.ChangeCreate:
+		return ui.FileItem{Icon: ui.IconAdd, Path: c.Path, Added: added}
+	case fileset.ChangeUpdate:
+		return ui.FileItem{Icon: ui.IconChange, Path: c.Path, Added: added, Removed: removed}
+	case fileset.ChangeDelete:
+		return ui.FileItem{Icon: ui.IconRemove, Path: c.Path, Removed: removed}
+	default:
+		return ui.FileItem{Path: c.Path}
+	}
 }
