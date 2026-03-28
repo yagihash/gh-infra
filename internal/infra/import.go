@@ -68,9 +68,8 @@ func Import(targets []ImportTarget) (*ImportResult, error) {
 	for i, t := range targets {
 		names[i] = t.FullName()
 		tasks[i] = ui.RefreshTask{
-			Name:      "Importing " + names[i],
-			DoneLabel: "Imported " + names[i],
-			FailLabel: "Failed " + names[i],
+			Name:    names[i],
+			FailLabel: names[i],
 		}
 	}
 	tracker := ui.RunRefresh(tasks)
@@ -97,22 +96,24 @@ func Import(targets []ImportTarget) (*ImportResult, error) {
 	}
 	results := parallel.Map(ctx, targets, defaultImportParallel, func(ctx context.Context, _ int, t ImportTarget) fetchResult {
 		fullName := t.FullName()
-		key := "Importing " + fullName
-		current, err := eng.repo.FetchRepository(ctx, t.Owner, t.Name, nil)
+		onStatus := func(s string) {
+			tracker.UpdateStatus(fullName, s)
+		}
+		current, err := eng.repo.FetchRepository(ctx, t.Owner, t.Name, onStatus)
 		if err != nil {
-			tracker.Fail(key)
+			tracker.Fail(fullName)
 			return fetchResult{err: err}
 		}
 		if current.IsNew {
-			tracker.Fail(key)
+			tracker.Fail(fullName)
 			return fetchResult{err: fmt.Errorf("repository %s not found on GitHub", fullName)}
 		}
 		m := repository.ToManifest(ctx, current, resolver)
 		data, err := goyaml.Marshal(m)
 		if err != nil {
-			tracker.Fail(key)
+			tracker.Fail(fullName)
 		} else {
-			tracker.Done(key)
+			tracker.Done(fullName)
 		}
 		return fetchResult{data: data, err: err}
 	})
