@@ -41,6 +41,7 @@ const (
 	taskDone
 	taskError
 	taskFailed
+	taskCanceled
 )
 
 type refreshItem struct {
@@ -55,6 +56,7 @@ type refreshItem struct {
 type refreshModel struct {
 	items     []refreshItem
 	remaining int
+	canceled  chan struct{} // closed on Ctrl+C to signal callers
 }
 
 type taskDoneMsg struct{ name string }
@@ -145,6 +147,12 @@ func (m refreshModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
+			for i := range m.items {
+				if m.items[i].status == taskRunning {
+					m.items[i].status = taskCanceled
+				}
+			}
+			close(m.canceled)
 			return m, tea.Quit
 		}
 		return m, nil
@@ -174,6 +182,8 @@ func (m refreshModel) View() tea.View {
 			fmt.Fprintf(&b, "  %s %s: %s\n", Red.Render(IconError), Bold.Render(item.name), item.errMsg)
 		case taskFailed:
 			fmt.Fprintf(&b, "  %s %s\n", Red.Render(IconError), item.failLabel)
+		case taskCanceled:
+			fmt.Fprintf(&b, "  %s %s\n", Dim.Render(IconError), Dim.Render(item.name+" (canceled)"))
 		case taskRunning:
 			fmt.Fprintf(&b, "  %s %s...\n", item.spinner.View(), item.name)
 		}
@@ -186,6 +196,7 @@ type RefreshTracker struct {
 	program  *tea.Program
 	fallback bool
 	done     chan struct{}
+	canceled chan struct{}
 	mu       sync.Mutex
 }
 
@@ -206,15 +217,18 @@ func RunRefresh(tasks []RefreshTask) *RefreshTracker {
 		return &RefreshTracker{fallback: true, done: closedChan()}
 	}
 
+	canceled := make(chan struct{})
 	model := newRefreshModel(tasks)
+	model.canceled = canceled
 	p := tea.NewProgram(
 		model,
 		tea.WithOutput(os.Stderr),
 	)
 
 	tracker := &RefreshTracker{
-		program: p,
-		done:    make(chan struct{}),
+		program:  p,
+		done:     make(chan struct{}),
+		canceled: canceled,
 	}
 
 	go func() {
@@ -225,6 +239,7 @@ func RunRefresh(tasks []RefreshTask) *RefreshTracker {
 		// sequences to leak into the shell. Remove when upstream is fixed.
 		// https://github.com/charmbracelet/bubbletea/issues/1590
 		drainStdinAfterBubbletea()
+
 	}()
 
 	return tracker
@@ -275,6 +290,14 @@ func (t *RefreshTracker) Error(name string, err error) {
 	if t.program != nil {
 		t.program.Send(taskErrorMsg{name: name, err: err})
 	}
+}
+
+// Canceled returns a channel that is closed when the user presses Ctrl+C.
+func (t *RefreshTracker) Canceled() <-chan struct{} {
+	if t == nil {
+		return nil
+	}
+	return t.canceled
 }
 
 // Wait blocks until all tasks are reported and the display finishes.

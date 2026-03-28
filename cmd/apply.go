@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"context"
+	"errors"
+
 	"github.com/spf13/cobra"
 
 	"github.com/babarot/gh-infra/internal/fileset"
@@ -46,6 +49,10 @@ func runApply(path, filterRepo string, autoApprove, forceSecrets, failOnUnknown 
 		DryRun:        false,
 	})
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			printCancelled()
+			return nil
+		}
 		return err
 	}
 

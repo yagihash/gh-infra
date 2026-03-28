@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"context"
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -8,6 +10,7 @@ import (
 	"github.com/babarot/gh-infra/internal/gh"
 	"github.com/babarot/gh-infra/internal/logger"
 	"github.com/babarot/gh-infra/internal/manifest"
+	"github.com/babarot/gh-infra/internal/ui"
 )
 
 var (
@@ -39,7 +42,9 @@ func NewRootCmd(version, revision string) *cobra.Command {
 
 			// Wire up gh runner for GitHub source resolution
 			runner := gh.NewRunner(false)
-			manifest.DefaultResolver.RunGH = runner.Run
+			manifest.DefaultResolver.RunGH = func(ctx context.Context, args ...string) ([]byte, error) {
+				return runner.Run(ctx, args...)
+			}
 		},
 	}
 
@@ -54,4 +59,8 @@ func NewRootCmd(version, revision string) *cobra.Command {
 	)
 
 	return root
+}
+
+func printCancelled() {
+	fmt.Fprintf(os.Stderr, "\n%s\n", ui.Dim.Render("Interrupted."))
 }

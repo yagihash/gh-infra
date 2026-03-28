@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -12,6 +13,7 @@ func TestNewProcessor(t *testing.T) {
 	p := NewProcessor(mock, nil, nil)
 	if p == nil {
 		t.Fatal("expected non-nil Processor")
+		return
 	}
 	if p.runner != mock {
 		t.Error("expected runner to be the mock")
@@ -50,7 +52,7 @@ func TestFetchRepository(t *testing.T) {
 	}
 
 	p := NewProcessor(mock, nil, nil)
-	state, err := p.FetchRepository("myorg", "myrepo")
+	state, err := p.FetchRepository(context.Background(), "myorg", "myrepo")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -149,7 +151,7 @@ func TestFetchRepository_RepoSettingsError(t *testing.T) {
 	}
 
 	p := NewProcessor(mock, nil, nil)
-	_, err := p.FetchRepository("myorg", "myrepo")
+	_, err := p.FetchRepository(context.Background(), "myorg", "myrepo")
 	if err == nil {
 		t.Fatal("expected error from fetchRepoSettings")
 	}
@@ -166,7 +168,7 @@ func TestFetchSecrets(t *testing.T) {
 			},
 		}
 		p := NewProcessor(mock, nil, nil)
-		secrets, err := p.fetchSecrets("myorg", "myrepo")
+		secrets, err := p.fetchSecrets(context.Background(), "myorg", "myrepo")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -185,7 +187,7 @@ func TestFetchSecrets(t *testing.T) {
 			},
 		}
 		p := NewProcessor(mock, nil, nil)
-		secrets, err := p.fetchSecrets("myorg", "myrepo")
+		secrets, err := p.fetchSecrets(context.Background(), "myorg", "myrepo")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -201,7 +203,7 @@ func TestFetchSecrets(t *testing.T) {
 			},
 		}
 		p := NewProcessor(mock, nil, nil)
-		secrets, err := p.fetchSecrets("myorg", "myrepo")
+		secrets, err := p.fetchSecrets(context.Background(), "myorg", "myrepo")
 		if err != nil {
 			t.Fatalf("expected nil error, got %v", err)
 		}
@@ -219,7 +221,7 @@ func TestFetchVariables(t *testing.T) {
 			},
 		}
 		p := NewProcessor(mock, nil, nil)
-		vars, err := p.fetchVariables("myorg", "myrepo")
+		vars, err := p.fetchVariables(context.Background(), "myorg", "myrepo")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -241,7 +243,7 @@ func TestFetchVariables(t *testing.T) {
 			},
 		}
 		p := NewProcessor(mock, nil, nil)
-		vars, err := p.fetchVariables("myorg", "myrepo")
+		vars, err := p.fetchVariables(context.Background(), "myorg", "myrepo")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -257,7 +259,7 @@ func TestFetchVariables(t *testing.T) {
 			},
 		}
 		p := NewProcessor(mock, nil, nil)
-		vars, err := p.fetchVariables("myorg", "myrepo")
+		vars, err := p.fetchVariables(context.Background(), "myorg", "myrepo")
 		if err != nil {
 			t.Fatalf("expected nil error, got %v", err)
 		}
@@ -286,7 +288,7 @@ func TestFetchActionsSettings(t *testing.T) {
 	}
 
 	p := NewProcessor(mock, nil, nil)
-	actions, err := p.fetchActionsSettings("myorg", "myrepo")
+	actions, err := p.fetchActionsSettings(context.Background(), "myorg", "myrepo")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
