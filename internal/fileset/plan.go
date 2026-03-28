@@ -87,7 +87,7 @@ func (p *Processor) Plan(ctx context.Context, fileSets []*manifest.FileSet, filt
 		}
 		var out []Change
 		for _, file := range u.files {
-			updateStatus("fetching " + file.Path + "...")
+			updateStatus("fetching file " + file.Path + "...")
 			// Template rendering (deep copy vars to avoid data races)
 			needsTemplate := HasTemplate(file.Content, file.Vars) || HasTemplate(file.Path, nil)
 			if needsTemplate {
