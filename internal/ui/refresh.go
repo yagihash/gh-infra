@@ -198,22 +198,35 @@ func (m refreshModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m refreshModel) View() tea.View {
+	// Compute max name width for column alignment.
+	maxName := 0
+	for _, item := range m.items {
+		if n := len(item.name); n > maxName {
+			maxName = n
+		}
+	}
+
 	var b strings.Builder
 	for _, item := range m.items {
+		padded := fmt.Sprintf("%-*s", maxName, item.name)
 		switch item.status {
 		case taskDone:
-			fmt.Fprintf(&b, "  %s %s\n", Green.Render(IconSuccess), item.doneLabel)
+			label := item.doneLabel
+			if label == item.name {
+				label = padded
+			}
+			fmt.Fprintf(&b, "  %s %s\n", Green.Render(IconSuccess), label)
 		case taskError:
-			fmt.Fprintf(&b, "  %s %s: %s\n", Red.Render(IconError), Bold.Render(item.name), item.errMsg)
+			fmt.Fprintf(&b, "  %s %s  %s\n", Red.Render(IconError), Bold.Render(padded), item.errMsg)
 		case taskFailed:
 			fmt.Fprintf(&b, "  %s %s\n", Red.Render(IconError), item.failLabel)
 		case taskCanceled:
 			fmt.Fprintf(&b, "  %s %s\n", Dim.Render(IconError), Dim.Render(item.name+" (canceled)"))
 		case taskRunning:
 			if item.statusText != "" {
-				fmt.Fprintf(&b, "  %s %s  %s\n", item.spinner.View(), item.name, Dim.Render(item.statusText))
+				fmt.Fprintf(&b, "  %s %s  %s\n", item.spinner.View(), padded, Dim.Render(item.statusText))
 			} else {
-				fmt.Fprintf(&b, "  %s %s...\n", item.spinner.View(), item.name)
+				fmt.Fprintf(&b, "  %s %s\n", item.spinner.View(), padded)
 			}
 		}
 	}

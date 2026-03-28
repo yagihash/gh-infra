@@ -55,7 +55,7 @@ func PlanTargetRepoNames(fileSets []*manifest.FileSet, filterRepo string) []stri
 
 // planTaskKey returns the tracker key for a given fileset target.
 func planTaskKey(fullName string) string {
-	return "Fetching " + fullName
+	return fullName
 }
 
 // Plan computes changes for all FileSets concurrently.
@@ -93,7 +93,7 @@ func (p *Processor) Plan(ctx context.Context, fileSets []*manifest.FileSet, filt
 		}
 		var out []Change
 		for _, file := range u.files {
-			updateStatus(file.Path + "...")
+			updateStatus("fetching " + file.Path + "...")
 			// Template rendering (deep copy vars to avoid data races)
 			needsTemplate := HasTemplate(file.Content, file.Vars) || HasTemplate(file.Path, nil)
 			if needsTemplate {
@@ -145,7 +145,7 @@ func (p *Processor) Plan(ctx context.Context, fileSets []*manifest.FileSet, filt
 			}
 		}
 		for dirScope := range mirrorDirs {
-			updateStatus("mirror: " + dirScope + "...")
+			updateStatus("scanning " + dirScope + "...")
 			repoFiles, err := p.fetchDirectoryContents(ctx, fullName, dirScope)
 			if err != nil {
 				// Directory doesn't exist in repo yet — nothing to delete

@@ -39,7 +39,7 @@ func PlanTargetRepoNames(repos []*manifest.Repository, filterRepo string) []stri
 
 // planTaskKey returns the tracker key for a given repo full name.
 func planTaskKey(fullName string) string {
-	return "Fetching " + fullName
+	return fullName
 }
 
 // Plan fetches current state for all repositories, computes diffs, and returns changes.

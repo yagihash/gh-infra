@@ -105,9 +105,8 @@ func Plan(opts PlanOptions) (*PlanResult, error) {
 		}
 		seen[n] = true
 		allTasks = append(allTasks, ui.RefreshTask{
-			Name:      "Fetching " + n,
-			DoneLabel: "Fetched " + n,
-			Pending:   taskMap[n],
+			Name:    n,
+			Pending: taskMap[n],
 		})
 	}
 	tracker := ui.RunRefresh(allTasks)

@@ -36,7 +36,7 @@ func (p *Processor) FetchRepository(ctx context.Context, owner, name string, onS
 		}
 	}
 
-	status("settings...")
+	status("fetching settings...")
 	repo, err := p.fetchRepoSettings(ctx, owner, name)
 	if err != nil {
 		if errors.Is(err, gh.ErrNotFound) {
@@ -55,28 +55,28 @@ func (p *Processor) FetchRepository(ctx context.Context, owner, name string, onS
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
-		status("branch protection...")
+		status("fetching branch protection...")
 		var err error
 		bp, err = p.fetchBranchProtection(ctx, owner, name)
 		return err
 	})
 
 	g.Go(func() error {
-		status("rulesets...")
+		status("fetching rulesets...")
 		var err error
 		rulesets, err = p.fetchRulesets(ctx, owner, name)
 		return err
 	})
 
 	g.Go(func() error {
-		status("secrets...")
+		status("fetching secrets...")
 		var err error
 		secrets, err = p.fetchSecrets(ctx, owner, name)
 		return err
 	})
 
 	g.Go(func() error {
-		status("variables...")
+		status("fetching variables...")
 		var err error
 		vars, err = p.fetchVariables(ctx, owner, name)
 		return err
@@ -84,7 +84,7 @@ func (p *Processor) FetchRepository(ctx context.Context, owner, name string, onS
 
 	var actions CurrentActions
 	g.Go(func() error {
-		status("actions...")
+		status("fetching actions...")
 		var err error
 		actions, err = p.fetchActionsSettings(ctx, owner, name)
 		return err
