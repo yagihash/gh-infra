@@ -37,9 +37,9 @@ func (u planUnit) fullName() string {
 	return u.owner + "/" + u.target.Name
 }
 
-// PlanTargetNames returns display tasks for all FileSet targets.
+// PlanTargetRepoNames returns the list of repo full names for all FileSet targets.
 // If filterRepo is non-empty, only targets matching that repo are included.
-func PlanTargetNames(fileSets []*manifest.FileSet, filterRepo string) []ui.RefreshTask {
+func PlanTargetRepoNames(fileSets []*manifest.FileSet, filterRepo string) []string {
 	var names []string
 	for _, fs := range fileSets {
 		for _, target := range fs.Spec.Repositories {
@@ -50,13 +50,7 @@ func PlanTargetNames(fileSets []*manifest.FileSet, filterRepo string) []ui.Refre
 			names = append(names, fullName)
 		}
 	}
-	return ui.BuildRefreshTasks(names, "files")
-}
-
-// planTaskKey returns the tracker key for a given fileset target.
-// This must match the Name used in PlanTargetNames.
-func planTaskKey(fullName string) string {
-	return "Fetching " + fullName + " (files)"
+	return names
 }
 
 // Plan computes changes for all FileSets concurrently.
@@ -88,9 +82,12 @@ func (p *Processor) Plan(ctx context.Context, fileSets []*manifest.FileSet, filt
 	}
 	results := parallel.Map(ctx, units, 0, func(ctx context.Context, i int, u planUnit) unitResult {
 		fullName := u.fullName()
-		displayName := planTaskKey(fullName)
+		updateStatus := func(s string) {
+			tracker.UpdateStatus(fullName, s)
+		}
 		var out []Change
 		for _, file := range u.files {
+			updateStatus("fetching file " + file.Path + "...")
 			// Template rendering (deep copy vars to avoid data races)
 			needsTemplate := HasTemplate(file.Content, file.Vars) || HasTemplate(file.Path, nil)
 			if needsTemplate {
@@ -99,7 +96,7 @@ func (p *Processor) Plan(ctx context.Context, fileSets []*manifest.FileSet, filt
 				if HasTemplate(file.Path, nil) {
 					renderedPath, err := RenderTemplate(file.Path, fullName, varsCopy)
 					if err != nil {
-						tracker.Error(displayName, err)
+						tracker.Error(fullName, err)
 						return unitResult{err: fmt.Errorf("template path %s for %s: %w", file.Path, fullName, err)}
 					}
 					file.Path = renderedPath
@@ -107,7 +104,7 @@ func (p *Processor) Plan(ctx context.Context, fileSets []*manifest.FileSet, filt
 				// Render content
 				rendered, err := RenderTemplate(file.Content, fullName, varsCopy)
 				if err != nil {
-					tracker.Error(displayName, err)
+					tracker.Error(fullName, err)
 					return unitResult{err: fmt.Errorf("template %s for %s: %w", file.Path, fullName, err)}
 				}
 				file.Content = rendered
@@ -116,7 +113,7 @@ func (p *Processor) Plan(ctx context.Context, fileSets []*manifest.FileSet, filt
 			if len(file.Patches) > 0 {
 				patched, err := ApplyPatches(file.Content, file.Patches)
 				if err != nil {
-					tracker.Error(displayName, err)
+					tracker.Error(fullName, err)
 					return unitResult{err: fmt.Errorf("patch %s for %s: %w", file.Path, fullName, err)}
 				}
 				file.Content = patched
@@ -142,6 +139,7 @@ func (p *Processor) Plan(ctx context.Context, fileSets []*manifest.FileSet, filt
 			}
 		}
 		for dirScope := range mirrorDirs {
+			updateStatus("scanning " + dirScope + "...")
 			repoFiles, err := p.fetchDirectoryContents(ctx, fullName, dirScope)
 			if err != nil {
 				// Directory doesn't exist in repo yet — nothing to delete
@@ -164,7 +162,7 @@ func (p *Processor) Plan(ctx context.Context, fileSets []*manifest.FileSet, filt
 			out[i].Via = u.via
 		}
 
-		tracker.Done(displayName)
+		tracker.Done(fullName)
 		return unitResult{changes: out}
 	})
 

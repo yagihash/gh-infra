@@ -25,8 +25,8 @@ type repoResult struct {
 	err     error
 }
 
-// PlanTargetNames returns display tasks for repos that would be fetched (after filtering).
-func PlanTargetNames(repos []*manifest.Repository, filterRepo string) []ui.RefreshTask {
+// PlanTargetRepoNames returns the list of repo full names that would be fetched (after filtering).
+func PlanTargetRepoNames(repos []*manifest.Repository, filterRepo string) []string {
 	var names []string
 	for _, repo := range repos {
 		if filterRepo != "" && repo.Metadata.FullName() != filterRepo {
@@ -34,12 +34,7 @@ func PlanTargetNames(repos []*manifest.Repository, filterRepo string) []ui.Refre
 		}
 		names = append(names, repo.Metadata.FullName())
 	}
-	return ui.BuildRefreshTasks(names, "repo")
-}
-
-// planTaskKey returns the tracker key for a given repo full name.
-func planTaskKey(fullName string) string {
-	return "Fetching " + fullName + " (repo)"
+	return names
 }
 
 // Plan fetches current state for all repositories, computes diffs, and returns changes.
@@ -63,16 +58,20 @@ func (p *Processor) Plan(ctx context.Context, repos []*manifest.Repository, opts
 
 	results := parallel.Map(ctx, targets, defaultParallel, func(ctx context.Context, idx int, r *manifest.Repository) repoResult {
 		logger.Debug("fetch start", "repo", r.Metadata.FullName())
-		current, err := p.FetchRepository(ctx, r.Metadata.Owner, r.Metadata.Name)
+		fullName := r.Metadata.FullName()
+		onStatus := func(status string) {
+			tracker.UpdateStatus(fullName, status)
+		}
+		current, err := p.FetchRepository(ctx, r.Metadata.Owner, r.Metadata.Name, onStatus)
 		if err != nil {
-			logger.Error("fetch failed", "repo", r.Metadata.FullName(), "err", err)
-			tracker.Error(planTaskKey(r.Metadata.FullName()), err)
+			logger.Error("fetch failed", "repo", fullName, "err", err)
+			tracker.Error(fullName, err)
 			return repoResult{index: idx, repo: r, err: err}
 		}
 
 		changes := Diff(ctx, r, current, diffOpts)
-		logger.Debug("diff done", "repo", r.Metadata.FullName(), "changes", len(changes))
-		tracker.Done(planTaskKey(r.Metadata.FullName()))
+		logger.Debug("diff done", "repo", fullName, "changes", len(changes))
+		tracker.Done(fullName)
 		return repoResult{index: idx, repo: r, changes: changes}
 	})
 

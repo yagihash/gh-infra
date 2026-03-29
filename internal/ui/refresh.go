@@ -19,19 +19,7 @@ type RefreshTask struct {
 	Name      string // key for Done()/Error()/Fail() matching AND running label
 	DoneLabel string // shown when task completes successfully (defaults to Name if empty)
 	FailLabel string // shown when task fails via Fail() (defaults to Name if empty)
-}
-
-// BuildRefreshTasks creates RefreshTask entries for a list of target names.
-// Each task's Name is "Fetching {name} ({suffix})" and DoneLabel is "Fetched {name} ({suffix})".
-func BuildRefreshTasks(names []string, suffix string) []RefreshTask {
-	tasks := make([]RefreshTask, len(names))
-	for i, name := range names {
-		tasks[i] = RefreshTask{
-			Name:      "Fetching " + name + " (" + suffix + ")",
-			DoneLabel: "Fetched " + name + " (" + suffix + ")",
-		}
-	}
-	return tasks
+	Pending   int    // expected Done() calls before completion (default 1)
 }
 
 type taskStatus int
@@ -45,12 +33,14 @@ const (
 )
 
 type refreshItem struct {
-	name      string
-	doneLabel string
-	failLabel string
-	status    taskStatus
-	errMsg    string
-	spinner   spinner.Model
+	name       string
+	doneLabel  string
+	failLabel  string
+	status     taskStatus
+	errMsg     string
+	statusText string // right-side live status (e.g. "secrets...", ".github/ci.yml...")
+	pending    int    // expected Done() calls before marking complete (default 1)
+	spinner    spinner.Model
 }
 
 type refreshModel struct {
@@ -65,6 +55,10 @@ type taskErrorMsg struct {
 	err  error
 }
 type taskFailMsg struct{ name string }
+type taskStatusMsg struct {
+	name   string
+	status string
+}
 
 func newRefreshModel(tasks []RefreshTask) refreshModel {
 	items := make([]refreshItem, len(tasks))
@@ -81,11 +75,16 @@ func newRefreshModel(tasks []RefreshTask) refreshModel {
 		if failLabel == "" {
 			failLabel = task.Name
 		}
+		pending := task.Pending
+		if pending <= 0 {
+			pending = 1
+		}
 		items[i] = refreshItem{
 			name:      task.Name,
 			doneLabel: doneLabel,
 			failLabel: failLabel,
 			status:    taskRunning,
+			pending:   pending,
 			spinner:   s,
 		}
 	}
@@ -105,13 +104,35 @@ func (m refreshModel) Init() tea.Cmd {
 
 func (m refreshModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case taskDoneMsg:
+	case taskStatusMsg:
 		for i := range m.items {
 			if m.items[i].name == msg.name && m.items[i].status == taskRunning {
-				m.items[i].status = taskDone
-				m.remaining--
+				m.items[i].statusText = msg.status
 				break
 			}
+		}
+		return m, nil
+
+	case taskDoneMsg:
+		for i := range m.items {
+			if m.items[i].name != msg.name {
+				continue
+			}
+			if m.items[i].status == taskRunning {
+				m.items[i].pending--
+				if m.items[i].pending <= 0 {
+					m.items[i].status = taskDone
+					m.items[i].statusText = ""
+					m.remaining--
+				}
+			} else if m.items[i].pending > 0 {
+				// Already errored/failed but other sources still pending.
+				m.items[i].pending--
+				if m.items[i].pending <= 0 {
+					m.remaining--
+				}
+			}
+			break
 		}
 		if m.remaining <= 0 {
 			return m, tea.Quit
@@ -123,7 +144,11 @@ func (m refreshModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.items[i].name == msg.name && m.items[i].status == taskRunning {
 				m.items[i].status = taskError
 				m.items[i].errMsg = msg.err.Error()
-				m.remaining--
+				m.items[i].statusText = ""
+				m.items[i].pending--
+				if m.items[i].pending <= 0 {
+					m.remaining--
+				}
 				break
 			}
 		}
@@ -136,7 +161,11 @@ func (m refreshModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for i := range m.items {
 			if m.items[i].name == msg.name && m.items[i].status == taskRunning {
 				m.items[i].status = taskFailed
-				m.remaining--
+				m.items[i].statusText = ""
+				m.items[i].pending--
+				if m.items[i].pending <= 0 {
+					m.remaining--
+				}
 				break
 			}
 		}
@@ -173,19 +202,40 @@ func (m refreshModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m refreshModel) View() tea.View {
+	// Compute max name width for column alignment.
+	maxName := 0
+	for _, item := range m.items {
+		if n := len(item.name); n > maxName {
+			maxName = n
+		}
+	}
+
 	var b strings.Builder
 	for _, item := range m.items {
+		padded := fmt.Sprintf("%-*s", maxName, item.name)
 		switch item.status {
 		case taskDone:
-			fmt.Fprintf(&b, "  %s %s\n", Green.Render(IconSuccess), item.doneLabel)
+			label := item.doneLabel
+			if label == item.name {
+				label = padded
+			}
+			fmt.Fprintf(&b, "  %s %s\n", Green.Render(IconSuccess), label)
 		case taskError:
-			fmt.Fprintf(&b, "  %s %s: %s\n", Red.Render(IconError), Bold.Render(item.name), item.errMsg)
+			fmt.Fprintf(&b, "  %s %s  %s\n", Red.Render(IconError), Bold.Render(padded), item.errMsg)
 		case taskFailed:
-			fmt.Fprintf(&b, "  %s %s\n", Red.Render(IconError), item.failLabel)
+			failLabel := item.failLabel
+			if failLabel == item.name {
+				failLabel = padded
+			}
+			fmt.Fprintf(&b, "  %s %s\n", Red.Render(IconError), failLabel)
 		case taskCanceled:
-			fmt.Fprintf(&b, "  %s %s\n", Dim.Render(IconError), Dim.Render(item.name+" (canceled)"))
+			fmt.Fprintf(&b, "  %s %s\n", Dim.Render(IconError), Dim.Render(padded+" (canceled)"))
 		case taskRunning:
-			fmt.Fprintf(&b, "  %s %s...\n", item.spinner.View(), item.name)
+			if item.statusText != "" {
+				fmt.Fprintf(&b, "  %s %s  %s\n", item.spinner.View(), padded, Dim.Render(item.statusText))
+			} else {
+				fmt.Fprintf(&b, "  %s %s\n", item.spinner.View(), padded)
+			}
 		}
 	}
 	return tea.NewView(b.String())
@@ -243,6 +293,21 @@ func RunRefresh(tasks []RefreshTask) *RefreshTracker {
 	}()
 
 	return tracker
+}
+
+// UpdateStatus updates the right-side live status text for a running task.
+func (t *RefreshTracker) UpdateStatus(name, status string) {
+	if t == nil {
+		return
+	}
+	if t.fallback {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.program != nil {
+		t.program.Send(taskStatusMsg{name: name, status: status})
+	}
 }
 
 // Done marks a task as successfully completed.
