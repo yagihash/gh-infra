@@ -24,29 +24,8 @@ exec /data/mock-gh "$@"
 WRAPPER
 chmod +x /usr/local/bin/gh
 
-# Create demo YAML
+# Prepare working directory (import will create the YAML)
 mkdir -p /tmp/demo
-cat > /tmp/demo/repos.yaml << 'EOF'
-apiVersion: gh-infra/v1
-kind: Repository
-metadata:
-  name: my-project
-  owner: babarot
-
-spec:
-  description: "My awesome project"
-  visibility: public
-  topics:
-    - go
-    - cli
-  features:
-    issues: true
-    wiki: false
-    discussions: true
-  merge_strategy:
-    allow_squash_merge: true
-    auto_delete_head_branches: true
-EOF
 
 # Pass through env vars from host (e.g. GH_INFRA_OUTPUT=stream)
 export GH_INFRA_OUTPUT="${GH_INFRA_OUTPUT:-}"

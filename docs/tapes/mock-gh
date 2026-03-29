@@ -19,9 +19,30 @@ args="$*"
 # ---------------------------------------------------------------------------
 
 # gh repo view owner/repo --json description,homepageUrl,visibility,...
+# Differentiate by repo name for multi-repo demos.
 if [[ "$args" == *"repo view"*"--json"*"description,homepageUrl"* ]]; then
   delay
-  cat <<'JSON'
+  if [[ "$args" == *"my-service"* ]]; then
+    cat <<'JSON'
+{
+  "description": "My service",
+  "homepageUrl": "",
+  "visibility": "PUBLIC",
+  "isArchived": false,
+  "repositoryTopics": [],
+  "hasIssuesEnabled": true,
+  "hasProjectsEnabled": true,
+  "hasWikiEnabled": false,
+  "hasDiscussionsEnabled": false,
+  "mergeCommitAllowed": true,
+  "squashMergeAllowed": true,
+  "rebaseMergeAllowed": true,
+  "deleteBranchOnMerge": true,
+  "defaultBranchRef": { "name": "main" }
+}
+JSON
+  else
+    cat <<'JSON'
 {
   "description": "My project",
   "homepageUrl": "",
@@ -39,6 +60,7 @@ if [[ "$args" == *"repo view"*"--json"*"description,homepageUrl"* ]]; then
   "defaultBranchRef": { "name": "main" }
 }
 JSON
+  fi
   exit 0
 fi
 

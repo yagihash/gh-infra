@@ -31,7 +31,7 @@ docs-build:
 docs-install:
 	mise exec -- npm install --prefix docs
 
-demos:
+demo:
 	@if ! docker info > /dev/null 2>&1; then \
 		echo "Docker is not running — please start Docker and try again."; \
 		exit 1; \
@@ -50,4 +50,4 @@ demos:
 	@echo "Copying assets to docs/public/..."
 	@cp docs/tapes/demo.gif docs/tapes/demo-light.gif docs/public/
 
-.PHONY: all test lint build install clean docs docs-build docs-install demos
+.PHONY: all test lint build install clean docs docs-build docs-install demo

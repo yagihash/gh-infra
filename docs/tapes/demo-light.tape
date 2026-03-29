@@ -29,24 +29,35 @@ Show
 
 # --- Demo starts ---
 
-# 1. Show the YAML file
+# 1. Import current repo settings as YAML (two projects)
 Sleep 1s
-Type "cat /tmp/demo/repos.yaml"
+Type "gh infra import babarot/my-project babarot/my-service > /tmp/demo/repos.yaml"
 Sleep 500ms
 Enter
 Sleep 4s
 
-# 2. Run plan
+# 2. Show the imported YAML
+Type "cat /tmp/demo/repos.yaml"
+Sleep 500ms
+Enter
+Sleep 3s
+
+# 3. Edit the YAML with sed (change description & enable squash merge for my-project only)
+Type "sed -i 's/My project/My awesome project/' /tmp/demo/repos.yaml"
+Sleep 500ms
+Enter
+Sleep 1s
+
+Type "sed -i 's/allow_squash_merge: false/allow_squash_merge: true/' /tmp/demo/repos.yaml"
+Sleep 500ms
+Enter
+Sleep 1s
+
+# 4. Plan the changes (only my-project shows a diff)
 Type "gh infra plan /tmp/demo/"
 Sleep 500ms
 Enter
 Sleep 6s
-
-# 3. Run apply
-Type "gh infra apply /tmp/demo/ --auto-approve"
-Sleep 500ms
-Enter
-Sleep 8s
 
 # End
 Sleep 3s
