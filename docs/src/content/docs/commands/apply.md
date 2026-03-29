@@ -15,7 +15,7 @@ gh infra apply [path]
 | Argument | Example | Behavior |
 |----------|---------|----------|
 | *(none)* or `.` | `gh infra apply` | All `*.yaml` / `*.yml` in the current directory |
-| File | `gh infra apply repos/gomi.yaml` | That file only |
+| File | `gh infra apply repos/my-cli.yaml` | That file only |
 | Directory | `gh infra apply repos/` | All `*.yaml` / `*.yml` directly under it (subdirectories are ignored) |
 
 YAML files that are not gh-infra manifests are silently skipped. Use `--fail-on-unknown` to treat them as errors.
@@ -70,5 +70,5 @@ gh infra apply ./repos/ --auto-approve
 gh infra apply ./repos/ --force-secrets
 
 # Apply to a specific repository
-gh infra apply ./repos/ --repo babarot/gomi
+gh infra apply ./repos/ --repo babarot/my-cli
 ```

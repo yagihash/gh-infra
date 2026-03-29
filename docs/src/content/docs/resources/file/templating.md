@@ -19,10 +19,10 @@ files:
       go 1.24.0
 ```
 
-When applied to `babarot/gomi`, the `go.mod` becomes:
+When applied to `babarot/my-cli`, the `go.mod` becomes:
 
 ```
-module github.com/babarot/gomi
+module github.com/babarot/my-cli
 go 1.24.0
 ```
 
@@ -30,11 +30,11 @@ go 1.24.0
 
 Every template has access to the target repository's metadata:
 
-| Variable | Value | Example (`babarot/gomi`) |
+| Variable | Value | Example (`babarot/my-cli`) |
 |---|---|---|
-| `<% .Repo.Name %>` | Repository name | `gomi` |
+| `<% .Repo.Name %>` | Repository name | `my-cli` |
 | `<% .Repo.Owner %>` | Owner name | `babarot` |
-| `<% .Repo.FullName %>` | `owner/name` | `babarot/gomi` |
+| `<% .Repo.FullName %>` | `owner/name` | `babarot/my-cli` |
 
 ## Custom Variables
 
@@ -104,7 +104,7 @@ files:
 ```
 
 ```
-Error: template Makefile for babarot/gomi: template: :1:12:
+Error: template Makefile for babarot/my-cli: template: :1:12:
   executing "" at <.Vars.typo>: map has no entry for key "typo"
 ```
 

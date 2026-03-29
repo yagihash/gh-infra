@@ -43,7 +43,7 @@ You can organize YAML files however you like. gh-infra accepts a file or directo
 
 ```bash
 gh infra plan ./repos/           # All YAML files in the directory
-gh infra plan ./repos/gomi.yaml  # A single file
+gh infra plan ./repos/my-cli.yaml  # A single file
 ```
 
 Multiple resource kinds can coexist in the same directory. gh-infra processes each file based on its `kind`.

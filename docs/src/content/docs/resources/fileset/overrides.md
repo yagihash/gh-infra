@@ -7,7 +7,7 @@ Each repository in a `FileSet` receives the same set of files. Overrides let you
 ```yaml
 spec:
   repositories:
-    - gomi
+    - my-cli
     - name: gh-infra
       overrides:
         - path: .github/CODEOWNERS
@@ -22,7 +22,7 @@ spec:
       source: ./templates/LICENSE
 ```
 
-In this example, `gomi` gets the default CODEOWNERS (`* @babarot`), while `gh-infra` gets a customized version with an additional maintainer. Both repos receive the same LICENSE.
+In this example, `my-cli` gets the default CODEOWNERS (`* @babarot`), while `gh-infra` gets a customized version with an additional maintainer. Both repos receive the same LICENSE.
 
 ## How Overrides Work
 
@@ -37,7 +37,7 @@ If an override doesn't specify `vars`, it inherits the `vars` from the original 
 ```yaml
 spec:
   repositories:
-    - gomi
+    - my-cli
     - name: special-repo
       overrides:
         - path: Makefile
@@ -51,6 +51,6 @@ spec:
         binary_name: "<% .Repo.Name %>"     # default for all repos
 ```
 
-- `gomi` uses `binary_name: "gomi"` (from the template expansion of `<% .Repo.Name %>`)
+- `my-cli` uses `binary_name: "my-cli"` (from the template expansion of `<% .Repo.Name %>`)
 - `special-repo` uses `binary_name: "special-binary"` (from the override)
 

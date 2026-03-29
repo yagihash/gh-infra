@@ -25,20 +25,20 @@ defaults:
         required_reviews: 1
 
 repositories:
-  - name: gomi
+  - name: my-cli
     spec:
-      description: "Trash CLI: a safe alternative to rm"
-      topics: [go, cli, trash]
+      description: "A command-line tool written in Go"
+      topics: [go, cli]
 
-  - name: enhancd
+  - name: dotfiles
     spec:
-      description: "A next-generation cd command with an interactive filter"
-      topics: [zsh, shell, cd, fzf]
+      description: "Personal configuration files"
+      topics: [dotfiles, zsh, vim]
 
-  - name: oksskolten
+  - name: blog
     spec:
-      description: "The AI-native RSS reader"
-      topics: [rss, self-hosted, ai, typescript]
+      description: "Personal blog and website"
+      topics: [blog, hugo, markdown]
 ```
 :::
 
@@ -69,9 +69,9 @@ Suppose you manage 20 repositories that all share the same merge strategy, branc
 
 ```
 repos/
-├── gomi.yaml          # merge_strategy, branch_protection, features...
-├── enhancd.yaml       # same merge_strategy, branch_protection, features...
-├── oksskolten.yaml    # same merge_strategy, branch_protection, features...
+├── my-cli.yaml          # merge_strategy, branch_protection, features...
+├── dotfiles.yaml       # same merge_strategy, branch_protection, features...
+├── blog.yaml    # same merge_strategy, branch_protection, features...
 └── ... (17 more files with the same boilerplate)
 ```
 
@@ -90,12 +90,12 @@ defaults:
         required_reviews: 2
 
 repositories:
-  - name: gomi
+  - name: my-cli
     spec:
-      description: "Trash CLI"
-  - name: enhancd
+      description: "A command-line tool written in Go"
+  - name: dotfiles
     spec:
-      description: "A next-generation cd command"
+      description: "Personal configuration files"
   # ...
 ```
 

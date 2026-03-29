@@ -16,8 +16,8 @@ metadata:
 
 spec:
   repositories:
-    - gomi
-    - enhancd
+    - my-cli
+    - dotfiles
     - name: gh-infra
       overrides:
         - path: .github/CODEOWNERS
@@ -69,9 +69,9 @@ Suppose you manage 20 repositories that all need the same CODEOWNERS, LICENSE, a
 
 ```
 repos/
-├── gomi-files.yaml          # CODEOWNERS, LICENSE, ci.yml...
-├── enhancd-files.yaml       # same CODEOWNERS, LICENSE, ci.yml...
-├── oksskolten-files.yaml    # same CODEOWNERS, LICENSE, ci.yml...
+├── my-cli-files.yaml          # CODEOWNERS, LICENSE, ci.yml...
+├── dotfiles-files.yaml       # same CODEOWNERS, LICENSE, ci.yml...
+├── blog-files.yaml    # same CODEOWNERS, LICENSE, ci.yml...
 └── ... (17 more files with the same content)
 ```
 
@@ -84,9 +84,9 @@ When you need to change a shared file — say, update the CODEOWNERS to add a ne
 ```yaml
 spec:
   repositories:
-    - gomi
-    - enhancd
-    - oksskolten
+    - my-cli
+    - dotfiles
+    - blog
     # ... 17 more repos
 
   files:

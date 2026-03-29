@@ -15,7 +15,7 @@ gh infra validate [path]
 | Argument | Example | Behavior |
 |----------|---------|----------|
 | *(none)* or `.` | `gh infra validate` | All `*.yaml` / `*.yml` in the current directory |
-| File | `gh infra validate repos/gomi.yaml` | That file only |
+| File | `gh infra validate repos/my-cli.yaml` | That file only |
 | Directory | `gh infra validate repos/` | All `*.yaml` / `*.yml` directly under it (subdirectories are ignored) |
 
 YAML files that are not gh-infra manifests are silently skipped. Use `--fail-on-unknown` to treat them as errors.
@@ -33,7 +33,7 @@ YAML files that are not gh-infra manifests are silently skipped. Use `--fail-on-
 gh infra validate ./repos/
 
 # Validate a single file
-gh infra validate ./repos/gomi.yaml
+gh infra validate ./repos/my-cli.yaml
 ```
 
 Exits with code 0 if all files are valid, non-zero otherwise.

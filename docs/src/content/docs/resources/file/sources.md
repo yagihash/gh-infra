@@ -81,7 +81,7 @@ Authentication is handled by `gh auth`.
 ```yaml
 files:
   - path: .goreleaser.yaml
-    source: github://myorg/shared-config/.goreleaser.yaml
+    source: github://my-org/shared-config/.goreleaser.yaml
 ```
 
 ### Directory
@@ -92,7 +92,7 @@ A trailing slash fetches **all files** in the directory, including subdirectorie
 files:
   # Sync all CI workflows from the shared-config repo
   - path: .github/workflows
-    source: github://myorg/shared-config/workflows/
+    source: github://my-org/shared-config/workflows/
 ```
 
 For example, if `workflows/` in the source repo contains:
@@ -117,15 +117,15 @@ By default, `github://` fetches from the default branch. Append `@ref` to pin to
 files:
   # Pin to a release tag
   - path: .github/workflows/ci.yaml
-    source: github://myorg/shared-config/workflows/ci.yaml@v1.0.0
+    source: github://my-org/shared-config/workflows/ci.yaml@v1.0.0
 
   # Pin to a branch
   - path: .github/CODEOWNERS
-    source: github://myorg/shared-config/CODEOWNERS@main
+    source: github://my-org/shared-config/CODEOWNERS@main
 
   # Pin to a commit SHA
   - path: Makefile
-    source: github://myorg/shared-config/Makefile@a1b2c3d
+    source: github://my-org/shared-config/Makefile@a1b2c3d
 ```
 
 :::tip
@@ -140,7 +140,7 @@ You can mix `github://` sources with local and inline sources in the same manife
 files:
   # From GitHub
   - path: .github/workflows
-    source: github://myorg/shared-config/workflows/
+    source: github://my-org/shared-config/workflows/
 
   # From local file
   - path: LICENSE

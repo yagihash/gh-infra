@@ -15,7 +15,7 @@ gh infra plan [path]
 | Argument | Example | Behavior |
 |----------|---------|----------|
 | *(none)* or `.` | `gh infra plan` | All `*.yaml` / `*.yml` in the current directory |
-| File | `gh infra plan repos/gomi.yaml` | That file only |
+| File | `gh infra plan repos/my-cli.yaml` | That file only |
 | Directory | `gh infra plan repos/` | All `*.yaml` / `*.yml` directly under it (subdirectories are ignored) |
 
 YAML files that are not gh-infra manifests are silently skipped. Use `--fail-on-unknown` to treat them as errors.
@@ -35,10 +35,10 @@ YAML files that are not gh-infra manifests are silently skipped. Use `--fail-on-
 gh infra plan ./repos/
 
 # Plan a single file
-gh infra plan ./repos/gomi.yaml
+gh infra plan ./repos/my-cli.yaml
 
 # Plan a specific repository
-gh infra plan ./repos/ --repo babarot/gomi
+gh infra plan ./repos/ --repo babarot/my-cli
 
 # CI drift detection
 gh infra plan ./repos/ --ci

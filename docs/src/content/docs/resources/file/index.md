@@ -13,7 +13,7 @@ apiVersion: gh-infra/v1
 kind: File
 metadata:
   owner: babarot
-  name: gomi
+  name: my-cli
 
 spec:
   files:
@@ -50,10 +50,10 @@ spec:
 ```yaml
 metadata:
   owner: babarot    # GitHub owner or organization
-  name: gomi        # Repository name
+  name: my-cli        # Repository name
 ```
 
-The combination of `owner` and `name` identifies the target repository (`babarot/gomi`).
+The combination of `owner` and `name` identifies the target repository (`babarot/my-cli`).
 
 ## Spec
 
