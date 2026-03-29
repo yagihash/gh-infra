@@ -19,8 +19,6 @@ type ApplyOptions struct {
 	PRBody        string // custom PR body (pull_request only)
 }
 
-const defaultApplyParallel = 5
-
 // Apply executes the planned file changes using Git Data API.
 // Changes are grouped by target repo and applied in parallel across repos.
 func (p *Processor) Apply(ctx context.Context, changes []Change, opts ApplyOptions, reporter ui.ProgressReporter) []ApplyResult {
@@ -41,7 +39,7 @@ func (p *Processor) Apply(ctx context.Context, changes []Change, opts ApplyOptio
 	}
 
 	// Apply repos in parallel
-	allResults := parallel.Map(ctx, repoList, defaultApplyParallel, func(ctx context.Context, _ int, entry repoEntry) []ApplyResult {
+	allResults := parallel.Map(ctx, repoList, parallel.DefaultConcurrency, func(ctx context.Context, _ int, entry repoEntry) []ApplyResult {
 		var results []ApplyResult
 		var filesToApply []Change
 		for _, c := range entry.changes {

@@ -5,6 +5,11 @@ import (
 	"sync"
 )
 
+// DefaultConcurrency is the maximum number of goroutines that run API calls
+// in parallel.  The value is chosen to stay well within GitHub's secondary
+// (burst) rate limit while still providing a meaningful speed-up.
+const DefaultConcurrency = 10
+
 // Map processes items concurrently and returns results in input order.
 // concurrency controls the maximum number of goroutines running at once.
 // If concurrency <= 0, all items are processed without a limit.

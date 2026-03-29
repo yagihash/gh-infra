@@ -10,8 +10,6 @@ import (
 	"github.com/babarot/gh-infra/internal/ui"
 )
 
-const defaultParallel = 5
-
 // PlanOptions configures the plan phase for repositories.
 type PlanOptions struct {
 	FilterRepo   string
@@ -48,7 +46,7 @@ func (p *Processor) Plan(ctx context.Context, repos []*manifest.Repository, opts
 		targets = append(targets, repo)
 	}
 
-	logger.Info("fetching", "repos", len(targets), "parallel", defaultParallel)
+	logger.Info("fetching", "repos", len(targets), "parallel", parallel.DefaultConcurrency)
 
 	if len(targets) == 0 {
 		return nil, nil, nil
@@ -56,7 +54,7 @@ func (p *Processor) Plan(ctx context.Context, repos []*manifest.Repository, opts
 
 	diffOpts := DiffOptions{ForceSecrets: opts.ForceSecrets, Resolver: p.resolver}
 
-	results := parallel.Map(ctx, targets, defaultParallel, func(ctx context.Context, idx int, r *manifest.Repository) repoResult {
+	results := parallel.Map(ctx, targets, parallel.DefaultConcurrency, func(ctx context.Context, idx int, r *manifest.Repository) repoResult {
 		logger.Debug("fetch start", "repo", r.Metadata.FullName())
 		fullName := r.Metadata.FullName()
 		onStatus := func(status string) {

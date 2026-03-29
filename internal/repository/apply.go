@@ -14,8 +14,6 @@ import (
 	"github.com/babarot/gh-infra/internal/ui"
 )
 
-const defaultApplyParallel = 5
-
 // Apply executes all changes in the plan result.
 // Changes are grouped by repo and applied in parallel across repos.
 // Within a single repo, changes are applied sequentially to maintain ordering.
@@ -31,7 +29,7 @@ func (p *Processor) Apply(ctx context.Context, changes []Change, repos []*manife
 	}
 
 	// Apply repo groups in parallel
-	allResults := parallel.Map(ctx, groups, defaultApplyParallel, func(ctx context.Context, _ int, g changeGroup) []ApplyResult {
+	allResults := parallel.Map(ctx, groups, parallel.DefaultConcurrency, func(ctx context.Context, _ int, g changeGroup) []ApplyResult {
 		fields := make([]string, 0, len(g.changes))
 		for _, c := range g.changes {
 			fields = append(fields, c.Field)

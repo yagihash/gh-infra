@@ -13,8 +13,6 @@ import (
 	"github.com/babarot/gh-infra/internal/ui"
 )
 
-const defaultImportParallel = 5
-
 // ImportTarget specifies a repository to import.
 type ImportTarget struct {
 	Owner string
@@ -94,7 +92,7 @@ func Import(targets []ImportTarget) (*ImportResult, error) {
 		data []byte
 		err  error
 	}
-	results := parallel.Map(ctx, targets, defaultImportParallel, func(ctx context.Context, _ int, t ImportTarget) fetchResult {
+	results := parallel.Map(ctx, targets, parallel.DefaultConcurrency, func(ctx context.Context, _ int, t ImportTarget) fetchResult {
 		fullName := t.FullName()
 		onStatus := func(s string) {
 			tracker.UpdateStatus(fullName, s)
