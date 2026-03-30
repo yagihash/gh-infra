@@ -869,13 +869,22 @@ func TestApplyActionsPermissions_WithSHAPinningRequired(t *testing.T) {
 	if len(mock.Called) != 1 {
 		t.Fatalf("expected 1 gh call, got %d", len(mock.Called))
 	}
-	call := mock.Called[0]
-	if len(call) != 6 {
-		t.Fatalf("unexpected call args: %v", call)
+	// Verify args use --input - instead of --body
+	call := strings.Join(mock.Called[0], " ")
+	if !strings.Contains(call, "actions/permissions") {
+		t.Errorf("expected actions/permissions endpoint, got: %s", call)
+	}
+	if !strings.Contains(call, "--input -") {
+		t.Errorf("expected --input - flag, got: %s", call)
+	}
+	// Verify JSON payload sent via stdin
+	body := mock.CalledStdin[0]
+	if body == nil {
+		t.Fatal("expected stdin body, got nil")
 	}
 	var payload map[string]any
-	if err := json.Unmarshal([]byte(call[5]), &payload); err != nil {
-		t.Fatalf("failed to parse payload: %v", err)
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("failed to parse stdin payload: %v", err)
 	}
 	if payload["enabled"] != true {
 		t.Errorf("enabled = %v, want true", payload["enabled"])

@@ -392,15 +392,13 @@ func (p *Processor) applyBranchProtectionViaAPI(ctx context.Context, owner, name
 
 	endpoint := fmt.Sprintf("repos/%s/%s/branches/%s/protection", owner, name, bp.Pattern)
 
-	// Write payload to temp approach - use gh api with body
-	args := []string{
+	_, err = p.runner.RunWithStdin(ctx, payloadJSON,
 		"api", endpoint,
 		"--method", "PUT",
 		"--header", "Accept: application/vnd.github+json",
-		"--body", string(payloadJSON),
-	}
-
-	_, err = p.runner.Run(ctx, args...)
+		"--header", "Content-Type: application/json",
+		"--input", "-",
+	)
 	return wrapError(err, owner+"/"+name, "branch_protection:"+bp.Pattern)
 }
 
@@ -469,11 +467,13 @@ func (p *Processor) applyRuleset(ctx context.Context, c Change, repo *manifest.R
 
 	switch c.Type {
 	case ChangeCreate:
-		_, err = p.runner.Run(ctx, "api",
+		_, err = p.runner.RunWithStdin(ctx, payloadJSON,
+			"api",
 			fmt.Sprintf("repos/%s/%s/rulesets", owner, name),
 			"--method", "POST",
 			"--header", "Accept: application/vnd.github+json",
-			"--body", string(payloadJSON),
+			"--header", "Content-Type: application/json",
+			"--input", "-",
 		)
 		return wrapError(err, owner+"/"+name, "ruleset:"+rulesetName)
 
@@ -486,11 +486,13 @@ func (p *Processor) applyRuleset(ctx context.Context, c Change, repo *manifest.R
 		if err != nil {
 			return err
 		}
-		_, err = p.runner.Run(ctx, "api",
+		_, err = p.runner.RunWithStdin(ctx, payloadJSON,
+			"api",
 			fmt.Sprintf("repos/%s/%s/rulesets/%d", owner, name, rulesetID),
 			"--method", "PUT",
 			"--header", "Accept: application/vnd.github+json",
-			"--body", string(payloadJSON),
+			"--header", "Content-Type: application/json",
+			"--input", "-",
 		)
 		return wrapError(err, owner+"/"+name, "ruleset:"+rulesetName)
 	}
@@ -724,10 +726,12 @@ func (p *Processor) applyActionsPermissions(ctx context.Context, owner, name str
 	if err != nil {
 		return err
 	}
-	_, err = p.runner.Run(ctx, "api",
+	_, err = p.runner.RunWithStdin(ctx, body,
+		"api",
 		fmt.Sprintf("repos/%s/%s/actions/permissions", owner, name),
 		"--method", "PUT",
-		"--body", string(body),
+		"--header", "Content-Type: application/json",
+		"--input", "-",
 	)
 	return wrapError(err, owner+"/"+name, "actions.permissions")
 }
@@ -744,10 +748,12 @@ func (p *Processor) applyActionsWorkflow(ctx context.Context, owner, name string
 	if err != nil {
 		return err
 	}
-	_, err = p.runner.Run(ctx, "api",
+	_, err = p.runner.RunWithStdin(ctx, body,
+		"api",
 		fmt.Sprintf("repos/%s/%s/actions/permissions/workflow", owner, name),
 		"--method", "PUT",
-		"--body", string(body),
+		"--header", "Content-Type: application/json",
+		"--input", "-",
 	)
 	return wrapError(err, owner+"/"+name, "actions.workflow")
 }
@@ -771,10 +777,12 @@ func (p *Processor) applyActionsSelectedActions(ctx context.Context, owner, name
 	if err != nil {
 		return err
 	}
-	_, err = p.runner.Run(ctx, "api",
+	_, err = p.runner.RunWithStdin(ctx, body,
+		"api",
 		fmt.Sprintf("repos/%s/%s/actions/permissions/selected-actions", owner, name),
 		"--method", "PUT",
-		"--body", string(body),
+		"--header", "Content-Type: application/json",
+		"--input", "-",
 	)
 	return wrapError(err, owner+"/"+name, "actions.selected_actions")
 }
@@ -790,10 +798,12 @@ func (p *Processor) applyActionsForkPR(ctx context.Context, owner, name string, 
 	if err != nil {
 		return err
 	}
-	_, err = p.runner.Run(ctx, "api",
+	_, err = p.runner.RunWithStdin(ctx, body,
+		"api",
 		fmt.Sprintf("repos/%s/%s/actions/permissions/fork-pr-contributor-approval", owner, name),
 		"--method", "PUT",
-		"--body", string(body),
+		"--header", "Content-Type: application/json",
+		"--input", "-",
 	)
 	return wrapError(err, owner+"/"+name, "actions.fork_pr_approval")
 }
