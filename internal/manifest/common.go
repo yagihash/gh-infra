@@ -42,9 +42,10 @@ type RepositoryDocument struct {
 
 // FileDocument wraps a FileSet with parse-origin metadata.
 type FileDocument struct {
-	Resource   *FileSet // the parsed FileSet (or File expanded to FileSet)
-	SourcePath string   // file path that was parsed
-	DocIndex   int      // 0-based position in multi-doc YAML
+	Resource   *FileSet    // the parsed FileSet (or File expanded to FileSet)
+	SourcePath string      // file path that was parsed
+	DocIndex   int         // 0-based position in multi-doc YAML
+	Files      []FileEntry // source-resolved files (OriginalSource set); use for import comparisons
 }
 
 // Ptr returns a pointer to the given value.

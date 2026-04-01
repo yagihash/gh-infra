@@ -158,7 +158,7 @@ func parseDocument(data []byte, path string, docNum int, opt ParseOptions) (*Par
 			return nil, err
 		}
 		result.FileSets = []*FileSet{fs}
-		result.FileDocs = []*FileDocument{{Resource: fs, SourcePath: path, DocIndex: docIndex}}
+		result.FileDocs = []*FileDocument{{Resource: fs, SourcePath: path, DocIndex: docIndex, Files: fs.Spec.Files}}
 		result.Warnings = append(result.Warnings, warnings...)
 	case KindFileSet:
 		fs, warnings, err := parseFileSet(data, path)
@@ -166,7 +166,7 @@ func parseDocument(data []byte, path string, docNum int, opt ParseOptions) (*Par
 			return nil, err
 		}
 		result.FileSets = []*FileSet{fs}
-		result.FileDocs = []*FileDocument{{Resource: fs, SourcePath: path, DocIndex: docIndex}}
+		result.FileDocs = []*FileDocument{{Resource: fs, SourcePath: path, DocIndex: docIndex, Files: fs.Spec.Files}}
 		result.Warnings = append(result.Warnings, warnings...)
 	default:
 		if opt.FailOnUnknown {

@@ -2,6 +2,7 @@ package importer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -43,6 +44,14 @@ func PlanInto(targets []TargetMatches, runner gh.Runner, printer ui.Printer, tra
 		}
 		current, err := proc.FetchRepository(ctx, tm.Target.Owner, tm.Target.Name, onStatus)
 		if err != nil {
+			// Auth errors affect all targets — abort immediately.
+			if errors.Is(err, gh.ErrUnauthorized) || errors.Is(err, gh.ErrForbidden) {
+				if tracker != nil {
+					tracker.Fail(fullName)
+				}
+				return nil, fmt.Errorf("fetch %s: %w", fullName, err)
+			}
+			// Other errors (network, 404, etc.) — skip this target.
 			printer.Warning(fullName, fmt.Sprintf("fetch failed: %v", err))
 			if tracker != nil {
 				tracker.Fail(fullName)

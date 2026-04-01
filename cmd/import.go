@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	goyaml "github.com/goccy/go-yaml"
 	"github.com/spf13/cobra"
 
 	"github.com/babarot/gh-infra/internal/importer"
@@ -147,8 +148,8 @@ func buildImportDiffEntries(plan *importer.IntoPlan) []ui.DiffEntry {
 		entries = append(entries, ui.DiffEntry{
 			Path:    d.Field,
 			Icon:    ui.IconChange,
-			Current: fmt.Sprintf("%v", d.Old),
-			Desired: fmt.Sprintf("%v", d.New),
+			Current: formatDiffValue(d.Old),
+			Desired: formatDiffValue(d.New),
 		})
 	}
 
@@ -187,6 +188,30 @@ func buildImportDiffEntries(plan *importer.IntoPlan) []ui.DiffEntry {
 	}
 
 	return entries
+}
+
+// formatDiffValue formats a FieldDiff value as YAML text for the diff viewer.
+// Scalar types (string, bool, nil) are rendered inline; complex types (structs,
+// slices, maps) are marshaled to multi-line YAML so the unified diff is readable.
+func formatDiffValue(v any) string {
+	if v == nil {
+		return "(none)"
+	}
+	switch val := v.(type) {
+	case string:
+		return val
+	case bool:
+		if val {
+			return "true"
+		}
+		return "false"
+	}
+	// Complex types: marshal to YAML.
+	data, err := goyaml.Marshal(v)
+	if err != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	return strings.TrimRight(string(data), "\n")
 }
 
 func parseImportTargets(args []string) ([]infra.ImportTarget, error) {
