@@ -58,9 +58,19 @@ func planImportEntry(ctx context.Context, runner gh.Runner, fullName string, fil
 	}
 
 	// Templates and patches: skip (reverse transformation is impossible)
-	if len(file.Vars) > 0 || len(file.Patches) > 0 {
+	if len(file.Vars) > 0 && len(file.Patches) > 0 {
 		change.WriteMode = WriteSkip
-		change.Reason = "uses templates or patches"
+		change.Reason = "uses templates and patches"
+		return change
+	}
+	if len(file.Vars) > 0 {
+		change.WriteMode = WriteSkip
+		change.Reason = "uses template variables"
+		return change
+	}
+	if len(file.Patches) > 0 {
+		change.WriteMode = WriteSkip
+		change.Reason = "uses patches"
 		return change
 	}
 
