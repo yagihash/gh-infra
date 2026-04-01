@@ -91,7 +91,17 @@ func PlanInto(targets []TargetMatches, runner gh.Runner, printer ui.Printer, tra
 			plan.AddRepoPlan(rp)
 		}
 
-		// TODO(phase3): PlanFiles for FileSet matches
+		// Plan FileSet matches.
+		if len(tm.Matches.FileSets) > 0 {
+			if tracker != nil {
+				tracker.UpdateStatus(fullName, "comparing files...")
+			}
+			fileChanges, err := PlanFiles(ctx, runner, tm.Matches.FileSets, fullName)
+			if err != nil {
+				return nil, fmt.Errorf("plan files %s: %w", fullName, err)
+			}
+			plan.FileChanges = append(plan.FileChanges, fileChanges...)
+		}
 
 		if tracker != nil {
 			tracker.Done(fullName)

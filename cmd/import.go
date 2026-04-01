@@ -141,14 +141,51 @@ func runImportInto(args []string, intoPath string) error {
 // buildImportDiffEntries converts an IntoPlan into DiffEntry items for the diff viewer.
 func buildImportDiffEntries(plan *importer.IntoPlan) []ui.DiffEntry {
 	var entries []ui.DiffEntry
+
+	// Repo-level field diffs.
 	for _, d := range plan.RepoDiffs {
 		entries = append(entries, ui.DiffEntry{
 			Path:    d.Field,
-			Icon:    "~",
+			Icon:    ui.IconChange,
 			Current: fmt.Sprintf("%v", d.Old),
 			Desired: fmt.Sprintf("%v", d.New),
 		})
 	}
+
+	// File-level changes.
+	for _, c := range plan.FileChanges {
+		entry := ui.DiffEntry{
+			Path:   c.Path,
+			Target: c.Target,
+		}
+		switch c.WriteMode {
+		case importer.WriteSkip:
+			entry.Icon = ui.IconWarning
+			entry.Skip = true
+			entry.Current = c.Reason
+			entry.Desired = c.Reason
+		default:
+			switch c.Type {
+			case "update":
+				entry.Icon = ui.IconChange
+				entry.Current = c.Current
+				entry.Desired = c.Desired
+			case "noop":
+				continue // skip no-op entries
+			}
+		}
+
+		// Append warnings to the entry.
+		for _, w := range c.Warnings {
+			entry.Icon = ui.IconWarning
+			if entry.Current != "" {
+				entry.Current += "\n# " + w
+			}
+		}
+
+		entries = append(entries, entry)
+	}
+
 	return entries
 }
 
