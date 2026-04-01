@@ -64,14 +64,8 @@ func planImportEntry(ctx context.Context, runner gh.Runner, fullName string, fil
 		return change
 	}
 
-	// create_only: skip (import direction doesn't make sense)
-	if file.Reconcile == manifest.ReconcileCreateOnly {
-		change.WriteMode = WriteSkip
-		change.Reason = "reconcile: create_only"
-		return change
-	}
-
 	// Determine write mode based on source
+	// (create_only is allowed — importing updates the local master template)
 	if file.OriginalSource != "" {
 		if strings.HasPrefix(file.Source, "github://") {
 			change.WriteMode = WriteSkip

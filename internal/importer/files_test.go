@@ -117,11 +117,12 @@ func TestPlanImportEntry_SkipPatches(t *testing.T) {
 	}
 }
 
-func TestPlanImportEntry_SkipCreateOnly(t *testing.T) {
+func TestPlanImportEntry_CreateOnly_NotSkipped(t *testing.T) {
 	file := manifest.FileEntry{
-		Path:      "CODEOWNERS",
-		Content:   "* @team",
-		Reconcile: manifest.ReconcileCreateOnly,
+		Path:           "CODEOWNERS",
+		Content:        "* @team",
+		Reconcile:      manifest.ReconcileCreateOnly,
+		OriginalSource: "/tmp/CODEOWNERS",
 	}
 	doc := &manifest.FileDocument{
 		Resource:   &manifest.FileSet{},
@@ -130,11 +131,12 @@ func TestPlanImportEntry_SkipCreateOnly(t *testing.T) {
 
 	change := planImportEntry(context.TODO(), nil, "org/repo", file, 0, doc, 1)
 
-	if change.WriteMode != WriteSkip {
-		t.Errorf("WriteMode = %q, want %q", change.WriteMode, WriteSkip)
+	// create_only should NOT be skipped — importing updates the local master template.
+	if change.WriteMode == WriteSkip {
+		t.Errorf("WriteMode should not be WriteSkip for create_only, got %q", change.WriteMode)
 	}
-	if change.Reason != "reconcile: create_only" {
-		t.Errorf("Reason = %q, want 'reconcile: create_only'", change.Reason)
+	if change.WriteMode != WriteSource {
+		t.Errorf("WriteMode = %q, want %q", change.WriteMode, WriteSource)
 	}
 }
 
