@@ -48,6 +48,15 @@ func planImportEntry(ctx context.Context, runner gh.Runner, fullName string, fil
 		Type:   fileset.ChangeNoOp,
 	}
 
+	// Populate local path info upfront so it's available even for skipped entries.
+	if file.OriginalSource != "" && !strings.HasPrefix(file.Source, "github://") {
+		change.LocalTarget = file.OriginalSource
+	} else if file.Source == "" || !strings.HasPrefix(file.Source, "github://") {
+		change.ManifestPath = doc.SourcePath
+		change.DocIndex = doc.DocIndex
+		change.YAMLPath = fmt.Sprintf("$.spec.files[%d].content", fileIdx)
+	}
+
 	// Templates and patches: skip (reverse transformation is impossible)
 	if len(file.Vars) > 0 || len(file.Patches) > 0 {
 		change.WriteMode = WriteSkip
@@ -64,25 +73,18 @@ func planImportEntry(ctx context.Context, runner gh.Runner, fullName string, fil
 
 	// Determine write mode based on source
 	if file.OriginalSource != "" {
-		// Local source file
 		if strings.HasPrefix(file.Source, "github://") {
 			change.WriteMode = WriteSkip
 			change.Reason = "remote source (github://)"
 			return change
 		}
 		change.WriteMode = WriteSource
-		change.LocalTarget = file.OriginalSource
 	} else if file.Source != "" && strings.HasPrefix(file.Source, "github://") {
-		// GitHub source without OriginalSource set
 		change.WriteMode = WriteSkip
 		change.Reason = "remote source (github://)"
 		return change
 	} else {
-		// Inline content
 		change.WriteMode = WriteInline
-		change.ManifestPath = doc.SourcePath
-		change.DocIndex = doc.DocIndex
-		change.YAMLPath = fmt.Sprintf("$.spec.files[%d].content", fileIdx)
 	}
 
 	// Shared source warning

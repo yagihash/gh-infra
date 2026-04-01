@@ -186,7 +186,7 @@ func printImportPlan(p ui.Printer, plan *importer.IntoPlan) {
 		}
 	}
 	for _, c := range plan.FileChanges {
-		if c.Type == fileset.ChangeNoOp {
+		if c.Type == fileset.ChangeNoOp && c.WriteMode != importer.WriteSkip {
 			continue
 		}
 		if !seen[c.Target] {
@@ -202,7 +202,7 @@ func printImportPlan(p ui.Printer, plan *importer.IntoPlan) {
 	}
 	fileChangesByTarget := make(map[string][]importer.Change)
 	for _, c := range plan.FileChanges {
-		if c.Type == fileset.ChangeNoOp {
+		if c.Type == fileset.ChangeNoOp && c.WriteMode != importer.WriteSkip {
 			continue
 		}
 		fileChangesByTarget[c.Target] = append(fileChangesByTarget[c.Target], c)
@@ -239,8 +239,8 @@ func printImportPlan(p ui.Printer, plan *importer.IntoPlan) {
 		if len(fChanges) > 0 {
 			w := 0
 			for _, c := range fChanges {
-				if len(c.Path) > w {
-					w = len(c.Path)
+				if len(importLocalPath(c)) > w {
+					w = len(importLocalPath(c))
 				}
 			}
 			p.SetColumnWidth(w)
@@ -253,20 +253,17 @@ func printImportPlan(p ui.Printer, plan *importer.IntoPlan) {
 			p.SubGroupHeader(ui.IconChange, fmt.Sprintf("FileSet: %s", ui.Bold.Render(label)))
 
 			for _, c := range fChanges {
-				var icon string
-				switch c.WriteMode {
-				case importer.WriteSkip:
-					icon = ui.IconWarning
-				default:
-					icon = ui.IconChange
+				item := ui.FileItem{
+					Path: importLocalPath(c),
 				}
-				added, removed := fileset.DiffStat(c.Current, c.Desired)
-				p.PrintFileChange(ui.FileItem{
-					Icon:    icon,
-					Path:    c.Path,
-					Added:   added,
-					Removed: removed,
-				})
+				if c.WriteMode == importer.WriteSkip {
+					item.Icon = ui.IconWarning
+					item.Reason = c.Reason
+				} else {
+					item.Icon = ui.IconChange
+					item.Added, item.Removed = fileset.DiffStat(c.Current, c.Desired)
+				}
+				p.PrintFileChange(item)
 			}
 		}
 
@@ -281,24 +278,21 @@ func buildImportFileDiffEntries(plan *importer.IntoPlan) []ui.DiffEntry {
 
 	for _, c := range plan.FileChanges {
 		entry := ui.DiffEntry{
-			Path:   c.Path,
+			Path:   importLocalPath(c),
 			Target: c.Target,
 		}
-		switch c.WriteMode {
-		case importer.WriteSkip:
-			entry.Icon = ui.IconWarning
-			entry.Skip = true
-			entry.Current = c.Reason
-			entry.Desired = c.Reason
+		// WriteSkip entries (create_only, templates/patches, github:// source) cannot
+		// be applied — they are shown in the console plan output only.
+		if c.WriteMode == importer.WriteSkip {
+			continue
+		}
+		switch c.Type {
+		case "update":
+			entry.Icon = ui.IconChange
+			entry.Current = c.Current
+			entry.Desired = c.Desired
 		default:
-			switch c.Type {
-			case "update":
-				entry.Icon = ui.IconChange
-				entry.Current = c.Current
-				entry.Desired = c.Desired
-			case "noop":
-				continue
-			}
+			continue // noop, etc.
 		}
 
 		for _, w := range c.Warnings {
@@ -312,6 +306,18 @@ func buildImportFileDiffEntries(plan *importer.IntoPlan) []ui.DiffEntry {
 	}
 
 	return entries
+}
+
+// importLocalPath returns the local write-back path for display.
+// Uses the local target path when available, falling back to the repo-internal path.
+func importLocalPath(c importer.Change) string {
+	if c.LocalTarget != "" {
+		return c.LocalTarget
+	}
+	if c.ManifestPath != "" {
+		return c.ManifestPath + ":" + c.Path
+	}
+	return c.Path
 }
 
 // formatDiffValue formats a FieldDiff value as YAML text for the diff viewer.
