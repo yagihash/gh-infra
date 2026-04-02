@@ -12,11 +12,11 @@ import (
 	"github.com/babarot/gh-infra/internal/ui"
 )
 
-// PlanInto builds a change plan for all targets.
+// Diff builds a change plan for all targets.
 // manifestBytes is shared across targets so patches accumulate correctly.
 // Targets are processed sequentially (same file may be patched by multiple targets).
-func PlanInto(targets []TargetMatches, runner gh.Runner, printer ui.Printer, tracker *ui.RefreshTracker) (*IntoPlan, error) {
-	plan := &IntoPlan{
+func Diff(targets []TargetMatches, runner gh.Runner, printer ui.Printer, tracker *ui.RefreshTracker) (*Result, error) {
+	plan := &Result{
 		ManifestEdits: make(map[string][]byte),
 	}
 
@@ -76,7 +76,7 @@ func PlanInto(targets []TargetMatches, runner gh.Runner, printer ui.Printer, tra
 
 		// Plan Repository matches.
 		if len(tm.Matches.Repositories) > 0 {
-			rp, err := PlanRepository(RepoPlanInput{
+			rp, err := DiffRepository(DiffInput{
 				Repos:         tm.Matches.Repositories,
 				Imported:      imported,
 				ManifestBytes: manifestBytes,
@@ -84,12 +84,12 @@ func PlanInto(targets []TargetMatches, runner gh.Runner, printer ui.Printer, tra
 			if err != nil {
 				return nil, fmt.Errorf("plan repository %s: %w", fullName, err)
 			}
-			plan.AddRepoPlan(rp)
+			plan.AddRepoResult(rp)
 		}
 
 		// Plan RepositorySet matches.
 		if len(tm.Matches.RepositorySets) > 0 {
-			rp, err := PlanRepositorySet(RepoPlanInput{
+			rp, err := DiffRepositorySet(DiffInput{
 				Repos:         tm.Matches.RepositorySets,
 				Imported:      imported,
 				ManifestBytes: manifestBytes,
@@ -97,7 +97,7 @@ func PlanInto(targets []TargetMatches, runner gh.Runner, printer ui.Printer, tra
 			if err != nil {
 				return nil, fmt.Errorf("plan repositoryset %s: %w", fullName, err)
 			}
-			plan.AddRepoPlan(rp)
+			plan.AddRepoResult(rp)
 		}
 
 		// Plan FileSet matches.
@@ -105,7 +105,7 @@ func PlanInto(targets []TargetMatches, runner gh.Runner, printer ui.Printer, tra
 			if tracker != nil {
 				tracker.UpdateStatus(fullName, "comparing files...")
 			}
-			fileChanges, err := PlanFiles(ctx, runner, tm.Matches.FileSets, fullName)
+			fileChanges, err := DiffFiles(ctx, runner, tm.Matches.FileSets, fullName)
 			if err != nil {
 				return nil, fmt.Errorf("plan files %s: %w", fullName, err)
 			}

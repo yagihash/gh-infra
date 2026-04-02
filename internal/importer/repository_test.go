@@ -41,7 +41,7 @@ spec:
     - cli
 `)
 
-	rp, err := PlanRepository(RepoPlanInput{
+	rp, err := DiffRepository(DiffInput{
 		Repos:         []*manifest.RepositoryDocument{doc},
 		Imported:      &imported,
 		ManifestBytes: map[string][]byte{"/tmp/test.yaml": yamlData},
@@ -82,7 +82,7 @@ spec:
   visibility: private
 `)
 
-	rp, err := PlanRepository(RepoPlanInput{
+	rp, err := DiffRepository(DiffInput{
 		Repos:         []*manifest.RepositoryDocument{doc},
 		Imported:      &imported,
 		ManifestBytes: map[string][]byte{"/tmp/test.yaml": yamlData},
@@ -132,7 +132,7 @@ spec:
     - go
 `)
 
-	rp, err := PlanRepository(RepoPlanInput{
+	rp, err := DiffRepository(DiffInput{
 		Repos:         []*manifest.RepositoryDocument{doc},
 		Imported:      &imported,
 		ManifestBytes: map[string][]byte{"/tmp/test.yaml": yamlData},
@@ -185,7 +185,7 @@ spec:
     wiki: true
 `)
 
-	rp, err := PlanRepository(RepoPlanInput{
+	rp, err := DiffRepository(DiffInput{
 		Repos:         []*manifest.RepositoryDocument{doc},
 		Imported:      &imported,
 		ManifestBytes: map[string][]byte{"/tmp/test.yaml": yamlData},
@@ -238,7 +238,7 @@ spec:
 `)
 
 	mb := map[string][]byte{"/tmp/test.yaml": yamlData}
-	_, err := PlanRepository(RepoPlanInput{
+	_, err := DiffRepository(DiffInput{
 		Repos:         []*manifest.RepositoryDocument{doc},
 		Imported:      &imported,
 		ManifestBytes: mb,

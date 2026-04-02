@@ -12,9 +12,9 @@ import (
 	"github.com/babarot/gh-infra/internal/manifest"
 )
 
-// PlanFiles computes file-level import changes for all matched FileSets.
+// DiffFiles computes file-level import changes for all matched FileSets.
 // It fetches current content from GitHub and compares against local content.
-func PlanFiles(ctx context.Context, runner gh.Runner, fileSets []*manifest.FileDocument, filterRepo string) ([]Change, error) {
+func DiffFiles(ctx context.Context, runner gh.Runner, fileSets []*manifest.FileDocument, filterRepo string) ([]Change, error) {
 	var changes []Change
 
 	for _, doc := range fileSets {

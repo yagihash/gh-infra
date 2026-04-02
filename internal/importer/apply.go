@@ -8,9 +8,9 @@ import (
 	"github.com/babarot/gh-infra/internal/yamledit"
 )
 
-// ApplyInto writes the planned changes to disk.
+// Write writes the planned changes to disk.
 // It applies manifest edits (repo spec patches) and file changes.
-func ApplyInto(plan *IntoPlan) error {
+func Write(plan *Result) error {
 	// Apply manifest edits (repo/reposet YAML patches).
 	for path, data := range plan.ManifestEdits {
 		if err := os.WriteFile(path, data, 0644); err != nil {

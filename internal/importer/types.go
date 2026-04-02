@@ -48,28 +48,28 @@ type FieldDiff struct {
 	New    any    // GitHub value
 }
 
-// RepoPlan is a per-Repository/RepositorySet change plan.
-type RepoPlan struct {
+// RepoResult is a per-Repository/RepositorySet change plan.
+type RepoResult struct {
 	Diffs         []FieldDiff       // field-level diffs (for display)
 	ManifestEdits map[string][]byte // YAML patch results (path → updated bytes)
 	UpdatedDocs   int
 }
 
 // HasChanges reports whether any diffs were detected.
-func (rp RepoPlan) HasChanges() bool {
+func (rp RepoResult) HasChanges() bool {
 	return len(rp.Diffs) > 0
 }
 
-// IntoPlan is the aggregate change plan across all targets.
-type IntoPlan struct {
+// Result is the aggregate change plan across all targets.
+type Result struct {
 	RepoDiffs     []FieldDiff       // all repo-level diffs
 	FileChanges   []Change          // file-level changes
 	ManifestEdits map[string][]byte // YAML patch results (path → final bytes)
 	UpdatedDocs   int
 }
 
-// AddRepoPlan merges a RepoPlan into this IntoPlan.
-func (p *IntoPlan) AddRepoPlan(rp RepoPlan) {
+// AddRepoResult merges a RepoPlan into this IntoPlan.
+func (p *Result) AddRepoResult(rp RepoResult) {
 	p.RepoDiffs = append(p.RepoDiffs, rp.Diffs...)
 	for path, data := range rp.ManifestEdits {
 		p.ManifestEdits[path] = data
@@ -78,7 +78,7 @@ func (p *IntoPlan) AddRepoPlan(rp RepoPlan) {
 }
 
 // HasChanges reports whether any changes exist.
-func (p IntoPlan) HasChanges() bool {
+func (p Result) HasChanges() bool {
 	return len(p.RepoDiffs) > 0 || HasFileChanges(p.FileChanges)
 }
 

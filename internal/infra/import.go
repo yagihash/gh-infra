@@ -24,8 +24,8 @@ func (t ImportTarget) FullName() string {
 	return t.Owner + "/" + t.Name
 }
 
-// ImportResult holds the outcome of the import phase.
-type ImportResult struct {
+// ExportResult holds the outcome of the import phase.
+type ExportResult struct {
 	// YAMLDocs contains the marshaled YAML for each successfully imported target, in order.
 	YAMLDocs [][]byte
 	// Errors maps target full name to its error (nil if successful).
@@ -38,15 +38,15 @@ type ImportResult struct {
 }
 
 // Printer returns the printer used during this import session.
-func (r *ImportResult) Printer() ui.Printer {
+func (r *ExportResult) Printer() ui.Printer {
 	if r.engine == nil {
 		return ui.NewStandardPrinter()
 	}
 	return r.engine.printer
 }
 
-// Import fetches current state of the given repositories and converts them to YAML manifests.
-func Import(targets []ImportTarget) (*ImportResult, error) {
+// Export fetches current state of the given repositories and converts them to YAML manifests.
+func Export(targets []ImportTarget) (*ExportResult, error) {
 	p := ui.NewStandardPrinter()
 
 	runner := gh.NewRunner(false)
@@ -122,7 +122,7 @@ func Import(targets []ImportTarget) (*ImportResult, error) {
 	}
 
 	// Collect results
-	importResult := &ImportResult{
+	importResult := &ExportResult{
 		Errors: make(map[string]error),
 		engine: eng,
 	}

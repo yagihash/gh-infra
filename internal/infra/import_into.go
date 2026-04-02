@@ -12,21 +12,76 @@ import (
 	"github.com/babarot/gh-infra/internal/ui"
 )
 
-// ImportIntoResult holds the outcome of the import-into plan phase.
-type ImportIntoResult struct {
-	Plan    *importer.IntoPlan
+// ImportResult holds the outcome of the import-into plan phase.
+type ImportResult struct {
+	Plan    *importer.Result
 	printer ui.Printer
 }
 
 // Printer returns the printer used during this session.
-func (r *ImportIntoResult) Printer() ui.Printer { return r.printer }
+func (r *ImportResult) Printer() ui.Printer { return r.printer }
 
 // HasChanges reports whether any changes were detected.
-func (r *ImportIntoResult) HasChanges() bool { return r.Plan.HasChanges() }
+func (r *ImportResult) HasChanges() bool { return r.Plan.HasChanges() }
 
-// ImportInto plans changes for import --into by fetching GitHub state and
-// comparing it against local manifests.
-func ImportInto(targets []importer.TargetMatches) (*ImportIntoResult, error) {
+// DiffEntries returns file-level diff entries for the interactive diff viewer.
+// WriteSkip entries are excluded (shown in the console plan only).
+func (r *ImportResult) DiffEntries() []ui.DiffEntry {
+	var entries []ui.DiffEntry
+
+	for _, c := range r.Plan.FileChanges {
+		if c.WriteMode == importer.WriteSkip {
+			continue
+		}
+		switch c.Type {
+		case "update":
+			entry := ui.DiffEntry{
+				Path:    localPath(c),
+				Target:  c.Target,
+				Icon:    ui.IconChange,
+				Current: c.Current,
+				Desired: c.Desired,
+			}
+			for _, w := range c.Warnings {
+				entry.Icon = ui.IconWarning
+				if entry.Current != "" {
+					entry.Current += "\n# " + w
+				}
+			}
+			entries = append(entries, entry)
+		}
+	}
+
+	return entries
+}
+
+// MarkSkips writes skip selections from the diff viewer back to the plan,
+// setting skipped entries to NoOp so they are not imported.
+func (r *ImportResult) MarkSkips(entries []ui.DiffEntry) {
+	type key struct{ target, path string }
+	skipped := make(map[key]bool, len(entries))
+	for _, e := range entries {
+		if e.Skip {
+			skipped[key{e.Target, e.Path}] = true
+		}
+	}
+	for i := range r.Plan.FileChanges {
+		c := &r.Plan.FileChanges[i]
+		if skipped[key{c.Target, c.Path}] {
+			c.Type = fileset.ChangeNoOp
+		}
+	}
+}
+
+// ImportApply writes the planned changes to local files.
+func ImportApply(result *ImportResult) error {
+	return importer.Write(result.Plan)
+}
+
+// ImportPlan fetches GitHub state, compares it against local manifests,
+// and prints the diff to the terminal. The returned result provides
+// methods for diff viewing and skip selection.
+func ImportPlan(targets []importer.TargetMatches) (*ImportResult, error) {
 	runner := gh.NewRunner(false)
 	printer := ui.NewStandardPrinter()
 
@@ -44,7 +99,7 @@ func ImportInto(targets []importer.TargetMatches) (*ImportIntoResult, error) {
 
 	tracker := ui.RunRefresh(tasks)
 
-	plan, err := importer.PlanInto(targets, runner, printer, tracker)
+	plan, err := importer.Diff(targets, runner, printer, tracker)
 
 	tracker.Wait()
 
@@ -52,12 +107,19 @@ func ImportInto(targets []importer.TargetMatches) (*ImportIntoResult, error) {
 		return nil, err
 	}
 
-	return &ImportIntoResult{Plan: plan, printer: printer}, nil
+	result := &ImportResult{Plan: plan, printer: printer}
+
+	if result.HasChanges() {
+		printer.Separator()
+		printImportPlan(printer, plan)
+	}
+
+	return result, nil
 }
 
-// PrintImportPlan prints the import plan to the terminal,
+// printImportPlan prints the import plan to the terminal,
 // grouped by target repo name (matching the plan command's output pattern).
-func PrintImportPlan(p ui.Printer, plan *importer.IntoPlan) {
+func printImportPlan(p ui.Printer, plan *importer.Result) {
 	// Collect all target names in order.
 	seen := make(map[string]bool)
 	var targets []string
@@ -121,8 +183,8 @@ func PrintImportPlan(p ui.Printer, plan *importer.IntoPlan) {
 		if len(fChanges) > 0 {
 			w := 0
 			for _, c := range fChanges {
-				if len(ImportLocalPath(c)) > w {
-					w = len(ImportLocalPath(c))
+				if len(localPath(c)) > w {
+					w = len(localPath(c))
 				}
 			}
 			p.SetColumnWidth(w)
@@ -136,7 +198,7 @@ func PrintImportPlan(p ui.Printer, plan *importer.IntoPlan) {
 
 			for _, c := range fChanges {
 				item := ui.FileItem{
-					Path: ImportLocalPath(c),
+					Path: localPath(c),
 				}
 				if c.WriteMode == importer.WriteSkip {
 					item.Icon = ui.IconWarning
@@ -154,61 +216,8 @@ func PrintImportPlan(p ui.Printer, plan *importer.IntoPlan) {
 	}
 }
 
-// BuildImportFileDiffEntries converts file-level changes into DiffEntry items for the diff viewer.
-func BuildImportFileDiffEntries(plan *importer.IntoPlan) []ui.DiffEntry {
-	var entries []ui.DiffEntry
-
-	for _, c := range plan.FileChanges {
-		entry := ui.DiffEntry{
-			Path:   ImportLocalPath(c),
-			Target: c.Target,
-		}
-		// WriteSkip entries cannot be applied — shown in console plan only.
-		if c.WriteMode == importer.WriteSkip {
-			continue
-		}
-		switch c.Type {
-		case "update":
-			entry.Icon = ui.IconChange
-			entry.Current = c.Current
-			entry.Desired = c.Desired
-		default:
-			continue // noop, etc.
-		}
-
-		for _, w := range c.Warnings {
-			entry.Icon = ui.IconWarning
-			if entry.Current != "" {
-				entry.Current += "\n# " + w
-			}
-		}
-
-		entries = append(entries, entry)
-	}
-
-	return entries
-}
-
-// ApplyImportSkipSelections writes skip selections from the diff viewer back
-// to plan.FileChanges, setting skipped entries to NoOp so they are not applied.
-func ApplyImportSkipSelections(plan *importer.IntoPlan, entries []ui.DiffEntry) {
-	type key struct{ target, path string }
-	skipped := make(map[key]bool, len(entries))
-	for _, e := range entries {
-		if e.Skip {
-			skipped[key{e.Target, e.Path}] = true
-		}
-	}
-	for i := range plan.FileChanges {
-		c := &plan.FileChanges[i]
-		if skipped[key{c.Target, c.Path}] {
-			c.Type = fileset.ChangeNoOp
-		}
-	}
-}
-
-// ImportLocalPath returns the local write-back path for display.
-func ImportLocalPath(c importer.Change) string {
+// localPath returns the local write-back path for display.
+func localPath(c importer.Change) string {
 	if c.LocalTarget != "" {
 		return c.LocalTarget
 	}
@@ -216,11 +225,6 @@ func ImportLocalPath(c importer.Change) string {
 		return c.ManifestPath + ":" + c.Path
 	}
 	return c.Path
-}
-
-// ApplyImportInto writes the planned changes to disk.
-func ApplyImportInto(result *ImportIntoResult) error {
-	return importer.ApplyInto(result.Plan)
 }
 
 // formatImportValue formats a FieldDiff value as YAML text for display.

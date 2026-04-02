@@ -9,21 +9,21 @@ import (
 	"github.com/babarot/gh-infra/internal/yamledit"
 )
 
-// RepoPlanInput holds the inputs for planning a single repository's import.
-type RepoPlanInput struct {
+// DiffInput holds the inputs for planning a single repository's import.
+type DiffInput struct {
 	Repos         []*manifest.RepositoryDocument
 	Imported      *manifest.Repository
 	ManifestBytes map[string][]byte
 }
 
-// PlanRepository compares local Repository spec vs GitHub-imported spec,
+// DiffRepository compares local Repository spec vs GitHub-imported spec,
 // generates FieldDiffs for display, and patches the YAML via yamledit.
-func PlanRepository(input RepoPlanInput) (RepoPlan, error) {
+func DiffRepository(input DiffInput) (RepoResult, error) {
 	if len(input.Repos) == 0 {
-		return RepoPlan{}, nil
+		return RepoResult{}, nil
 	}
 
-	plan := RepoPlan{ManifestEdits: make(map[string][]byte)}
+	plan := RepoResult{ManifestEdits: make(map[string][]byte)}
 
 	for _, doc := range input.Repos {
 		local := doc.Resource.Spec
@@ -62,14 +62,14 @@ func PlanRepository(input RepoPlanInput) (RepoPlan, error) {
 	return plan, nil
 }
 
-// PlanRepositorySet compares a RepositorySet-derived repo, computing the
+// DiffRepositorySet compares a RepositorySet-derived repo, computing the
 // minimal override relative to defaults, and patches $.repositories[N].spec.
-func PlanRepositorySet(input RepoPlanInput) (RepoPlan, error) {
+func DiffRepositorySet(input DiffInput) (RepoResult, error) {
 	if len(input.Repos) == 0 {
-		return RepoPlan{}, nil
+		return RepoResult{}, nil
 	}
 
-	plan := RepoPlan{ManifestEdits: make(map[string][]byte)}
+	plan := RepoResult{ManifestEdits: make(map[string][]byte)}
 
 	for _, doc := range input.Repos {
 		if !doc.FromSet || doc.DefaultsSpec == nil {

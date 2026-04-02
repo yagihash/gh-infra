@@ -43,7 +43,7 @@ func runImport(args []string) error {
 		return err
 	}
 
-	result, err := infra.Import(targets)
+	result, err := infra.Export(targets)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			printCancelled()
@@ -81,7 +81,7 @@ func runImport(args []string) error {
 }
 
 func runImportInto(args []string, intoPath string) error {
-	p := ui.NewStandardPrinter()
+	var p ui.Printer = ui.NewStandardPrinter()
 
 	parsed, err := manifest.ParseAll(intoPath)
 	if err != nil {
@@ -108,7 +108,7 @@ func runImportInto(args []string, intoPath string) error {
 		return nil
 	}
 
-	result, err := infra.ImportInto(targets)
+	result, err := infra.ImportPlan(targets)
 	if err != nil {
 		return err
 	}
@@ -118,27 +118,21 @@ func runImportInto(args []string, intoPath string) error {
 		return nil
 	}
 
-	planPrinter := result.Printer()
-	plan := result.Plan
+	// From here, use the result's printer (owns the terminal session).
+	p = result.Printer()
 
-	planPrinter.Separator()
-
-	// Print plan to terminal (repo field diffs + file change summary).
-	infra.PrintImportPlan(planPrinter, plan)
-
-	// File-level changes go to the diff viewer for interactive confirmation.
-	fileEntries := infra.BuildImportFileDiffEntries(plan)
+	// Confirm with diff viewer (file-level) or simple prompt (repo-only).
+	fileEntries := result.DiffEntries()
 
 	var ok bool
 	if len(fileEntries) > 0 {
-		ok, err = planPrinter.ConfirmWithDiff("Apply import changes?", fileEntries)
+		ok, err = p.ConfirmWithDiff("Apply import changes?", fileEntries)
 		if err != nil {
 			return err
 		}
-		// Write skip selections back to plan.FileChanges.
-		infra.ApplyImportSkipSelections(plan, fileEntries)
+		result.MarkSkips(fileEntries)
 	} else {
-		ok, err = planPrinter.Confirm("Apply import changes?")
+		ok, err = p.Confirm("Apply import changes?")
 	}
 	if err != nil {
 		return err
@@ -147,11 +141,11 @@ func runImportInto(args []string, intoPath string) error {
 		return nil
 	}
 
-	if err := infra.ApplyImportInto(result); err != nil {
+	if err := infra.ImportApply(result); err != nil {
 		return err
 	}
 
-	planPrinter.Summary(fmt.Sprintf("Import complete! %d documents updated.", plan.UpdatedDocs))
+	p.Summary(fmt.Sprintf("Import complete! %d documents updated.", result.Plan.UpdatedDocs))
 	return nil
 }
 
