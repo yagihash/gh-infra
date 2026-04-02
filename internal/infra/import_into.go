@@ -76,7 +76,7 @@ func (d *ImportDiff) MarkSkips(entries []ui.DiffEntry) {
 	}
 	for i := range d.Plan.FileChanges {
 		c := &d.Plan.FileChanges[i]
-		if skipped[key{c.Target, c.Path}] {
+		if skipped[key{c.Target, localPath(*c)}] {
 			c.Type = fileset.ChangeNoOp
 		}
 	}
