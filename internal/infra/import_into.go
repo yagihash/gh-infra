@@ -13,44 +13,33 @@ import (
 	"github.com/babarot/gh-infra/internal/ui"
 )
 
-// ImportOptions configures the Import function.
-type ImportOptions struct {
-	Args []string // owner/repo arguments
-	Into string   // non-empty = import into local manifests
-}
-
-// ImportResult holds the outcome of the Import function (--into mode).
-// For stdout mode, display is handled internally and the result is minimal.
-type ImportResult struct {
-	// Plan holds the diff result. Nil in stdout mode.
-	Plan *importer.Result
-
-	// Matched is false when no targets matched any manifest resource.
-	Matched bool
-
+// ImportDiff holds the diff result of ImportInto.
+type ImportDiff struct {
+	Plan    *importer.Result
+	Matched bool // false when no targets matched any manifest resource
 	printer ui.Printer
 }
 
 // Printer returns the printer used during this session.
-func (r *ImportResult) Printer() ui.Printer { return r.printer }
+func (d *ImportDiff) Printer() ui.Printer { return d.printer }
 
 // HasChanges reports whether any changes were detected.
-func (r *ImportResult) HasChanges() bool {
-	if r.Plan == nil {
+func (d *ImportDiff) HasChanges() bool {
+	if d.Plan == nil {
 		return false
 	}
-	return r.Plan.HasChanges()
+	return d.Plan.HasChanges()
 }
 
 // DiffEntries returns file-level diff entries for the interactive diff viewer.
 // WriteSkip entries are excluded (shown in the console plan only).
-func (r *ImportResult) DiffEntries() []ui.DiffEntry {
-	if r.Plan == nil {
+func (d *ImportDiff) DiffEntries() []ui.DiffEntry {
+	if d.Plan == nil {
 		return nil
 	}
 
 	var entries []ui.DiffEntry
-	for _, c := range r.Plan.FileChanges {
+	for _, c := range d.Plan.FileChanges {
 		if c.WriteMode == importer.WriteSkip {
 			continue
 		}
@@ -77,7 +66,7 @@ func (r *ImportResult) DiffEntries() []ui.DiffEntry {
 
 // MarkSkips writes skip selections from the diff viewer back to the plan,
 // setting skipped entries to NoOp so they are not imported.
-func (r *ImportResult) MarkSkips(entries []ui.DiffEntry) {
+func (d *ImportDiff) MarkSkips(entries []ui.DiffEntry) {
 	type key struct{ target, path string }
 	skipped := make(map[key]bool, len(entries))
 	for _, e := range entries {
@@ -85,31 +74,32 @@ func (r *ImportResult) MarkSkips(entries []ui.DiffEntry) {
 			skipped[key{e.Target, e.Path}] = true
 		}
 	}
-	for i := range r.Plan.FileChanges {
-		c := &r.Plan.FileChanges[i]
+	for i := range d.Plan.FileChanges {
+		c := &d.Plan.FileChanges[i]
 		if skipped[key{c.Target, c.Path}] {
 			c.Type = fileset.ChangeNoOp
 		}
 	}
 }
 
-// Write writes the planned changes to local files (--into mode).
-func (r *ImportResult) Write() error {
-	return importer.Write(r.Plan)
+// Write writes the planned changes to local files.
+func (d *ImportDiff) Write() error {
+	return importer.Write(d.Plan)
 }
 
-// importInto parses manifests, matches targets, fetches GitHub state,
+// ImportInto parses manifests, matches targets, fetches GitHub state,
 // compares it against local manifests, and prints the diff to the terminal.
-func importInto(opts ImportOptions) (*ImportResult, error) {
+// The returned ImportDiff provides methods for diff viewing, skip selection, and writing.
+func ImportInto(args []string, into string) (*ImportDiff, error) {
 	printer := ui.NewStandardPrinter()
 
 	// Parse manifests and match targets.
-	parsed, err := manifest.ParseAll(opts.Into)
+	parsed, err := manifest.ParseAll(into)
 	if err != nil {
 		return nil, err
 	}
 
-	targets, err := parseArgs(opts.Args)
+	targets, err := parseArgs(args)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +116,7 @@ func importInto(opts ImportOptions) (*ImportResult, error) {
 
 	if len(matched) == 0 {
 		printer.Message("\nNo matching resources found in manifests")
-		return &ImportResult{Matched: false, printer: printer}, nil
+		return &ImportDiff{Matched: false, printer: printer}, nil
 	}
 
 	runner := gh.NewRunner(false)
@@ -153,7 +143,7 @@ func importInto(opts ImportOptions) (*ImportResult, error) {
 		return nil, err
 	}
 
-	result := &ImportResult{Plan: plan, Matched: true, printer: printer}
+	result := &ImportDiff{Plan: plan, Matched: true, printer: printer}
 
 	if result.HasChanges() {
 		printer.Separator()
@@ -166,7 +156,6 @@ func importInto(opts ImportOptions) (*ImportResult, error) {
 // printImportPlan prints the import plan to the terminal,
 // grouped by target repo name (matching the plan command's output pattern).
 func printImportPlan(p ui.Printer, plan *importer.Result) {
-	// Collect all target names in order.
 	seen := make(map[string]bool)
 	var targets []string
 	for _, d := range plan.RepoDiffs {
@@ -185,7 +174,6 @@ func printImportPlan(p ui.Printer, plan *importer.Result) {
 		}
 	}
 
-	// Index by target.
 	repoDiffsByTarget := make(map[string][]importer.FieldDiff)
 	for _, d := range plan.RepoDiffs {
 		repoDiffsByTarget[d.Target] = append(repoDiffsByTarget[d.Target], d)
@@ -205,7 +193,6 @@ func printImportPlan(p ui.Printer, plan *importer.Result) {
 		p.ActionHeader(target, "will be updated")
 		p.GroupHeader(ui.IconChange, target)
 
-		// Print repo-level field diffs.
 		if len(rDiffs) > 0 {
 			w := 0
 			for _, d := range rDiffs {
@@ -225,7 +212,6 @@ func printImportPlan(p ui.Printer, plan *importer.Result) {
 			}
 		}
 
-		// Print file-level change summary.
 		if len(fChanges) > 0 {
 			w := 0
 			for _, c := range fChanges {

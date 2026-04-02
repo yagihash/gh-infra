@@ -34,8 +34,7 @@ func newImportCmd() *cobra.Command {
 }
 
 func runImport(args []string) error {
-	// stdout mode: Import handles all display internally.
-	_, err := infra.Import(infra.ImportOptions{Args: args})
+	err := infra.Import(args)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			printCancelled()
@@ -47,24 +46,23 @@ func runImport(args []string) error {
 }
 
 func runImportInto(args []string, intoPath string) error {
-	result, err := infra.Import(infra.ImportOptions{Args: args, Into: intoPath})
+	diff, err := infra.ImportInto(args, intoPath)
 	if err != nil {
 		return err
 	}
 
-	if !result.Matched {
-		return nil // message already printed by infra
-	}
-
-	if !result.HasChanges() {
-		result.Printer().Message("\nNo changes detected")
+	if !diff.Matched {
 		return nil
 	}
 
-	p := result.Printer()
+	if !diff.HasChanges() {
+		diff.Printer().Message("\nNo changes detected")
+		return nil
+	}
 
-	// Confirm with diff viewer (file-level) or simple prompt (repo-only).
-	fileEntries := result.DiffEntries()
+	p := diff.Printer()
+
+	fileEntries := diff.DiffEntries()
 
 	var ok bool
 	if len(fileEntries) > 0 {
@@ -72,7 +70,7 @@ func runImportInto(args []string, intoPath string) error {
 		if err != nil {
 			return err
 		}
-		result.MarkSkips(fileEntries)
+		diff.MarkSkips(fileEntries)
 	} else {
 		ok, err = p.Confirm("Apply import changes?")
 	}
@@ -83,10 +81,10 @@ func runImportInto(args []string, intoPath string) error {
 		return nil
 	}
 
-	if err := result.Write(); err != nil {
+	if err := diff.Write(); err != nil {
 		return err
 	}
 
-	p.Summary(fmt.Sprintf("Import complete! %d documents updated.", result.Plan.UpdatedDocs))
+	p.Summary(fmt.Sprintf("Import complete! %d documents updated.", diff.Plan.UpdatedDocs))
 	return nil
 }

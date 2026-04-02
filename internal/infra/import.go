@@ -15,37 +15,12 @@ import (
 	"github.com/babarot/gh-infra/internal/ui"
 )
 
-// Import is the single entry point for the import command.
-// Without Into, it exports repository state as YAML to stdout (display is handled internally).
-// With Into (--into), it diffs GitHub state against local manifests and prints the plan.
-func Import(opts ImportOptions) (*ImportResult, error) {
-	if opts.Into != "" {
-		return importInto(opts)
-	}
-	return importToStdout(opts)
-}
-
-// parseArgs parses owner/repo arguments into targets.
-func parseArgs(args []string) ([]importer.TargetMatches, error) {
-	var targets []importer.TargetMatches
-	for _, arg := range args {
-		parts := strings.SplitN(arg, "/", 2)
-		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-			return nil, fmt.Errorf("invalid target: %q (expected owner/repo)", arg)
-		}
-		targets = append(targets, importer.TargetMatches{
-			Target: importer.Target{Owner: parts[0], Name: parts[1]},
-		})
-	}
-	return targets, nil
-}
-
-// importToStdout fetches current state, converts it to YAML, and outputs to stdout.
-// All display is handled internally — the returned ImportResult is minimal.
-func importToStdout(opts ImportOptions) (*ImportResult, error) {
-	targets, err := parseArgs(opts.Args)
+// Import fetches current state of the given repositories and outputs them as YAML to stdout.
+// All display is handled internally.
+func Import(args []string) error {
+	targets, err := parseArgs(args)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	p := ui.NewStandardPrinter()
@@ -73,7 +48,6 @@ func importToStdout(opts ImportOptions) (*ImportResult, error) {
 	}
 	tracker := ui.RunRefresh(tasks)
 
-	// Create a cancellable context; cancel when the spinner is interrupted via Ctrl+C.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
@@ -88,7 +62,6 @@ func importToStdout(opts ImportOptions) (*ImportResult, error) {
 		}
 	}()
 
-	// Fetch all repos in parallel
 	type fetchResult struct {
 		data []byte
 		err  error
@@ -119,10 +92,10 @@ func importToStdout(opts ImportOptions) (*ImportResult, error) {
 	tracker.Wait()
 
 	if ctx.Err() != nil {
-		return nil, context.Canceled
+		return context.Canceled
 	}
 
-	// Collect results
+	// Collect and display
 	var yamlDocs [][]byte
 	exportErrors := make(map[string]error)
 	var succeeded, failed int
@@ -137,7 +110,6 @@ func importToStdout(opts ImportOptions) (*ImportResult, error) {
 		}
 	}
 
-	// Display: output YAML to stdout, errors to stderr, summary
 	p.Separator()
 
 	out := p.OutWriter()
@@ -159,5 +131,20 @@ func importToStdout(opts ImportOptions) (*ImportResult, error) {
 	summaryMsg += "."
 	p.Summary(summaryMsg)
 
-	return &ImportResult{printer: p}, nil
+	return nil
+}
+
+// parseArgs parses owner/repo arguments into targets.
+func parseArgs(args []string) ([]importer.TargetMatches, error) {
+	var targets []importer.TargetMatches
+	for _, arg := range args {
+		parts := strings.SplitN(arg, "/", 2)
+		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+			return nil, fmt.Errorf("invalid target: %q (expected owner/repo)", arg)
+		}
+		targets = append(targets, importer.TargetMatches{
+			Target: importer.Target{Owner: parts[0], Name: parts[1]},
+		})
+	}
+	return targets, nil
 }
