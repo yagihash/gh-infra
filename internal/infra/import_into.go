@@ -19,16 +19,14 @@ type ImportOptions struct {
 	Into string   // non-empty = import into local manifests
 }
 
-// ImportResult holds the outcome of the Import function.
+// ImportResult holds the outcome of the Import function (--into mode).
+// For stdout mode, display is handled internally and the result is minimal.
 type ImportResult struct {
-	// stdout mode fields
-	YAMLDocs  [][]byte
-	Errors    map[string]error
-	Succeeded int
-	Failed    int
-
-	// --into mode: diff result for local manifest updates.
+	// Plan holds the diff result. Nil in stdout mode.
 	Plan *importer.Result
+
+	// Matched is false when no targets matched any manifest resource.
+	Matched bool
 
 	printer ui.Printer
 }
@@ -36,7 +34,7 @@ type ImportResult struct {
 // Printer returns the printer used during this session.
 func (r *ImportResult) Printer() ui.Printer { return r.printer }
 
-// HasChanges reports whether any changes were detected (--into mode).
+// HasChanges reports whether any changes were detected.
 func (r *ImportResult) HasChanges() bool {
 	if r.Plan == nil {
 		return false
@@ -127,7 +125,8 @@ func importInto(opts ImportOptions) (*ImportResult, error) {
 	}
 
 	if len(matched) == 0 {
-		return &ImportResult{printer: printer}, nil
+		printer.Message("\nNo matching resources found in manifests")
+		return &ImportResult{Matched: false, printer: printer}, nil
 	}
 
 	runner := gh.NewRunner(false)
@@ -154,7 +153,7 @@ func importInto(opts ImportOptions) (*ImportResult, error) {
 		return nil, err
 	}
 
-	result := &ImportResult{Plan: plan, printer: printer}
+	result := &ImportResult{Plan: plan, Matched: true, printer: printer}
 
 	if result.HasChanges() {
 		printer.Separator()

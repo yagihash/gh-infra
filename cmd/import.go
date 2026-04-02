@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/babarot/gh-infra/internal/infra"
-	"github.com/babarot/gh-infra/internal/ui"
 )
 
 func newImportCmd() *cobra.Command {
@@ -35,7 +34,8 @@ func newImportCmd() *cobra.Command {
 }
 
 func runImport(args []string) error {
-	result, err := infra.Import(infra.ImportOptions{Args: args})
+	// stdout mode: Import handles all display internally.
+	_, err := infra.Import(infra.ImportOptions{Args: args})
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			printCancelled()
@@ -43,32 +43,6 @@ func runImport(args []string) error {
 		}
 		return err
 	}
-
-	p := result.Printer()
-
-	p.Separator()
-
-	// Output YAML in order
-	out := p.OutWriter()
-	for i, doc := range result.YAMLDocs {
-		if i > 0 {
-			fmt.Fprintln(out, "---")
-		}
-		fmt.Fprint(out, string(doc))
-	}
-
-	// Print errors to stderr so they remain visible when stdout is redirected
-	for name, err := range result.Errors {
-		p.Warning(name, fmt.Sprintf("skipping: %v", err))
-	}
-
-	// Summary
-	summaryMsg := fmt.Sprintf("Import complete! %s exported", ui.Bold.Render(fmt.Sprintf("%d", result.Succeeded)))
-	if result.Failed > 0 {
-		summaryMsg += fmt.Sprintf(", %s failed", ui.Bold.Render(fmt.Sprintf("%d", result.Failed)))
-	}
-	summaryMsg += "."
-	p.Summary(summaryMsg)
 	return nil
 }
 
@@ -76,6 +50,10 @@ func runImportInto(args []string, intoPath string) error {
 	result, err := infra.Import(infra.ImportOptions{Args: args, Into: intoPath})
 	if err != nil {
 		return err
+	}
+
+	if !result.Matched {
+		return nil // message already printed by infra
 	}
 
 	if !result.HasChanges() {

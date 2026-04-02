@@ -16,7 +16,7 @@ import (
 )
 
 // Import is the single entry point for the import command.
-// Without Into, it exports repository state as YAML to stdout.
+// Without Into, it exports repository state as YAML to stdout (display is handled internally).
 // With Into (--into), it diffs GitHub state against local manifests and prints the plan.
 func Import(opts ImportOptions) (*ImportResult, error) {
 	if opts.Into != "" {
@@ -40,7 +40,8 @@ func parseArgs(args []string) ([]importer.TargetMatches, error) {
 	return targets, nil
 }
 
-// importToStdout fetches current state and converts it to YAML (stdout mode).
+// importToStdout fetches current state, converts it to YAML, and outputs to stdout.
+// All display is handled internally — the returned ImportResult is minimal.
 func importToStdout(opts ImportOptions) (*ImportResult, error) {
 	targets, err := parseArgs(opts.Args)
 	if err != nil {
@@ -122,20 +123,41 @@ func importToStdout(opts ImportOptions) (*ImportResult, error) {
 	}
 
 	// Collect results
-	result := &ImportResult{
-		Errors:  make(map[string]error),
-		printer: p,
-	}
+	var yamlDocs [][]byte
+	exportErrors := make(map[string]error)
+	var succeeded, failed int
 	for i, r := range results {
 		fullName := names[i]
 		if r.err != nil {
-			result.Errors[fullName] = r.err
-			result.Failed++
+			exportErrors[fullName] = r.err
+			failed++
 		} else {
-			result.YAMLDocs = append(result.YAMLDocs, r.data)
-			result.Succeeded++
+			yamlDocs = append(yamlDocs, r.data)
+			succeeded++
 		}
 	}
 
-	return result, nil
+	// Display: output YAML to stdout, errors to stderr, summary
+	p.Separator()
+
+	out := p.OutWriter()
+	for i, doc := range yamlDocs {
+		if i > 0 {
+			fmt.Fprintln(out, "---")
+		}
+		fmt.Fprint(out, string(doc))
+	}
+
+	for name, err := range exportErrors {
+		p.Warning(name, fmt.Sprintf("skipping: %v", err))
+	}
+
+	summaryMsg := fmt.Sprintf("Import complete! %s exported", ui.Bold.Render(fmt.Sprintf("%d", succeeded)))
+	if failed > 0 {
+		summaryMsg += fmt.Sprintf(", %s failed", ui.Bold.Render(fmt.Sprintf("%d", failed)))
+	}
+	summaryMsg += "."
+	p.Summary(summaryMsg)
+
+	return &ImportResult{printer: p}, nil
 }
