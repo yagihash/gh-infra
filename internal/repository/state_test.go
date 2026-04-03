@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 	"testing"
 
@@ -309,9 +310,7 @@ func TestFetchRepoSettings_FetchErrorHandling(t *testing.T) {
 
 	t.Run("commit message settings 404 is ignored", func(t *testing.T) {
 		responses := make(map[string][]byte)
-		for k, v := range baseResponses {
-			responses[k] = v
-		}
+		maps.Copy(responses, baseResponses)
 		delete(responses, "api repos/myorg/myrepo --jq {squash_merge_commit_title,squash_merge_commit_message,merge_commit_title,merge_commit_message}")
 
 		mock := &gh.MockRunner{
@@ -332,9 +331,7 @@ func TestFetchRepoSettings_FetchErrorHandling(t *testing.T) {
 
 	t.Run("release immutability 403 is ignored", func(t *testing.T) {
 		responses := make(map[string][]byte)
-		for k, v := range baseResponses {
-			responses[k] = v
-		}
+		maps.Copy(responses, baseResponses)
 		delete(responses, "api repos/myorg/myrepo/immutable-releases")
 
 		mock := &gh.MockRunner{
@@ -355,9 +352,7 @@ func TestFetchRepoSettings_FetchErrorHandling(t *testing.T) {
 
 	t.Run("commit message settings 500 propagates error", func(t *testing.T) {
 		responses := make(map[string][]byte)
-		for k, v := range baseResponses {
-			responses[k] = v
-		}
+		maps.Copy(responses, baseResponses)
 		delete(responses, "api repos/myorg/myrepo --jq {squash_merge_commit_title,squash_merge_commit_message,merge_commit_title,merge_commit_message}")
 
 		mock := &gh.MockRunner{
@@ -378,9 +373,7 @@ func TestFetchRepoSettings_FetchErrorHandling(t *testing.T) {
 
 	t.Run("release immutability 500 propagates error", func(t *testing.T) {
 		responses := make(map[string][]byte)
-		for k, v := range baseResponses {
-			responses[k] = v
-		}
+		maps.Copy(responses, baseResponses)
 		delete(responses, "api repos/myorg/myrepo/immutable-releases")
 
 		mock := &gh.MockRunner{
