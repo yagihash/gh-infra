@@ -148,14 +148,18 @@ func (p *Processor) fetchRepoSettings(ctx context.Context, owner, name string) (
 	// Fetch commit message settings via REST API (not available in gh repo view --json)
 	commitMsgSettings, _ := p.fetchCommitMessageSettings(ctx, owner, name)
 
+	// Fetch release immutability setting via dedicated REST API endpoint
+	releaseImmutability, _ := p.fetchReleaseImmutability(ctx, owner, name)
+
 	return &CurrentState{
-		Owner:       owner,
-		Name:        name,
-		Description: raw.Description,
-		Archived:    raw.IsArchived,
-		Homepage:    raw.HomepageURL,
-		Visibility:  strings.ToLower(raw.Visibility),
-		Topics:      topics,
+		Owner:               owner,
+		Name:                name,
+		Description:         raw.Description,
+		Archived:            raw.IsArchived,
+		Homepage:            raw.HomepageURL,
+		Visibility:          strings.ToLower(raw.Visibility),
+		Topics:              topics,
+		ReleaseImmutability: releaseImmutability,
 		Features: CurrentFeatures{
 			Issues:      raw.HasIssuesEnabled,
 			Projects:    raw.HasProjectsEnabled,
@@ -207,6 +211,23 @@ func (p *Processor) fetchCommitMessageSettings(ctx context.Context, owner, name 
 		SquashMergeCommitTitle:   raw.SquashMergeCommitTitle,
 		SquashMergeCommitMessage: raw.SquashMergeCommitMessage,
 	}, nil
+}
+
+func (p *Processor) fetchReleaseImmutability(ctx context.Context, owner, name string) (bool, error) {
+	out, err := p.runner.Run(ctx,
+		"api", fmt.Sprintf("repos/%s/%s/immutable-releases", owner, name),
+	)
+	if err != nil {
+		return false, err
+	}
+
+	var raw struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.Unmarshal(out, &raw); err != nil {
+		return false, err
+	}
+	return raw.Enabled, nil
 }
 
 func (p *Processor) fetchBranchProtection(ctx context.Context, owner, name string) (map[string]*CurrentBranchProtection, error) {
