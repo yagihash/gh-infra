@@ -351,3 +351,413 @@ func TestCompareSpecs_NoDiff(t *testing.T) {
 		t.Errorf("expected no diffs, got %d: %+v", len(diffs), diffs)
 	}
 }
+
+// --- DiffRepositorySet tests ---
+
+func TestDiffRepositorySet_NoDiff(t *testing.T) {
+	// When the imported spec matches defaults+override exactly, no diffs.
+	defaults := &manifest.RepositorySetDefaults{
+		Spec: manifest.RepositorySpec{
+			Visibility: ptr("private"),
+			Features:   &manifest.Features{Issues: ptr(true)},
+		},
+	}
+	originalEntry := &manifest.RepositorySpec{} // no override
+
+	doc := &manifest.RepositoryDocument{
+		Resource: &manifest.Repository{
+			Metadata: manifest.RepositoryMetadata{Name: "repo", Owner: "org"},
+			Spec: manifest.RepositorySpec{
+				Visibility: ptr("private"),
+				Features:   &manifest.Features{Issues: ptr(true)},
+			},
+		},
+		SourcePath:        "/tmp/set.yaml",
+		DocIndex:          0,
+		FromSet:           true,
+		SetEntryIndex:     0,
+		DefaultsSpec:      defaults,
+		OriginalEntrySpec: originalEntry,
+	}
+
+	yamlData := []byte(`apiVersion: gh-infra/v1
+kind: RepositorySet
+metadata:
+  owner: org
+defaults:
+  spec:
+    visibility: private
+    features:
+      issues: true
+repositories:
+  - name: repo
+    spec: {}
+`)
+
+	imported := &manifest.Repository{
+		Spec: manifest.RepositorySpec{
+			Visibility: ptr("private"),
+			Features:   &manifest.Features{Issues: ptr(true)},
+		},
+	}
+
+	rp, err := DiffRepositorySet(DiffInput{
+		Repos:         []*manifest.RepositoryDocument{doc},
+		Imported:      imported,
+		ManifestBytes: map[string][]byte{"/tmp/set.yaml": yamlData},
+	})
+	if err != nil {
+		t.Fatalf("DiffRepositorySet error: %v", err)
+	}
+	if rp.HasChanges() {
+		t.Errorf("expected no changes, got %d diffs: %+v", len(rp.Diffs), rp.Diffs)
+	}
+}
+
+func TestDiffRepositorySet_OverrideChange(t *testing.T) {
+	// When the imported spec differs from defaults, the override should contain only the diff.
+	defaults := &manifest.RepositorySetDefaults{
+		Spec: manifest.RepositorySpec{
+			Visibility: ptr("private"),
+		},
+	}
+	originalEntry := &manifest.RepositorySpec{}
+
+	doc := &manifest.RepositoryDocument{
+		Resource: &manifest.Repository{
+			Metadata: manifest.RepositoryMetadata{Name: "repo", Owner: "org"},
+			Spec: manifest.RepositorySpec{
+				Visibility: ptr("private"),
+			},
+		},
+		SourcePath:        "/tmp/set.yaml",
+		DocIndex:          0,
+		FromSet:           true,
+		SetEntryIndex:     0,
+		DefaultsSpec:      defaults,
+		OriginalEntrySpec: originalEntry,
+	}
+
+	yamlData := []byte(`apiVersion: gh-infra/v1
+kind: RepositorySet
+metadata:
+  owner: org
+defaults:
+  spec:
+    visibility: private
+repositories:
+  - name: repo
+    spec:
+      visibility: private
+`)
+
+	imported := &manifest.Repository{
+		Spec: manifest.RepositorySpec{
+			Visibility:  ptr("public"), // differs from defaults
+			Description: ptr("hello"),  // not in defaults
+		},
+	}
+
+	rp, err := DiffRepositorySet(DiffInput{
+		Repos:         []*manifest.RepositoryDocument{doc},
+		Imported:      imported,
+		ManifestBytes: map[string][]byte{"/tmp/set.yaml": yamlData},
+	})
+	if err != nil {
+		t.Fatalf("DiffRepositorySet error: %v", err)
+	}
+	if !rp.HasChanges() {
+		t.Fatal("expected changes")
+	}
+
+	found := make(map[string]bool)
+	for _, d := range rp.Diffs {
+		found[d.Field] = true
+	}
+	if !found["visibility"] {
+		t.Error("expected diff for visibility")
+	}
+	if !found["description"] {
+		t.Error("expected diff for description")
+	}
+}
+
+func TestDiffRepositorySet_DefaultsNil(t *testing.T) {
+	// When DefaultsSpec is nil, the doc should be skipped.
+	doc := &manifest.RepositoryDocument{
+		Resource: &manifest.Repository{
+			Metadata: manifest.RepositoryMetadata{Name: "repo", Owner: "org"},
+			Spec:     manifest.RepositorySpec{},
+		},
+		SourcePath:   "/tmp/set.yaml",
+		DocIndex:     0,
+		FromSet:      true,
+		DefaultsSpec: nil, // nil defaults
+	}
+
+	imported := &manifest.Repository{
+		Spec: manifest.RepositorySpec{
+			Description: ptr("new"),
+		},
+	}
+
+	rp, err := DiffRepositorySet(DiffInput{
+		Repos:         []*manifest.RepositoryDocument{doc},
+		Imported:      imported,
+		ManifestBytes: map[string][]byte{"/tmp/set.yaml": []byte("ignored")},
+	})
+	if err != nil {
+		t.Fatalf("DiffRepositorySet error: %v", err)
+	}
+	if rp.HasChanges() {
+		t.Errorf("expected no changes when DefaultsSpec is nil, got %d diffs", len(rp.Diffs))
+	}
+}
+
+// --- compareBranchProtection tests ---
+
+func TestCompareBranchProtection_Update(t *testing.T) {
+	local := []manifest.BranchProtection{
+		{Pattern: "main", RequiredReviews: ptr(1)},
+	}
+	imported := []manifest.BranchProtection{
+		{Pattern: "main", RequiredReviews: ptr(2)},
+	}
+
+	diffs := compareBranchProtection(local, imported)
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
+	}
+	if diffs[0].Field != "branch_protection.main" {
+		t.Errorf("Field = %q, want %q", diffs[0].Field, "branch_protection.main")
+	}
+}
+
+func TestCompareBranchProtection_NewOnGitHub(t *testing.T) {
+	local := []manifest.BranchProtection{}
+	imported := []manifest.BranchProtection{
+		{Pattern: "develop", RequiredReviews: ptr(1)},
+	}
+
+	diffs := compareBranchProtection(local, imported)
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d", len(diffs))
+	}
+	if diffs[0].Old != nil {
+		t.Error("Old should be nil for new branch protection")
+	}
+}
+
+func TestCompareBranchProtection_DeletedOnGitHub(t *testing.T) {
+	local := []manifest.BranchProtection{
+		{Pattern: "release", RequiredReviews: ptr(1)},
+	}
+	imported := []manifest.BranchProtection{}
+
+	diffs := compareBranchProtection(local, imported)
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d", len(diffs))
+	}
+	if diffs[0].New != nil {
+		t.Error("New should be nil for deleted branch protection")
+	}
+}
+
+func TestCompareBranchProtection_Empty(t *testing.T) {
+	diffs := compareBranchProtection(nil, nil)
+	if len(diffs) != 0 {
+		t.Errorf("expected no diffs, got %d", len(diffs))
+	}
+}
+
+// --- compareRulesets tests ---
+
+func TestCompareRulesets_Update(t *testing.T) {
+	local := []manifest.Ruleset{
+		{Name: "protect-main", Enforcement: ptr("active")},
+	}
+	imported := []manifest.Ruleset{
+		{Name: "protect-main", Enforcement: ptr("evaluate")},
+	}
+
+	diffs := compareRulesets(local, imported)
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
+	}
+	if diffs[0].Field != "rulesets.protect-main" {
+		t.Errorf("Field = %q, want %q", diffs[0].Field, "rulesets.protect-main")
+	}
+}
+
+func TestCompareRulesets_NewOnGitHub(t *testing.T) {
+	local := []manifest.Ruleset{}
+	imported := []manifest.Ruleset{
+		{Name: "new-rule", Enforcement: ptr("active")},
+	}
+
+	diffs := compareRulesets(local, imported)
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d", len(diffs))
+	}
+	if diffs[0].Old != nil {
+		t.Error("Old should be nil for new ruleset")
+	}
+}
+
+func TestCompareRulesets_Empty(t *testing.T) {
+	diffs := compareRulesets(nil, nil)
+	if len(diffs) != 0 {
+		t.Errorf("expected no diffs, got %d", len(diffs))
+	}
+}
+
+// --- compareVariables tests ---
+
+func TestCompareVariables_Diff(t *testing.T) {
+	local := []manifest.Variable{
+		{Name: "ENV", Value: "dev"},
+	}
+	imported := []manifest.Variable{
+		{Name: "ENV", Value: "prod"},
+	}
+
+	diffs := compareVariables(local, imported)
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
+	}
+	if diffs[0].Field != "variables.ENV" {
+		t.Errorf("Field = %q, want %q", diffs[0].Field, "variables.ENV")
+	}
+}
+
+func TestCompareVariables_NewOnGitHub(t *testing.T) {
+	local := []manifest.Variable{}
+	imported := []manifest.Variable{
+		{Name: "NEW_VAR", Value: "val"},
+	}
+
+	diffs := compareVariables(local, imported)
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d", len(diffs))
+	}
+	if diffs[0].Field != "variables.NEW_VAR" {
+		t.Errorf("Field = %q, want %q", diffs[0].Field, "variables.NEW_VAR")
+	}
+}
+
+func TestCompareVariables_DeletedOnGitHub(t *testing.T) {
+	local := []manifest.Variable{
+		{Name: "OLD_VAR", Value: "val"},
+	}
+	imported := []manifest.Variable{}
+
+	diffs := compareVariables(local, imported)
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d", len(diffs))
+	}
+	if diffs[0].New != nil {
+		t.Error("New should be nil for deleted variable")
+	}
+}
+
+func TestCompareVariables_NoDiff(t *testing.T) {
+	vars := []manifest.Variable{
+		{Name: "A", Value: "1"},
+		{Name: "B", Value: "2"},
+	}
+
+	diffs := compareVariables(vars, vars)
+	if len(diffs) != 0 {
+		t.Errorf("expected no diffs, got %d: %+v", len(diffs), diffs)
+	}
+}
+
+// --- compareMergeStrategy tests ---
+
+func TestCompareMergeStrategy_Diff(t *testing.T) {
+	local := &manifest.MergeStrategy{
+		AllowMergeCommit: ptr(true),
+		AllowSquashMerge: ptr(false),
+	}
+	imported := &manifest.MergeStrategy{
+		AllowMergeCommit: ptr(false),
+		AllowSquashMerge: ptr(true),
+	}
+
+	diffs := compareMergeStrategy(local, imported)
+	if len(diffs) != 2 {
+		t.Fatalf("expected 2 diffs, got %d: %+v", len(diffs), diffs)
+	}
+
+	found := make(map[string]bool)
+	for _, d := range diffs {
+		found[d.Field] = true
+	}
+	if !found["merge_strategy.allow_merge_commit"] {
+		t.Error("expected diff for allow_merge_commit")
+	}
+	if !found["merge_strategy.allow_squash_merge"] {
+		t.Error("expected diff for allow_squash_merge")
+	}
+}
+
+func TestCompareMergeStrategy_BothNil(t *testing.T) {
+	diffs := compareMergeStrategy(nil, nil)
+	if len(diffs) != 0 {
+		t.Errorf("expected no diffs, got %d", len(diffs))
+	}
+}
+
+// --- compareActions tests ---
+
+func TestCompareActions_Diff(t *testing.T) {
+	local := &manifest.Actions{
+		Enabled: ptr(true),
+	}
+	imported := &manifest.Actions{
+		Enabled: ptr(false),
+	}
+
+	diffs := compareActions(local, imported)
+	if len(diffs) != 1 {
+		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
+	}
+	if diffs[0].Field != "actions.enabled" {
+		t.Errorf("Field = %q, want %q", diffs[0].Field, "actions.enabled")
+	}
+}
+
+func TestCompareActions_BothNil(t *testing.T) {
+	diffs := compareActions(nil, nil)
+	if len(diffs) != 0 {
+		t.Errorf("expected no diffs, got %d", len(diffs))
+	}
+}
+
+func TestCompareActions_SelectedActions(t *testing.T) {
+	local := &manifest.Actions{
+		SelectedActions: &manifest.SelectedActions{
+			GithubOwnedAllowed: ptr(true),
+			PatternsAllowed:    []string{"actions/checkout@*"},
+		},
+	}
+	imported := &manifest.Actions{
+		SelectedActions: &manifest.SelectedActions{
+			GithubOwnedAllowed: ptr(false),
+			PatternsAllowed:    []string{"actions/checkout@*", "actions/setup-go@*"},
+		},
+	}
+
+	diffs := compareActions(local, imported)
+
+	found := make(map[string]bool)
+	for _, d := range diffs {
+		found[d.Field] = true
+	}
+	if !found["actions.selected_actions.github_owned_allowed"] {
+		t.Error("expected diff for github_owned_allowed")
+	}
+	if !found["actions.selected_actions.patterns_allowed"] {
+		t.Error("expected diff for patterns_allowed")
+	}
+}
