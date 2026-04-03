@@ -13,9 +13,9 @@ import (
 
 func TestParseArgs_Valid(t *testing.T) {
 	tests := []struct {
-		name  string
-		args  []string
-		want  []struct{ owner, repo string }
+		name string
+		args []string
+		want []struct{ owner, repo string }
 	}{
 		{
 			name: "single repo",
@@ -133,8 +133,8 @@ func TestFormatImportValue_Nil(t *testing.T) {
 
 func TestFormatImportValue_Struct(t *testing.T) {
 	bp := manifest.BranchProtection{
-		Pattern:        "main",
-		RequiredReviews: intPtr(2),
+		Pattern:         "main",
+		RequiredReviews: manifest.Ptr(2),
 	}
 	got := formatImportValue(bp)
 	if got == "" || got == "(none)" {
@@ -289,7 +289,3 @@ func TestImportDiff_HasChanges_NilPlan(t *testing.T) {
 		t.Error("expected HasChanges to be false with nil Plan")
 	}
 }
-
-// --- helpers ---
-
-func intPtr(v int) *int { return &v }

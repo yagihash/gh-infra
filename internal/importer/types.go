@@ -1,6 +1,8 @@
 package importer
 
 import (
+	"maps"
+
 	"github.com/babarot/gh-infra/internal/fileset"
 	"github.com/babarot/gh-infra/internal/manifest"
 )
@@ -71,9 +73,7 @@ type Result struct {
 // AddRepoResult merges a RepoPlan into this IntoPlan.
 func (p *Result) AddRepoResult(rp RepoResult) {
 	p.RepoDiffs = append(p.RepoDiffs, rp.Diffs...)
-	for path, data := range rp.ManifestEdits {
-		p.ManifestEdits[path] = data
-	}
+	maps.Copy(p.ManifestEdits, rp.ManifestEdits)
 	p.UpdatedDocs += rp.UpdatedDocs
 }
 

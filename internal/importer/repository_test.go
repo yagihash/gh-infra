@@ -6,18 +6,16 @@ import (
 	"github.com/babarot/gh-infra/internal/manifest"
 )
 
-func ptr[T any](v T) *T { return &v }
-
 func TestPlanRepository_NoDiff(t *testing.T) {
 	local := manifest.RepositorySpec{
-		Description: ptr("my repo"),
-		Visibility:  ptr("public"),
+		Description: manifest.Ptr("my repo"),
+		Visibility:  manifest.Ptr("public"),
 		Topics:      []string{"go", "cli"},
 	}
 	imported := manifest.Repository{
 		Spec: manifest.RepositorySpec{
-			Description: ptr("my repo"),
-			Visibility:  ptr("public"),
+			Description: manifest.Ptr("my repo"),
+			Visibility:  manifest.Ptr("public"),
 			Topics:      []string{"cli", "go"}, // same set, different order
 		},
 	}
@@ -56,13 +54,13 @@ spec:
 
 func TestPlanRepository_ScalarDiff(t *testing.T) {
 	local := manifest.RepositorySpec{
-		Description: ptr("old desc"),
-		Visibility:  ptr("private"),
+		Description: manifest.Ptr("old desc"),
+		Visibility:  manifest.Ptr("private"),
 	}
 	imported := manifest.Repository{
 		Spec: manifest.RepositorySpec{
-			Description: ptr("new desc"),
-			Visibility:  ptr("public"),
+			Description: manifest.Ptr("new desc"),
+			Visibility:  manifest.Ptr("public"),
 		},
 	}
 
@@ -155,15 +153,15 @@ spec:
 func TestPlanRepository_FeaturesDiff(t *testing.T) {
 	local := manifest.RepositorySpec{
 		Features: &manifest.Features{
-			Issues: ptr(true),
-			Wiki:   ptr(true),
+			Issues: manifest.Ptr(true),
+			Wiki:   manifest.Ptr(true),
 		},
 	}
 	imported := manifest.Repository{
 		Spec: manifest.RepositorySpec{
 			Features: &manifest.Features{
-				Issues: ptr(true),
-				Wiki:   ptr(false), // changed
+				Issues: manifest.Ptr(true),
+				Wiki:   manifest.Ptr(false), // changed
 			},
 		},
 	}
@@ -214,11 +212,11 @@ spec:
 
 func TestPlanRepository_ManifestBytesUpdated(t *testing.T) {
 	local := manifest.RepositorySpec{
-		Description: ptr("old"),
+		Description: manifest.Ptr("old"),
 	}
 	imported := manifest.Repository{
 		Spec: manifest.RepositorySpec{
-			Description: ptr("new"),
+			Description: manifest.Ptr("new"),
 		},
 	}
 
@@ -256,17 +254,17 @@ spec:
 
 func TestMinimalOverride_AllSameAsDefaults(t *testing.T) {
 	defaults := manifest.RepositorySpec{
-		Visibility: ptr("private"),
+		Visibility: manifest.Ptr("private"),
 		Features: &manifest.Features{
-			Issues: ptr(true),
+			Issues: manifest.Ptr(true),
 		},
 	}
 
 	// imported matches defaults exactly
 	imported := manifest.RepositorySpec{
-		Visibility: ptr("private"),
+		Visibility: manifest.Ptr("private"),
 		Features: &manifest.Features{
-			Issues: ptr(true),
+			Issues: manifest.Ptr(true),
 		},
 	}
 
@@ -282,11 +280,11 @@ func TestMinimalOverride_AllSameAsDefaults(t *testing.T) {
 
 func TestMinimalOverride_ScalarOverride(t *testing.T) {
 	defaults := manifest.RepositorySpec{
-		Visibility: ptr("private"),
+		Visibility: manifest.Ptr("private"),
 	}
 
 	imported := manifest.RepositorySpec{
-		Visibility: ptr("public"),
+		Visibility: manifest.Ptr("public"),
 	}
 
 	override := minimalOverride(defaults, imported)
@@ -299,15 +297,15 @@ func TestMinimalOverride_ScalarOverride(t *testing.T) {
 func TestMinimalOverride_FeaturePartialOverride(t *testing.T) {
 	defaults := manifest.RepositorySpec{
 		Features: &manifest.Features{
-			Issues: ptr(true),
-			Wiki:   ptr(true),
+			Issues: manifest.Ptr(true),
+			Wiki:   manifest.Ptr(true),
 		},
 	}
 
 	imported := manifest.RepositorySpec{
 		Features: &manifest.Features{
-			Issues: ptr(true),  // same
-			Wiki:   ptr(false), // different
+			Issues: manifest.Ptr(true),  // same
+			Wiki:   manifest.Ptr(false), // different
 		},
 	}
 
@@ -342,8 +340,8 @@ func TestMinimalOverride_TopicsOverride(t *testing.T) {
 
 func TestCompareSpecs_NoDiff(t *testing.T) {
 	spec := manifest.RepositorySpec{
-		Description: ptr("test"),
-		Visibility:  ptr("public"),
+		Description: manifest.Ptr("test"),
+		Visibility:  manifest.Ptr("public"),
 	}
 
 	diffs := compareSpecs(spec, spec)
@@ -358,8 +356,8 @@ func TestDiffRepositorySet_NoDiff(t *testing.T) {
 	// When the imported spec matches defaults+override exactly, no diffs.
 	defaults := &manifest.RepositorySetDefaults{
 		Spec: manifest.RepositorySpec{
-			Visibility: ptr("private"),
-			Features:   &manifest.Features{Issues: ptr(true)},
+			Visibility: manifest.Ptr("private"),
+			Features:   &manifest.Features{Issues: manifest.Ptr(true)},
 		},
 	}
 	originalEntry := &manifest.RepositorySpec{} // no override
@@ -368,8 +366,8 @@ func TestDiffRepositorySet_NoDiff(t *testing.T) {
 		Resource: &manifest.Repository{
 			Metadata: manifest.RepositoryMetadata{Name: "repo", Owner: "org"},
 			Spec: manifest.RepositorySpec{
-				Visibility: ptr("private"),
-				Features:   &manifest.Features{Issues: ptr(true)},
+				Visibility: manifest.Ptr("private"),
+				Features:   &manifest.Features{Issues: manifest.Ptr(true)},
 			},
 		},
 		SourcePath:        "/tmp/set.yaml",
@@ -396,8 +394,8 @@ repositories:
 
 	imported := &manifest.Repository{
 		Spec: manifest.RepositorySpec{
-			Visibility: ptr("private"),
-			Features:   &manifest.Features{Issues: ptr(true)},
+			Visibility: manifest.Ptr("private"),
+			Features:   &manifest.Features{Issues: manifest.Ptr(true)},
 		},
 	}
 
@@ -418,7 +416,7 @@ func TestDiffRepositorySet_OverrideChange(t *testing.T) {
 	// When the imported spec differs from defaults, the override should contain only the diff.
 	defaults := &manifest.RepositorySetDefaults{
 		Spec: manifest.RepositorySpec{
-			Visibility: ptr("private"),
+			Visibility: manifest.Ptr("private"),
 		},
 	}
 	originalEntry := &manifest.RepositorySpec{}
@@ -427,7 +425,7 @@ func TestDiffRepositorySet_OverrideChange(t *testing.T) {
 		Resource: &manifest.Repository{
 			Metadata: manifest.RepositoryMetadata{Name: "repo", Owner: "org"},
 			Spec: manifest.RepositorySpec{
-				Visibility: ptr("private"),
+				Visibility: manifest.Ptr("private"),
 			},
 		},
 		SourcePath:        "/tmp/set.yaml",
@@ -453,8 +451,8 @@ repositories:
 
 	imported := &manifest.Repository{
 		Spec: manifest.RepositorySpec{
-			Visibility:  ptr("public"), // differs from defaults
-			Description: ptr("hello"),  // not in defaults
+			Visibility:  manifest.Ptr("public"), // differs from defaults
+			Description: manifest.Ptr("hello"),  // not in defaults
 		},
 	}
 
@@ -497,7 +495,7 @@ func TestDiffRepositorySet_DefaultsNil(t *testing.T) {
 
 	imported := &manifest.Repository{
 		Spec: manifest.RepositorySpec{
-			Description: ptr("new"),
+			Description: manifest.Ptr("new"),
 		},
 	}
 
@@ -518,10 +516,10 @@ func TestDiffRepositorySet_DefaultsNil(t *testing.T) {
 
 func TestCompareBranchProtection_Update(t *testing.T) {
 	local := []manifest.BranchProtection{
-		{Pattern: "main", RequiredReviews: ptr(1)},
+		{Pattern: "main", RequiredReviews: manifest.Ptr(1)},
 	}
 	imported := []manifest.BranchProtection{
-		{Pattern: "main", RequiredReviews: ptr(2)},
+		{Pattern: "main", RequiredReviews: manifest.Ptr(2)},
 	}
 
 	diffs := compareBranchProtection(local, imported)
@@ -536,7 +534,7 @@ func TestCompareBranchProtection_Update(t *testing.T) {
 func TestCompareBranchProtection_NewOnGitHub(t *testing.T) {
 	local := []manifest.BranchProtection{}
 	imported := []manifest.BranchProtection{
-		{Pattern: "develop", RequiredReviews: ptr(1)},
+		{Pattern: "develop", RequiredReviews: manifest.Ptr(1)},
 	}
 
 	diffs := compareBranchProtection(local, imported)
@@ -550,7 +548,7 @@ func TestCompareBranchProtection_NewOnGitHub(t *testing.T) {
 
 func TestCompareBranchProtection_DeletedOnGitHub(t *testing.T) {
 	local := []manifest.BranchProtection{
-		{Pattern: "release", RequiredReviews: ptr(1)},
+		{Pattern: "release", RequiredReviews: manifest.Ptr(1)},
 	}
 	imported := []manifest.BranchProtection{}
 
@@ -574,10 +572,10 @@ func TestCompareBranchProtection_Empty(t *testing.T) {
 
 func TestCompareRulesets_Update(t *testing.T) {
 	local := []manifest.Ruleset{
-		{Name: "protect-main", Enforcement: ptr("active")},
+		{Name: "protect-main", Enforcement: manifest.Ptr("active")},
 	}
 	imported := []manifest.Ruleset{
-		{Name: "protect-main", Enforcement: ptr("evaluate")},
+		{Name: "protect-main", Enforcement: manifest.Ptr("evaluate")},
 	}
 
 	diffs := compareRulesets(local, imported)
@@ -592,7 +590,7 @@ func TestCompareRulesets_Update(t *testing.T) {
 func TestCompareRulesets_NewOnGitHub(t *testing.T) {
 	local := []manifest.Ruleset{}
 	imported := []manifest.Ruleset{
-		{Name: "new-rule", Enforcement: ptr("active")},
+		{Name: "new-rule", Enforcement: manifest.Ptr("active")},
 	}
 
 	diffs := compareRulesets(local, imported)
@@ -676,12 +674,12 @@ func TestCompareVariables_NoDiff(t *testing.T) {
 
 func TestCompareMergeStrategy_Diff(t *testing.T) {
 	local := &manifest.MergeStrategy{
-		AllowMergeCommit: ptr(true),
-		AllowSquashMerge: ptr(false),
+		AllowMergeCommit: manifest.Ptr(true),
+		AllowSquashMerge: manifest.Ptr(false),
 	}
 	imported := &manifest.MergeStrategy{
-		AllowMergeCommit: ptr(false),
-		AllowSquashMerge: ptr(true),
+		AllowMergeCommit: manifest.Ptr(false),
+		AllowSquashMerge: manifest.Ptr(true),
 	}
 
 	diffs := compareMergeStrategy(local, imported)
@@ -712,10 +710,10 @@ func TestCompareMergeStrategy_BothNil(t *testing.T) {
 
 func TestCompareActions_Diff(t *testing.T) {
 	local := &manifest.Actions{
-		Enabled: ptr(true),
+		Enabled: manifest.Ptr(true),
 	}
 	imported := &manifest.Actions{
-		Enabled: ptr(false),
+		Enabled: manifest.Ptr(false),
 	}
 
 	diffs := compareActions(local, imported)
@@ -737,13 +735,13 @@ func TestCompareActions_BothNil(t *testing.T) {
 func TestCompareActions_SelectedActions(t *testing.T) {
 	local := &manifest.Actions{
 		SelectedActions: &manifest.SelectedActions{
-			GithubOwnedAllowed: ptr(true),
+			GithubOwnedAllowed: manifest.Ptr(true),
 			PatternsAllowed:    []string{"actions/checkout@*"},
 		},
 	}
 	imported := &manifest.Actions{
 		SelectedActions: &manifest.SelectedActions{
-			GithubOwnedAllowed: ptr(false),
+			GithubOwnedAllowed: manifest.Ptr(false),
 			PatternsAllowed:    []string{"actions/checkout@*", "actions/setup-go@*"},
 		},
 	}
