@@ -215,6 +215,13 @@ func (p *Processor) applyAllSettings(ctx context.Context, repo *manifest.Reposit
 		}
 	}
 
+	// Release immutability
+	if repo.Spec.ReleaseImmutability != nil {
+		if err := p.applyReleaseImmutability(ctx, owner, name, *repo.Spec.ReleaseImmutability); err != nil {
+			return err
+		}
+	}
+
 	// Actions (permissions, workflow defaults, selected actions, fork PR)
 	if a := repo.Spec.Actions; a != nil && a.Enabled != nil {
 		if err := p.applyActionsPermissions(ctx, owner, name, a); err != nil {
@@ -270,6 +277,10 @@ func (p *Processor) applyRepoSetting(ctx context.Context, c Change, repo *manife
 
 	case "topics":
 		return p.applyTopics(ctx, fullName, repo)
+
+	case "release_immutability":
+		enabled, _ := c.NewValue.(bool)
+		return p.applyReleaseImmutability(ctx, owner, name, enabled)
 
 	case "issues":
 		v, _ := c.NewValue.(bool)
@@ -355,6 +366,17 @@ func (p *Processor) applyTopics(ctx context.Context, fullName string, repo *mani
 	}
 
 	return nil
+}
+
+func (p *Processor) applyReleaseImmutability(ctx context.Context, owner, name string, enable bool) error {
+	endpoint := fmt.Sprintf("repos/%s/%s/immutable-releases", owner, name)
+	fullName := owner + "/" + name
+	if enable {
+		_, err := p.runner.Run(ctx, "api", endpoint, "--method", "PUT")
+		return wrapError(err, fullName, "release_immutability")
+	}
+	_, err := p.runner.Run(ctx, "api", endpoint, "--method", "DELETE")
+	return wrapError(err, fullName, "release_immutability")
 }
 
 func (p *Processor) applyBranchProtection(ctx context.Context, c Change, repo *manifest.Repository) error {

@@ -17,10 +17,11 @@ func ToManifest(ctx context.Context, r *CurrentState, resolver *manifest.Resolve
 			Owner: r.Owner,
 		},
 		Spec: manifest.RepositorySpec{
-			Description: manifest.Ptr(r.Description),
-			Visibility:  manifest.Ptr(r.Visibility),
-			Archived:    manifest.Ptr(r.Archived),
-			Topics:      r.Topics,
+			Description:         manifest.Ptr(r.Description),
+			Visibility:          manifest.Ptr(r.Visibility),
+			Archived:            manifest.Ptr(r.Archived),
+			Topics:              r.Topics,
+			ReleaseImmutability: manifest.Ptr(r.ReleaseImmutability),
 			Features: &manifest.Features{
 				Issues:      manifest.Ptr(r.Features.Issues),
 				Projects:    manifest.Ptr(r.Features.Projects),

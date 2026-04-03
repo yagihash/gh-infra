@@ -63,18 +63,19 @@ func (m RepositoryMetadata) FullName() string {
 }
 
 type RepositorySpec struct {
-	Description      *string            `yaml:"description,omitempty"`
-	Homepage         *string            `yaml:"homepage,omitempty"`
-	Visibility       *string            `yaml:"visibility,omitempty" validate:"omitempty,oneof=public private internal"`
-	Archived         *bool              `yaml:"archived,omitempty"`
-	Topics           []string           `yaml:"topics,omitempty"`
-	Features         *Features          `yaml:"features,omitempty"`
-	MergeStrategy    *MergeStrategy     `yaml:"merge_strategy,omitempty"`
-	BranchProtection []BranchProtection `yaml:"branch_protection,omitempty" validate:"unique=pattern"`
-	Rulesets         []Ruleset          `yaml:"rulesets,omitempty"          validate:"unique=name"`
-	Secrets          []Secret           `yaml:"secrets,omitempty"           validate:"unique=name"`
-	Variables        []Variable         `yaml:"variables,omitempty"         validate:"unique=name"`
-	Actions          *Actions           `yaml:"actions,omitempty"`
+	Description         *string            `yaml:"description,omitempty"`
+	Homepage            *string            `yaml:"homepage,omitempty"`
+	Visibility          *string            `yaml:"visibility,omitempty" validate:"omitempty,oneof=public private internal"`
+	Archived            *bool              `yaml:"archived,omitempty"`
+	Topics              []string           `yaml:"topics,omitempty"`
+	Features            *Features          `yaml:"features,omitempty"`
+	MergeStrategy       *MergeStrategy     `yaml:"merge_strategy,omitempty"`
+	ReleaseImmutability *bool              `yaml:"release_immutability,omitempty"`
+	BranchProtection    []BranchProtection `yaml:"branch_protection,omitempty" validate:"unique=pattern"`
+	Rulesets            []Ruleset          `yaml:"rulesets,omitempty"          validate:"unique=name"`
+	Secrets             []Secret           `yaml:"secrets,omitempty"           validate:"unique=name"`
+	Variables           []Variable         `yaml:"variables,omitempty"         validate:"unique=name"`
+	Actions             *Actions           `yaml:"actions,omitempty"`
 }
 
 type Features struct {

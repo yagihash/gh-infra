@@ -2,16 +2,17 @@ package repository
 
 // CurrentState represents the current state of a GitHub repository.
 type CurrentState struct {
-	Owner         string
-	Name          string
-	IsNew         bool // true if the repository does not exist yet
-	Description   string
-	Archived      bool
-	Homepage      string
-	Visibility    string
-	Topics        []string
-	Features      CurrentFeatures
-	MergeStrategy CurrentMergeStrategy
+	Owner               string
+	Name                string
+	IsNew               bool // true if the repository does not exist yet
+	Description         string
+	Archived            bool
+	Homepage            string
+	Visibility          string
+	Topics              []string
+	Features            CurrentFeatures
+	MergeStrategy       CurrentMergeStrategy
+	ReleaseImmutability bool
 
 	BranchProtection map[string]*CurrentBranchProtection // pattern → protection
 	Rulesets         map[string]*CurrentRuleset          // name → ruleset
