@@ -23,7 +23,7 @@ type treeEntry struct {
 // applyToRepo creates a single commit with all file changes using Git Data API.
 // Falls back to Contents API for empty repositories (no commits yet).
 // applyToRepo returns (prURL, error). prURL is non-empty only for pull_request strategy.
-func (p *Processor) applyToRepo(ctx context.Context, repo string, changes []Change, opts ApplyOptions) (string, error) {
+func (p *Processor) applyToRepo(ctx context.Context, repo string, changes []Change, opts ApplyOptions, statusFn func(string)) (string, error) {
 	headSHA, defaultBranch, err := p.getHeadSHA(ctx, repo)
 	if err != nil {
 		if strings.Contains(err.Error(), "repository is empty") {
@@ -33,26 +33,29 @@ func (p *Processor) applyToRepo(ctx context.Context, repo string, changes []Chan
 	}
 
 	message := resolveCommitMessage(opts)
-	return p.applyViaGitDataAPI(ctx, repo, defaultBranch, headSHA, changes, message, opts)
+	return p.applyViaGitDataAPI(ctx, repo, defaultBranch, headSHA, changes, message, opts, statusFn)
 }
 
 // applyViaGitDataAPI creates blobs, a tree, a commit, and updates the ref
 // (or creates a PR) in a single atomic operation. All files are included in
 // one commit regardless of count.
-func (p *Processor) applyViaGitDataAPI(ctx context.Context, repo, branch, headSHA string, changes []Change, message string, opts ApplyOptions) (string, error) {
+func (p *Processor) applyViaGitDataAPI(ctx context.Context, repo, branch, headSHA string, changes []Change, message string, opts ApplyOptions, statusFn func(string)) (string, error) {
 	// 1. Create blobs
+	statusFn("creating blobs...")
 	entries, err := p.createBlobs(ctx, repo, changes)
 	if err != nil {
 		return "", err
 	}
 
 	// 2. Create tree
+	statusFn("creating tree...")
 	treeSHA, err := p.createTree(ctx, repo, headSHA, entries)
 	if err != nil {
 		return "", fmt.Errorf("create tree: %w", err)
 	}
 
 	// 3. Create commit
+	statusFn("creating commit...")
 	commitSHA, err := p.createCommit(ctx, repo, message, treeSHA, headSHA)
 	if err != nil {
 		return "", fmt.Errorf("create commit: %w", err)
@@ -60,8 +63,10 @@ func (p *Processor) applyViaGitDataAPI(ctx context.Context, repo, branch, headSH
 
 	// 4. Update ref or create PR
 	if opts.Via == manifest.ViaPullRequest {
+		statusFn("creating pull request...")
 		return p.createPR(ctx, repo, branch, commitSHA, message, opts)
 	}
+	statusFn("updating ref...")
 	return "", p.updateRef(ctx, repo, branch, commitSHA)
 }
 

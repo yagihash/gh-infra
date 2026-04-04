@@ -10,6 +10,7 @@ import (
 // Implementations decide whether to use spinners, streaming lines, etc.
 type ProgressReporter interface {
 	Start(name string, fields []string)
+	UpdateStatus(name, status string)
 	Done(name string, elapsed time.Duration, count int)
 	Error(name string, elapsed time.Duration, err error)
 	Wait()
@@ -39,6 +40,12 @@ func NewSpinnerReporterWith(tracker *RefreshTracker, names []string) *SpinnerRep
 func (r *SpinnerReporter) Start(name string, fields []string) {
 	if t, ok := r.tasks[name]; ok && len(fields) > 0 {
 		r.tracker.UpdateStatus(t.Name, "applying "+fields[0]+"...")
+	}
+}
+
+func (r *SpinnerReporter) UpdateStatus(name, status string) {
+	if t, ok := r.tasks[name]; ok {
+		r.tracker.UpdateStatus(t.Name, status)
 	}
 }
 
@@ -77,6 +84,8 @@ func NewStreamReporter(printer Printer, verb, pastVerb string) *StreamReporter {
 	return &StreamReporter{printer: printer, verb: verb, past: pastVerb}
 }
 
+func (r *StreamReporter) UpdateStatus(string, string) {}
+
 func (r *StreamReporter) Start(name string, fields []string) {
 	r.printer.StreamStart(name, fmt.Sprintf("%s... [%s]", r.verb, strings.Join(fields, ", ")))
 }
@@ -101,6 +110,7 @@ func (r *StreamReporter) Wait() {
 type NoopReporter struct{}
 
 func (NoopReporter) Start(string, []string)             {}
+func (NoopReporter) UpdateStatus(string, string)        {}
 func (NoopReporter) Done(string, time.Duration, int)    {}
 func (NoopReporter) Error(string, time.Duration, error) {}
 func (NoopReporter) Wait()                              {}

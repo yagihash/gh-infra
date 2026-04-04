@@ -3,6 +3,7 @@ package infra
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"golang.org/x/sync/errgroup"
 
@@ -112,22 +113,25 @@ func Apply(result *PlanResult, opts ApplyOptions) error {
 		}
 
 		if hasFile {
-			g.Go(func() error {
-				for _, fs := range result.Parsed.FileSets {
-					fsChanges, applyOpts := fileSetApplyArgs(fs, result.FileChanges)
-					if !fileset.HasChanges(fsChanges) {
-						continue
-					}
-					var targets []string
-					for _, c := range fsChanges {
-						targets = append(targets, c.Target)
-					}
-					reporter := ui.NewSpinnerReporterWith(tracker, uniqueStrings(targets))
-					results := eng.file.Apply(ctx, fsChanges, applyOpts, reporter)
-					allFileResults = append(allFileResults, results...)
+			var mu sync.Mutex
+			for _, fs := range result.Parsed.FileSets {
+				fsChanges, applyOpts := fileSetApplyArgs(fs, result.FileChanges)
+				if !fileset.HasChanges(fsChanges) {
+					continue
 				}
-				return nil
-			})
+				var targets []string
+				for _, c := range fsChanges {
+					targets = append(targets, c.Target)
+				}
+				reporter := ui.NewSpinnerReporterWith(tracker, uniqueStrings(targets))
+				g.Go(func() error {
+					results := eng.file.Apply(ctx, fsChanges, applyOpts, reporter)
+					mu.Lock()
+					allFileResults = append(allFileResults, results...)
+					mu.Unlock()
+					return nil
+				})
+			}
 		}
 
 		_ = g.Wait()

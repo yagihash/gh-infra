@@ -63,7 +63,10 @@ func (p *Processor) Apply(ctx context.Context, changes []Change, opts ApplyOptio
 		reporter.Start(entry.name, paths)
 
 		start := time.Now()
-		prURL, err := p.applyToRepo(ctx, entry.name, filesToApply, opts)
+		statusFn := func(status string) {
+			reporter.UpdateStatus(entry.name, status)
+		}
+		prURL, err := p.applyToRepo(ctx, entry.name, filesToApply, opts, statusFn)
 		elapsed := time.Since(start)
 
 		for _, c := range filesToApply {
