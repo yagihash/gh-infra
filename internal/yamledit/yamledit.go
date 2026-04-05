@@ -11,7 +11,7 @@ import (
 // ReplaceNode replaces a structured node at the given YAML path in the specified
 // document of a (possibly multi-document) YAML byte slice.
 // Comments and formatting in unchanged parts are preserved.
-func ReplaceNode(data []byte, docIndex int, yamlPath string, value any) ([]byte, error) {
+func ReplaceNode(data []byte, docIndex int, yamlPath string, value any, opts ...goyaml.EncodeOption) ([]byte, error) {
 	file, err := parser.ParseBytes(data, parser.ParseComments)
 	if err != nil {
 		return nil, fmt.Errorf("yamledit: parse: %w", err)
@@ -27,7 +27,7 @@ func ReplaceNode(data []byte, docIndex int, yamlPath string, value any) ([]byte,
 	}
 
 	// Marshal the Go value to YAML, then parse it back to get an AST node.
-	valueBytes, err := goyaml.Marshal(value)
+	valueBytes, err := goyaml.MarshalWithOptions(value, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("yamledit: marshal value: %w", err)
 	}
@@ -56,7 +56,8 @@ func ReplaceNode(data []byte, docIndex int, yamlPath string, value any) ([]byte,
 
 // ReplaceContent replaces a literal block (content: |) at the given YAML path
 // in the specified document. Comments are preserved.
+// Multiline strings are always rendered as literal block scalars (|).
 func ReplaceContent(data []byte, docIndex int, yamlPath string, content string) ([]byte, error) {
-	// For literal blocks, we wrap the content as a YAML string and replace.
-	return ReplaceNode(data, docIndex, yamlPath, content)
+	return ReplaceNode(data, docIndex, yamlPath, content, goyaml.UseLiteralStyleIfMultiline(true))
 }
+

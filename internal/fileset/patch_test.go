@@ -171,8 +171,8 @@ func TestGeneratePatch(t *testing.T) {
 			}
 
 			// Round-trip: apply the patch to base and verify it matches desired
-			base := ensureTrailingNewline(tt.base)
-			desired := ensureTrailingNewline(tt.desired)
+			base := EnsureTrailingNewline(tt.base)
+			desired := EnsureTrailingNewline(tt.desired)
 			result, err := ApplyPatches(base, []string{patch})
 			if err != nil {
 				t.Fatalf("round-trip apply failed: %v", err)

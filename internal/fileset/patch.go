@@ -33,12 +33,17 @@ func ApplyPatches(content string, patches []string) (string, error) {
 // The patch can be applied to baseContent to produce desiredContent.
 // Returns an empty string if the contents are identical.
 func GeneratePatch(baseContent, desiredContent, filePath string) (string, error) {
-	baseNorm := ensureTrailingNewline(baseContent)
-	desiredNorm := ensureTrailingNewline(desiredContent)
-
-	if baseNorm == desiredNorm {
+	if strings.TrimRight(baseContent, "\n") == strings.TrimRight(desiredContent, "\n") {
 		return "", nil
 	}
+
+	// Normalize trailing newlines — difflib and gitdiff both expect lines
+	// ending with \n. The generated patch will be applied to content that
+	// has gone through source resolution, which reads files with os.ReadFile
+	// (preserving the original trailing newline state). To ensure the patch
+	// works in both cases, we normalize and validate accordingly.
+	baseNorm := EnsureTrailingNewline(baseContent)
+	desiredNorm := EnsureTrailingNewline(desiredContent)
 
 	diff, err := difflib.GetUnifiedDiffString(difflib.UnifiedDiff{
 		A:        splitLines(baseNorm),
@@ -55,10 +60,15 @@ func GeneratePatch(baseContent, desiredContent, filePath string) (string, error)
 		return "", nil
 	}
 
-	// Round-trip validation: apply the generated patch to base and verify it matches desired.
+	// Round-trip validation: try applying the patch to both the normalized
+	// and raw base content. The patch must work with at least one.
 	result, err := ApplyPatches(baseNorm, []string{diff})
 	if err != nil {
-		return "", fmt.Errorf("round-trip validation failed for %s: generated patch cannot be applied: %w", filePath, err)
+		// Try raw content as fallback
+		result, err = ApplyPatches(baseContent, []string{diff})
+		if err != nil {
+			return "", fmt.Errorf("round-trip validation failed for %s: generated patch cannot be applied: %w", filePath, err)
+		}
 	}
 	if strings.TrimRight(result, "\n") != strings.TrimRight(desiredNorm, "\n") {
 		return "", fmt.Errorf("round-trip validation failed for %s: applied patch does not produce expected content", filePath)
@@ -67,8 +77,9 @@ func GeneratePatch(baseContent, desiredContent, filePath string) (string, error)
 	return diff, nil
 }
 
-// ensureTrailingNewline appends a newline if the string doesn't end with one.
-func ensureTrailingNewline(s string) string {
+// EnsureTrailingNewline appends a newline if the string doesn't end with one.
+// Exported for use in plan.go to normalize content before patch application.
+func EnsureTrailingNewline(s string) string {
 	if s == "" || s[len(s)-1] != '\n' {
 		return s + "\n"
 	}

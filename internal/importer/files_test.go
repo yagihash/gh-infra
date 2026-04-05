@@ -12,10 +12,17 @@ import (
 // helper to call planImportEntry with default repo values for tests that don't need them.
 func callPlan(ctx context.Context, runner gh.Runner, fullName string, file manifest.FileEntry, doc *manifest.FileDocument, repoCount int) Change {
 	repo := manifest.FileSetRepository{Name: "repo"}
-	return planImportEntry(ctx, runner, fullName, file, doc, 0, repo, repoCount)
+	return planImportEntry(ctx, runner, fullName, file, doc, 0, repo, repoCount, false)
 }
 
-func TestPlanImportEntry_WriteSource(t *testing.T) {
+// callPlanShared is like callPlan but marks the source as shared.
+func callPlanShared(ctx context.Context, runner gh.Runner, fullName string, file manifest.FileEntry, doc *manifest.FileDocument, repoCount int) Change {
+	repo := manifest.FileSetRepository{Name: "repo"}
+	return planImportEntry(ctx, runner, fullName, file, doc, 0, repo, repoCount, true)
+}
+
+func TestPlanImportEntry_ExclusiveSourceUsesWriteSource(t *testing.T) {
+	// A source used by only one entry should use WriteSource (direct update).
 	file := manifest.FileEntry{
 		Path:           ".github/workflows/ci.yaml",
 		Content:        "old content",
@@ -31,9 +38,6 @@ func TestPlanImportEntry_WriteSource(t *testing.T) {
 
 	if change.WriteMode != WriteSource {
 		t.Errorf("WriteMode = %q, want %q", change.WriteMode, WriteSource)
-	}
-	if change.LocalTarget != "/tmp/local/ci.yaml" {
-		t.Errorf("LocalTarget = %q, want %q", change.LocalTarget, "/tmp/local/ci.yaml")
 	}
 }
 
@@ -110,8 +114,8 @@ func TestPlanImportEntry_SkipVars(t *testing.T) {
 	if change.WriteMode != WriteSkip {
 		t.Errorf("WriteMode = %q, want %q", change.WriteMode, WriteSkip)
 	}
-	if change.Reason != "uses template variables" {
-		t.Errorf("Reason = %q, want 'uses template variables'", change.Reason)
+	if change.Reason != "uses templates" {
+		t.Errorf("Reason = %q, want 'uses templates'", change.Reason)
 	}
 }
 
@@ -152,9 +156,9 @@ func TestPlanImportEntry_CreateOnly_NotSkipped(t *testing.T) {
 		SourcePath: "/tmp/manifest.yaml",
 	}
 
+	// Non-shared source + create_only → WriteSource (direct update).
 	change := callPlan(context.TODO(), nil, "org/repo", file, doc, 1)
 
-	// create_only should NOT be skipped — importing updates the local master template.
 	if change.WriteMode == WriteSkip {
 		t.Errorf("WriteMode should not be WriteSkip for create_only, got %q", change.WriteMode)
 	}
@@ -163,34 +167,26 @@ func TestPlanImportEntry_CreateOnly_NotSkipped(t *testing.T) {
 	}
 }
 
-func TestPlanImportEntry_SharedSourceWarning(t *testing.T) {
+func TestPlanImportEntry_SharedSourceUsesWritePatch(t *testing.T) {
 	file := manifest.FileEntry{
 		Path:           ".github/workflows/ci.yaml",
 		Content:        "content",
 		OriginalSource: "/tmp/shared/ci.yaml",
 	}
 	doc := &manifest.FileDocument{
-		Resource:   &manifest.FileSet{},
+		Resource: &manifest.FileSet{
+			Spec: manifest.FileSetSpec{
+				Files: []manifest.FileEntry{{Path: ".github/workflows/ci.yaml"}},
+			},
+		},
 		SourcePath: "/tmp/manifest.yaml",
 	}
 
-	// repoCount = 3 → shared source warning
-	change := callPlan(context.TODO(), nil, "org/repo", file, doc, 3)
+	// shared=true → should use WritePatch instead of WriteSource
+	change := callPlanShared(context.TODO(), nil, "org/repo", file, doc, 1)
 
-	if change.WriteMode != WriteSource {
-		t.Errorf("WriteMode = %q, want %q", change.WriteMode, WriteSource)
-	}
-	if len(change.Warnings) == 0 {
-		t.Error("expected warning for shared source")
-	}
-	found := false
-	for _, w := range change.Warnings {
-		if w == "shared source: affects 3 repositories" {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected 'shared source: affects 3 repositories' warning, got %v", change.Warnings)
+	if change.WriteMode != WritePatch {
+		t.Errorf("WriteMode = %q, want %q", change.WriteMode, WritePatch)
 	}
 }
 

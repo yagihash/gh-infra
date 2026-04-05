@@ -114,7 +114,8 @@ type Change struct {
 	ManifestPath string // manifest path (WriteInline/WritePatch)
 	DocIndex     int
 	YAMLPath     string // e.g. $.spec.files[0].content or $.spec.files[0].patches
-	PatchContent string // generated patch content (WritePatch only)
-	Reason       string // skip reason
+	PatchContent string             // generated patch content (WritePatch only)
+	PatchEntry   *manifest.FileEntry // original FileEntry for WritePatch (to reconstruct with patches)
+	Reason       string             // skip reason
 	Warnings     []string
 }

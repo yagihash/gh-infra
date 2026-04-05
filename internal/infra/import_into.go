@@ -135,7 +135,7 @@ func ImportInto(args []string, into string) (*ImportDiff, error) {
 
 	tracker := ui.RunRefresh(tasks)
 
-	plan, err := importer.Diff(matched, runner, printer, tracker)
+	plan, err := importer.Diff(matched, runner, printer, tracker, parsed.FileDocs)
 
 	tracker.Wait()
 

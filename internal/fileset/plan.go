@@ -111,7 +111,7 @@ func (p *Processor) Plan(ctx context.Context, fileSets []*manifest.FileSet, filt
 			}
 			// Apply unified diff patches (after template rendering)
 			if len(file.Patches) > 0 {
-				patched, err := ApplyPatches(file.Content, file.Patches)
+				patched, err := ApplyPatches(EnsureTrailingNewline(file.Content), file.Patches)
 				if err != nil {
 					tracker.Error(fullName, err)
 					return unitResult{err: fmt.Errorf("patch %s for %s: %w", file.Path, fullName, err)}
