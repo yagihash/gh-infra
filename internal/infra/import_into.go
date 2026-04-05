@@ -135,7 +135,7 @@ func ImportInto(args []string, into string) (*ImportDiff, error) {
 
 	tracker := ui.RunRefresh(tasks)
 
-	plan, err := importer.Diff(matched, runner, printer, tracker)
+	plan, err := importer.Diff(matched, runner, printer, tracker, parsed.FileDocs)
 
 	tracker.Wait()
 
@@ -250,6 +250,9 @@ func printImportPlan(p ui.Printer, plan *importer.Result) {
 
 // localPath returns the local write-back path for display.
 func localPath(c importer.Change) string {
+	if c.WriteMode == importer.WritePatch && c.ManifestPath != "" {
+		return c.ManifestPath + ":" + c.Path + " (patches)"
+	}
 	if c.LocalTarget != "" {
 		return c.LocalTarget
 	}

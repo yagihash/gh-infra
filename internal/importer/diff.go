@@ -15,13 +15,17 @@ import (
 // Diff builds a change plan for all targets.
 // manifestBytes is shared across targets so patches accumulate correctly.
 // Targets are processed sequentially (same file may be patched by multiple targets).
-func Diff(targets []TargetMatches, runner gh.Runner, printer ui.Printer, tracker *ui.RefreshTracker) (*Result, error) {
+func Diff(targets []TargetMatches, runner gh.Runner, printer ui.Printer, tracker *ui.RefreshTracker, allFileDocs []*manifest.FileDocument) (*Result, error) {
 	plan := &Result{
 		ManifestEdits: make(map[string][]byte),
 	}
 
 	// Shared manifest bytes — lazily loaded, patched in-place across targets.
 	manifestBytes := make(map[string][]byte)
+
+	// Build source reference counts across ALL file documents (not just matched ones)
+	// to detect shared templates that should not be overwritten.
+	sourceRefCount := buildSourceRefCount(allFileDocs)
 
 	// Determine resolver owner from first target.
 	var resolverOwner string
@@ -105,7 +109,7 @@ func Diff(targets []TargetMatches, runner gh.Runner, printer ui.Printer, tracker
 			if tracker != nil {
 				tracker.UpdateStatus(fullName, "comparing files...")
 			}
-			fileChanges, err := DiffFiles(ctx, runner, tm.Matches.FileSets, fullName)
+			fileChanges, err := DiffFiles(ctx, runner, tm.Matches.FileSets, fullName, sourceRefCount)
 			if err != nil {
 				return nil, fmt.Errorf("plan files %s: %w", fullName, err)
 			}
