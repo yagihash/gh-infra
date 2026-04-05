@@ -85,7 +85,7 @@ func (p *Processor) Plan(ctx context.Context, repos []*manifest.Repository, opts
 	var errors int
 	for _, res := range results {
 		if res.err != nil {
-			p.printer.Error(res.repo.Metadata.FullName(), res.err.Error())
+			p.diagnose.Error(res.repo.Metadata.FullName(), res.err.Error())
 			errors++
 			continue
 		}
@@ -98,7 +98,7 @@ func (p *Processor) Plan(ctx context.Context, repos []*manifest.Repository, opts
 		if errors > 1 {
 			label = "errors"
 		}
-		p.printer.Warning("", fmt.Sprintf("%d %s occurred during refresh. Affected repositories were skipped.", errors, label))
+		p.diagnose.Warning("", fmt.Sprintf("%d %s occurred during refresh. Affected repositories were skipped.", errors, label))
 	}
 
 	logger.Info("plan complete", "total_changes", len(allChanges), "errors", errors)

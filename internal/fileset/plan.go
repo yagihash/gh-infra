@@ -14,15 +14,15 @@ import (
 
 // Processor handles FileSet plan and apply operations.
 type Processor struct {
-	runner  gh.Runner
-	printer Reporter
+	runner gh.Runner
+	writer ProgressWriter
 }
 
-func NewProcessor(runner gh.Runner, printer Reporter) *Processor {
-	if printer == nil {
-		printer = noopReporter{}
+func NewProcessor(runner gh.Runner, writer ProgressWriter) *Processor {
+	if writer == nil {
+		writer = noopProgressWriter{}
 	}
-	return &Processor{runner: runner, printer: printer}
+	return &Processor{runner: runner, writer: writer}
 }
 
 // planUnit represents one (fileSet, repository) pair to process.

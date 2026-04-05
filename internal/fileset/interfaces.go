@@ -18,8 +18,8 @@ type RefreshTracker interface {
 	Error(name string, err error)
 }
 
-// Reporter emits file apply fallback progress messages.
-type Reporter interface {
+// ProgressWriter emits file apply fallback progress messages.
+type ProgressWriter interface {
 	Progress(msg string)
 }
 
@@ -37,6 +37,6 @@ func (noopRefreshTracker) UpdateStatus(string, string) {}
 func (noopRefreshTracker) Done(string)                 {}
 func (noopRefreshTracker) Error(string, error)         {}
 
-type noopReporter struct{}
+type noopProgressWriter struct{}
 
-func (noopReporter) Progress(string) {}
+func (noopProgressWriter) Progress(string) {}
