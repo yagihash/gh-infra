@@ -231,9 +231,7 @@ func (m refreshModel) View() tea.View {
 			// Show only a brief, single-line error; full details are printed after the spinner.
 			prefix := 2 + 1 + 1 + maxName + 2 // "  " + icon + " " + padded + "  "
 			available := m.width - prefix
-			if available < 20 {
-				available = 20
-			}
+			available = max(available, 20)
 			errText := truncateError(item.errMsg, available)
 			fmt.Fprintf(&b, "  %s %s  %s\n", Red.Render(IconError), Bold.Render(padded), Dim.Render(errText))
 		case taskFailed:

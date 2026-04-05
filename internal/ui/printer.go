@@ -111,12 +111,12 @@ const Separator_ = "━━━━━━━━━━━━━━━━━━━━
 
 // Icon constants for plan/apply output.
 const (
-	IconAdd     = "+"
-	IconChange  = "~"
-	IconRemove  = "-"
-	IconSuccess = "✓"
-	IconError   = "✗"
-	IconWarning = "⚠"
+	IconAdd      = "+"
+	IconChange   = "~"
+	IconRemove   = "-"
+	IconSuccess  = "✓"
+	IconError    = "✗"
+	IconWarning  = "⚠"
 	IconArrow    = "→"
 	IconEllipsis = "…"
 )
