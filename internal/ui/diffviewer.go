@@ -8,26 +8,26 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/pmezard/go-difflib/difflib"
 
-	"github.com/babarot/gh-infra/internal/importaction"
+	"github.com/babarot/gh-infra/internal/importer/actions"
 )
 
 // DiffEntry holds the raw content for one file change.
 // Diff text is generated at render time; Tab cycles the selected action.
 type DiffEntry struct {
-	Path           string                // display path for the initial action
-	RepoPath       string                // repo-relative path
-	Target         string                // repo full name, e.g. "owner/repo"
-	Icon           string                // "+", "~", "-", "⚠"
-	Current        string                // current file content for selected action
-	WriteCurrent   string                // current content for write action
-	PatchCurrent   string                // current content for patch action
-	Desired        string                // desired file content
-	Action         importaction.Action   // selected action
-	DefaultAction  importaction.Action   // default action
-	AllowedActions []importaction.Action // selectable actions
-	WriteTarget    string                // display path for write
-	PatchTarget    string                // display path for patch
-	Skip           bool                  // deprecated compatibility flag
+	Path           string           // display path for the initial action
+	RepoPath       string           // repo-relative path
+	Target         string           // repo full name, e.g. "owner/repo"
+	Icon           string           // "+", "~", "-", "⚠"
+	Current        string           // current file content for selected action
+	WriteCurrent   string           // current content for write action
+	PatchCurrent   string           // current content for patch action
+	Desired        string           // desired file content
+	Action         actions.Action   // selected action
+	DefaultAction  actions.Action   // default action
+	AllowedActions []actions.Action // selectable actions
+	WriteTarget    string           // display path for write
+	PatchTarget    string           // display path for patch
+	Skip           bool             // deprecated compatibility flag
 }
 
 // GenerateDiff produces a unified diff string between current and desired content.
@@ -179,7 +179,7 @@ func (m *diffViewModel) View() tea.View {
 			coloredLines = append(coloredLines, borderStyle.Render(strings.Repeat("─", diffWidth)))
 			continue
 		}
-		if entry.effectiveAction() == importaction.Skip {
+		if entry.effectiveAction() == actions.Skip {
 			// No diff coloring for skipped files — show plain text
 			coloredLines = append(coloredLines, truncate(line, diffWidth))
 		} else {
@@ -254,7 +254,7 @@ func (m *diffViewModel) buildRightPane(entry DiffEntry, width int) []string {
 		"",
 	}
 
-	if entry.effectiveAction() == importaction.Skip {
+	if entry.effectiveAction() == actions.Skip {
 		lines[0] = Dim.Render("Action: skip (will not be applied)")
 		if entry.Current != "" {
 			lines = append(lines, strings.Split(strings.TrimRight(entry.Current, "\n"), "\n")...)
@@ -287,7 +287,7 @@ func (m *diffViewModel) buildListItems() []listItem {
 		labelWidth := m.listWidth - 8 // "  ▸ ~ " prefix + margin
 		label := truncate(e.DisplayPath(), labelWidth)
 		var line string
-		if e.effectiveAction() == importaction.Skip {
+		if e.effectiveAction() == actions.Skip {
 			if i == m.cursor {
 				line = fmt.Sprintf("  ▸ %s %s", Dim.Render(e.Icon), Dim.Render(label))
 			} else {
@@ -325,11 +325,11 @@ func (e *DiffEntry) cycleAction() {
 
 func (e DiffEntry) DisplayPath() string {
 	switch e.effectiveAction() {
-	case importaction.Patch:
+	case actions.Patch:
 		if e.PatchTarget != "" {
 			return e.PatchTarget
 		}
-	case importaction.Write:
+	case actions.Write:
 		if e.WriteTarget != "" {
 			return e.WriteTarget
 		}
@@ -337,12 +337,12 @@ func (e DiffEntry) DisplayPath() string {
 	return e.Path
 }
 
-func renderAction(action, defaultAction importaction.Action) string {
+func renderAction(action, defaultAction actions.Action) string {
 	if action == "" {
-		action = importaction.Write
+		action = actions.Write
 	}
 	if defaultAction == "" {
-		defaultAction = importaction.Write
+		defaultAction = actions.Write
 	}
 	label := string(action)
 	if action == defaultAction {
@@ -351,21 +351,21 @@ func renderAction(action, defaultAction importaction.Action) string {
 	return label
 }
 
-func (e DiffEntry) effectiveAction() importaction.Action {
+func (e DiffEntry) effectiveAction() actions.Action {
 	if e.Action != "" {
 		return e.Action
 	}
 	if e.Skip {
-		return importaction.Skip
+		return actions.Skip
 	}
-	return importaction.Write
+	return actions.Write
 }
 
-func (e DiffEntry) currentForAction(action importaction.Action) string {
+func (e DiffEntry) currentForAction(action actions.Action) string {
 	switch action {
-	case importaction.Patch:
+	case actions.Patch:
 		return e.PatchCurrent
-	case importaction.Write:
+	case actions.Write:
 		return e.WriteCurrent
 	default:
 		return e.Current

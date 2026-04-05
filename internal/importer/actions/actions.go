@@ -1,4 +1,4 @@
-package importaction
+package actions
 
 // Action is the user-facing write-back choice in the interactive viewer.
 type Action string

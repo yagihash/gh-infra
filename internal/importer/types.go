@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/babarot/gh-infra/internal/fileset"
-	"github.com/babarot/gh-infra/internal/importaction"
+	"github.com/babarot/gh-infra/internal/importer/actions"
 	"github.com/babarot/gh-infra/internal/manifest"
 )
 
@@ -106,12 +106,12 @@ const (
 )
 
 // ImportAction is the user-facing write-back choice in the interactive viewer.
-type ImportAction = importaction.Action
+type ImportAction = actions.Action
 
 const (
-	ActionWrite ImportAction = importaction.Write
-	ActionPatch ImportAction = importaction.Patch
-	ActionSkip  ImportAction = importaction.Skip
+	ActionWrite ImportAction = actions.Write
+	ActionPatch ImportAction = actions.Patch
+	ActionSkip  ImportAction = actions.Skip
 )
 
 // Change represents a single file-level import change.
