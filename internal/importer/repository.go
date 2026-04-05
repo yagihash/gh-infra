@@ -120,138 +120,225 @@ func DiffRepositorySet(input DiffInput) (RepoResult, error) {
 }
 
 func patchRepositorySpec(data []byte, docIndex int, basePath string, diffs []FieldDiff, desired manifest.RepositorySpec) ([]byte, error) {
-	rootMerge := map[string]any{}
-	featuresMerge := map[string]any{}
-	mergeStrategyMerge := map[string]any{}
-	actionsMerge := map[string]any{}
-	selectedActionsMerge := map[string]any{}
-	var deletes []string
-
+	plan := newRepositoryPatchPlan(basePath)
 	for _, diff := range diffs {
-		switch diff.Field {
-		case "description":
-			collectScalarEdit(rootMerge, &deletes, basePath+".description", "description", desired.Description)
-		case "homepage":
-			collectScalarEdit(rootMerge, &deletes, basePath+".homepage", "homepage", desired.Homepage)
-		case "visibility":
-			collectScalarEdit(rootMerge, &deletes, basePath+".visibility", "visibility", desired.Visibility)
-		case "archived":
-			collectBoolEdit(rootMerge, &deletes, basePath+".archived", "archived", desired.Archived)
-		case "topics":
-			if len(desired.Topics) == 0 {
-				deletes = append(deletes, basePath+".topics")
-			} else {
-				rootMerge["topics"] = desired.Topics
-			}
-		case "features.issues":
-			collectBoolEdit(featuresMerge, &deletes, basePath+".features.issues", "issues", boolPtrFromFeatures(desired.Features, "issues"))
-		case "features.projects":
-			collectBoolEdit(featuresMerge, &deletes, basePath+".features.projects", "projects", boolPtrFromFeatures(desired.Features, "projects"))
-		case "features.wiki":
-			collectBoolEdit(featuresMerge, &deletes, basePath+".features.wiki", "wiki", boolPtrFromFeatures(desired.Features, "wiki"))
-		case "features.discussions":
-			collectBoolEdit(featuresMerge, &deletes, basePath+".features.discussions", "discussions", boolPtrFromFeatures(desired.Features, "discussions"))
-		case "merge_strategy.allow_merge_commit":
-			collectBoolEdit(mergeStrategyMerge, &deletes, basePath+".merge_strategy.allow_merge_commit", "allow_merge_commit", boolPtrFromMergeStrategy(desired.MergeStrategy, "allow_merge_commit"))
-		case "merge_strategy.allow_squash_merge":
-			collectBoolEdit(mergeStrategyMerge, &deletes, basePath+".merge_strategy.allow_squash_merge", "allow_squash_merge", boolPtrFromMergeStrategy(desired.MergeStrategy, "allow_squash_merge"))
-		case "merge_strategy.allow_rebase_merge":
-			collectBoolEdit(mergeStrategyMerge, &deletes, basePath+".merge_strategy.allow_rebase_merge", "allow_rebase_merge", boolPtrFromMergeStrategy(desired.MergeStrategy, "allow_rebase_merge"))
-		case "merge_strategy.auto_delete_head_branches":
-			collectBoolEdit(mergeStrategyMerge, &deletes, basePath+".merge_strategy.auto_delete_head_branches", "auto_delete_head_branches", boolPtrFromMergeStrategy(desired.MergeStrategy, "auto_delete_head_branches"))
-		case "merge_strategy.squash_merge_commit_title":
-			collectScalarEdit(mergeStrategyMerge, &deletes, basePath+".merge_strategy.squash_merge_commit_title", "squash_merge_commit_title", stringPtrFromMergeStrategy(desired.MergeStrategy, "squash_merge_commit_title"))
-		case "merge_strategy.squash_merge_commit_message":
-			collectScalarEdit(mergeStrategyMerge, &deletes, basePath+".merge_strategy.squash_merge_commit_message", "squash_merge_commit_message", stringPtrFromMergeStrategy(desired.MergeStrategy, "squash_merge_commit_message"))
-		case "merge_strategy.merge_commit_title":
-			collectScalarEdit(mergeStrategyMerge, &deletes, basePath+".merge_strategy.merge_commit_title", "merge_commit_title", stringPtrFromMergeStrategy(desired.MergeStrategy, "merge_commit_title"))
-		case "merge_strategy.merge_commit_message":
-			collectScalarEdit(mergeStrategyMerge, &deletes, basePath+".merge_strategy.merge_commit_message", "merge_commit_message", stringPtrFromMergeStrategy(desired.MergeStrategy, "merge_commit_message"))
-		case "actions.enabled":
-			collectBoolEdit(actionsMerge, &deletes, basePath+".actions.enabled", "enabled", boolPtrFromActions(desired.Actions, "enabled"))
-		case "actions.allowed_actions":
-			collectScalarEdit(actionsMerge, &deletes, basePath+".actions.allowed_actions", "allowed_actions", stringPtrFromActions(desired.Actions, "allowed_actions"))
-		case "actions.sha_pinning_required":
-			collectBoolEdit(actionsMerge, &deletes, basePath+".actions.sha_pinning_required", "sha_pinning_required", boolPtrFromActions(desired.Actions, "sha_pinning_required"))
-		case "actions.workflow_permissions":
-			collectScalarEdit(actionsMerge, &deletes, basePath+".actions.workflow_permissions", "workflow_permissions", stringPtrFromActions(desired.Actions, "workflow_permissions"))
-		case "actions.can_approve_pull_requests":
-			collectBoolEdit(actionsMerge, &deletes, basePath+".actions.can_approve_pull_requests", "can_approve_pull_requests", boolPtrFromActions(desired.Actions, "can_approve_pull_requests"))
-		case "actions.fork_pr_approval":
-			collectScalarEdit(actionsMerge, &deletes, basePath+".actions.fork_pr_approval", "fork_pr_approval", stringPtrFromActions(desired.Actions, "fork_pr_approval"))
-		case "actions.selected_actions.github_owned_allowed":
-			collectBoolEdit(selectedActionsMerge, &deletes, basePath+".actions.selected_actions.github_owned_allowed", "github_owned_allowed", boolPtrFromSelectedActions(desired.Actions, "github_owned_allowed"))
-		case "actions.selected_actions.verified_allowed":
-			collectBoolEdit(selectedActionsMerge, &deletes, basePath+".actions.selected_actions.verified_allowed", "verified_allowed", boolPtrFromSelectedActions(desired.Actions, "verified_allowed"))
-		case "actions.selected_actions.patterns_allowed":
-			patterns := patternsFromSelectedActions(desired.Actions)
-			if len(patterns) == 0 {
-				deletes = append(deletes, basePath+".actions.selected_actions.patterns_allowed")
-			} else {
-				selectedActionsMerge["patterns_allowed"] = patterns
-			}
-		default:
-			switch {
-			case isPrefixedField(diff.Field, "branch_protection."):
-				if len(desired.BranchProtection) == 0 {
-					deletes = append(deletes, basePath+".branch_protection")
-				} else {
-					rootMerge["branch_protection"] = desired.BranchProtection
-				}
-			case isPrefixedField(diff.Field, "rulesets."):
-				if len(desired.Rulesets) == 0 {
-					deletes = append(deletes, basePath+".rulesets")
-				} else {
-					rootMerge["rulesets"] = desired.Rulesets
-				}
-			case isPrefixedField(diff.Field, "variables."):
-				if len(desired.Variables) == 0 {
-					deletes = append(deletes, basePath+".variables")
-				} else {
-					rootMerge["variables"] = desired.Variables
-				}
-			}
-		}
+		applyRepositoryDescriptor(plan, diff.Field, desired)
 	}
 
 	var err error
-	if len(rootMerge) > 0 {
-		data, err = yamledit.Merge(data, docIndex, basePath, rootMerge)
+	if len(plan.rootMerge) > 0 {
+		data, err = yamledit.Merge(data, docIndex, basePath, plan.rootMerge)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if len(featuresMerge) > 0 {
-		data, err = mergeNestedObject(data, docIndex, basePath, "features", featuresMerge)
+	if len(plan.selectedActionsMerge) > 0 {
+		if plan.nestedMerges["actions"] == nil {
+			plan.nestedMerges["actions"] = map[string]any{}
+		}
+		plan.nestedMerges["actions"]["selected_actions"] = plan.selectedActionsMerge
+	}
+	for _, nestedKey := range repositoryNestedMergeOrder {
+		fields := plan.nestedMerges[nestedKey]
+		if len(fields) == 0 {
+			continue
+		}
+		data, err = mergeNestedObject(data, docIndex, basePath, nestedKey, fields)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if len(mergeStrategyMerge) > 0 {
-		data, err = mergeNestedObject(data, docIndex, basePath, "merge_strategy", mergeStrategyMerge)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if len(actionsMerge) > 0 {
-		data, err = mergeNestedObject(data, docIndex, basePath, "actions", actionsMerge)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if len(selectedActionsMerge) > 0 {
-		data, err = mergeNestedObject(data, docIndex, basePath+".actions", "selected_actions", selectedActionsMerge)
-		if err != nil {
-			return nil, err
-		}
-	}
-	for _, path := range deletes {
+	for _, path := range plan.deletes {
 		data, err = yamledit.Delete(data, docIndex, path)
 		if err != nil {
 			return nil, err
 		}
 	}
 	return data, nil
+}
+
+type fieldKind int
+
+const (
+	fieldString fieldKind = iota
+	fieldBool
+	fieldStringSlice
+	fieldCollection
+)
+
+type repositoryFieldDescriptor struct {
+	diffField string
+	key       string
+	parentKey string
+	kind      fieldKind
+	stringVal func(spec manifest.RepositorySpec) *string
+	boolVal   func(spec manifest.RepositorySpec) *bool
+	sliceVal  func(spec manifest.RepositorySpec) []string
+	valueVal  func(spec manifest.RepositorySpec) any
+	prefix    string
+}
+
+type repositoryPatchPlan struct {
+	basePath             string
+	rootMerge            map[string]any
+	nestedMerges         map[string]map[string]any
+	selectedActionsMerge map[string]any
+	deletes              []string
+}
+
+var repositoryNestedMergeOrder = []string{"features", "merge_strategy", "actions"}
+
+var repositoryFieldDescriptors = []repositoryFieldDescriptor{
+	{diffField: "description", key: "description", kind: fieldString, stringVal: func(spec manifest.RepositorySpec) *string { return spec.Description }},
+	{diffField: "homepage", key: "homepage", kind: fieldString, stringVal: func(spec manifest.RepositorySpec) *string { return spec.Homepage }},
+	{diffField: "visibility", key: "visibility", kind: fieldString, stringVal: func(spec manifest.RepositorySpec) *string { return spec.Visibility }},
+	{diffField: "archived", key: "archived", kind: fieldBool, boolVal: func(spec manifest.RepositorySpec) *bool { return spec.Archived }},
+	{diffField: "topics", key: "topics", kind: fieldStringSlice, sliceVal: func(spec manifest.RepositorySpec) []string { return spec.Topics }},
+	{diffField: "features.issues", parentKey: "features", key: "issues", kind: fieldBool, boolVal: func(spec manifest.RepositorySpec) *bool { return boolPtrFromFeatures(spec.Features, "issues") }},
+	{diffField: "features.projects", parentKey: "features", key: "projects", kind: fieldBool, boolVal: func(spec manifest.RepositorySpec) *bool { return boolPtrFromFeatures(spec.Features, "projects") }},
+	{diffField: "features.wiki", parentKey: "features", key: "wiki", kind: fieldBool, boolVal: func(spec manifest.RepositorySpec) *bool { return boolPtrFromFeatures(spec.Features, "wiki") }},
+	{diffField: "features.discussions", parentKey: "features", key: "discussions", kind: fieldBool, boolVal: func(spec manifest.RepositorySpec) *bool { return boolPtrFromFeatures(spec.Features, "discussions") }},
+	{diffField: "merge_strategy.allow_merge_commit", parentKey: "merge_strategy", key: "allow_merge_commit", kind: fieldBool, boolVal: func(spec manifest.RepositorySpec) *bool {
+		return boolPtrFromMergeStrategy(spec.MergeStrategy, "allow_merge_commit")
+	}},
+	{diffField: "merge_strategy.allow_squash_merge", parentKey: "merge_strategy", key: "allow_squash_merge", kind: fieldBool, boolVal: func(spec manifest.RepositorySpec) *bool {
+		return boolPtrFromMergeStrategy(spec.MergeStrategy, "allow_squash_merge")
+	}},
+	{diffField: "merge_strategy.allow_rebase_merge", parentKey: "merge_strategy", key: "allow_rebase_merge", kind: fieldBool, boolVal: func(spec manifest.RepositorySpec) *bool {
+		return boolPtrFromMergeStrategy(spec.MergeStrategy, "allow_rebase_merge")
+	}},
+	{diffField: "merge_strategy.auto_delete_head_branches", parentKey: "merge_strategy", key: "auto_delete_head_branches", kind: fieldBool, boolVal: func(spec manifest.RepositorySpec) *bool {
+		return boolPtrFromMergeStrategy(spec.MergeStrategy, "auto_delete_head_branches")
+	}},
+	{diffField: "merge_strategy.squash_merge_commit_title", parentKey: "merge_strategy", key: "squash_merge_commit_title", kind: fieldString, stringVal: func(spec manifest.RepositorySpec) *string {
+		return stringPtrFromMergeStrategy(spec.MergeStrategy, "squash_merge_commit_title")
+	}},
+	{diffField: "merge_strategy.squash_merge_commit_message", parentKey: "merge_strategy", key: "squash_merge_commit_message", kind: fieldString, stringVal: func(spec manifest.RepositorySpec) *string {
+		return stringPtrFromMergeStrategy(spec.MergeStrategy, "squash_merge_commit_message")
+	}},
+	{diffField: "merge_strategy.merge_commit_title", parentKey: "merge_strategy", key: "merge_commit_title", kind: fieldString, stringVal: func(spec manifest.RepositorySpec) *string {
+		return stringPtrFromMergeStrategy(spec.MergeStrategy, "merge_commit_title")
+	}},
+	{diffField: "merge_strategy.merge_commit_message", parentKey: "merge_strategy", key: "merge_commit_message", kind: fieldString, stringVal: func(spec manifest.RepositorySpec) *string {
+		return stringPtrFromMergeStrategy(spec.MergeStrategy, "merge_commit_message")
+	}},
+	{diffField: "actions.enabled", parentKey: "actions", key: "enabled", kind: fieldBool, boolVal: func(spec manifest.RepositorySpec) *bool { return boolPtrFromActions(spec.Actions, "enabled") }},
+	{diffField: "actions.allowed_actions", parentKey: "actions", key: "allowed_actions", kind: fieldString, stringVal: func(spec manifest.RepositorySpec) *string {
+		return stringPtrFromActions(spec.Actions, "allowed_actions")
+	}},
+	{diffField: "actions.sha_pinning_required", parentKey: "actions", key: "sha_pinning_required", kind: fieldBool, boolVal: func(spec manifest.RepositorySpec) *bool {
+		return boolPtrFromActions(spec.Actions, "sha_pinning_required")
+	}},
+	{diffField: "actions.workflow_permissions", parentKey: "actions", key: "workflow_permissions", kind: fieldString, stringVal: func(spec manifest.RepositorySpec) *string {
+		return stringPtrFromActions(spec.Actions, "workflow_permissions")
+	}},
+	{diffField: "actions.can_approve_pull_requests", parentKey: "actions", key: "can_approve_pull_requests", kind: fieldBool, boolVal: func(spec manifest.RepositorySpec) *bool {
+		return boolPtrFromActions(spec.Actions, "can_approve_pull_requests")
+	}},
+	{diffField: "actions.fork_pr_approval", parentKey: "actions", key: "fork_pr_approval", kind: fieldString, stringVal: func(spec manifest.RepositorySpec) *string {
+		return stringPtrFromActions(spec.Actions, "fork_pr_approval")
+	}},
+	{diffField: "actions.selected_actions.github_owned_allowed", parentKey: "actions.selected_actions", key: "github_owned_allowed", kind: fieldBool, boolVal: func(spec manifest.RepositorySpec) *bool {
+		return boolPtrFromSelectedActions(spec.Actions, "github_owned_allowed")
+	}},
+	{diffField: "actions.selected_actions.verified_allowed", parentKey: "actions.selected_actions", key: "verified_allowed", kind: fieldBool, boolVal: func(spec manifest.RepositorySpec) *bool {
+		return boolPtrFromSelectedActions(spec.Actions, "verified_allowed")
+	}},
+	{diffField: "actions.selected_actions.patterns_allowed", parentKey: "actions.selected_actions", key: "patterns_allowed", kind: fieldStringSlice, sliceVal: func(spec manifest.RepositorySpec) []string { return patternsFromSelectedActions(spec.Actions) }},
+	{prefix: "branch_protection.", key: "branch_protection", kind: fieldCollection, valueVal: func(spec manifest.RepositorySpec) any { return spec.BranchProtection }},
+	{prefix: "rulesets.", key: "rulesets", kind: fieldCollection, valueVal: func(spec manifest.RepositorySpec) any { return spec.Rulesets }},
+	{prefix: "variables.", key: "variables", kind: fieldCollection, valueVal: func(spec manifest.RepositorySpec) any { return spec.Variables }},
+}
+
+func newRepositoryPatchPlan(basePath string) *repositoryPatchPlan {
+	return &repositoryPatchPlan{
+		basePath:             basePath,
+		rootMerge:            map[string]any{},
+		nestedMerges:         map[string]map[string]any{},
+		selectedActionsMerge: map[string]any{},
+	}
+}
+
+func applyRepositoryDescriptor(plan *repositoryPatchPlan, field string, desired manifest.RepositorySpec) {
+	for _, desc := range repositoryFieldDescriptors {
+		if desc.matches(field) {
+			desc.apply(plan, desired)
+			return
+		}
+	}
+}
+
+func (d repositoryFieldDescriptor) matches(field string) bool {
+	if d.diffField != "" {
+		return d.diffField == field
+	}
+	return isPrefixedField(field, d.prefix)
+}
+
+func (d repositoryFieldDescriptor) apply(plan *repositoryPatchPlan, spec manifest.RepositorySpec) {
+	switch d.kind {
+	case fieldString:
+		applyStringDescriptor(plan, d, d.stringVal(spec))
+	case fieldBool:
+		applyBoolDescriptor(plan, d, d.boolVal(spec))
+	case fieldStringSlice:
+		applyStringSliceDescriptor(plan, d, d.sliceVal(spec))
+	case fieldCollection:
+		applyCollectionDescriptor(plan, d, d.valueVal(spec))
+	}
+}
+
+func applyStringDescriptor(plan *repositoryPatchPlan, desc repositoryFieldDescriptor, value *string) {
+	if value == nil {
+		plan.deletes = append(plan.deletes, plan.pathFor(desc))
+		return
+	}
+	plan.mergeTarget(desc)[desc.key] = *value
+}
+
+func applyBoolDescriptor(plan *repositoryPatchPlan, desc repositoryFieldDescriptor, value *bool) {
+	if value == nil {
+		plan.deletes = append(plan.deletes, plan.pathFor(desc))
+		return
+	}
+	plan.mergeTarget(desc)[desc.key] = *value
+}
+
+func applyStringSliceDescriptor(plan *repositoryPatchPlan, desc repositoryFieldDescriptor, value []string) {
+	if len(value) == 0 {
+		plan.deletes = append(plan.deletes, plan.pathFor(desc))
+		return
+	}
+	plan.mergeTarget(desc)[desc.key] = value
+}
+
+func applyCollectionDescriptor(plan *repositoryPatchPlan, desc repositoryFieldDescriptor, value any) {
+	if reflect.ValueOf(value).Len() == 0 {
+		plan.deletes = append(plan.deletes, plan.pathFor(desc))
+		return
+	}
+	plan.rootMerge[desc.key] = value
+}
+
+func (p *repositoryPatchPlan) mergeTarget(desc repositoryFieldDescriptor) map[string]any {
+	switch desc.parentKey {
+	case "":
+		return p.rootMerge
+	case "actions.selected_actions":
+		return p.selectedActionsMerge
+	default:
+		if p.nestedMerges[desc.parentKey] == nil {
+			p.nestedMerges[desc.parentKey] = map[string]any{}
+		}
+		return p.nestedMerges[desc.parentKey]
+	}
+}
+
+func (p *repositoryPatchPlan) pathFor(desc repositoryFieldDescriptor) string {
+	if desc.parentKey == "" {
+		return p.basePath + "." + desc.key
+	}
+	return p.basePath + "." + desc.parentKey + "." + desc.key
 }
 
 func mergeNestedObject(data []byte, docIndex int, parentPath, key string, fields map[string]any) ([]byte, error) {
@@ -264,22 +351,6 @@ func mergeNestedObject(data []byte, docIndex int, parentPath, key string, fields
 		return yamledit.Merge(data, docIndex, childPath, fields)
 	}
 	return yamledit.Merge(data, docIndex, parentPath, map[string]any{key: fields})
-}
-
-func collectScalarEdit(dst map[string]any, deletes *[]string, path, key string, value *string) {
-	if value == nil {
-		*deletes = append(*deletes, path)
-		return
-	}
-	dst[key] = *value
-}
-
-func collectBoolEdit(dst map[string]any, deletes *[]string, path, key string, value *bool) {
-	if value == nil {
-		*deletes = append(*deletes, path)
-		return
-	}
-	dst[key] = *value
 }
 
 func isPrefixedField(field, prefix string) bool {

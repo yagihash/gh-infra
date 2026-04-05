@@ -352,6 +352,127 @@ spec:
 	}
 }
 
+func TestDiffRepository_SelectedActionsDescriptorPatch(t *testing.T) {
+	local := manifest.RepositorySpec{
+		Actions: &manifest.Actions{
+			Enabled: manifest.Ptr(true),
+			SelectedActions: &manifest.SelectedActions{
+				GithubOwnedAllowed: manifest.Ptr(true),
+				VerifiedAllowed:    manifest.Ptr(false),
+				PatternsAllowed:    []string{"actions/checkout@*"},
+			},
+		},
+	}
+	imported := manifest.Repository{
+		Spec: manifest.RepositorySpec{
+			Actions: &manifest.Actions{
+				Enabled: manifest.Ptr(true),
+				SelectedActions: &manifest.SelectedActions{
+					GithubOwnedAllowed: manifest.Ptr(false),
+					VerifiedAllowed:    manifest.Ptr(true),
+					PatternsAllowed:    []string{"actions/checkout@*", "actions/setup-go@*"},
+				},
+			},
+		},
+	}
+
+	doc := &manifest.RepositoryDocument{
+		Resource:   &manifest.Repository{Spec: local},
+		SourcePath: "/tmp/test.yaml",
+		DocIndex:   0,
+	}
+
+	yamlData := []byte(`apiVersion: gh-infra/v1
+kind: Repository
+metadata:
+  name: test
+  owner: org
+spec:
+  actions:
+    enabled: true
+    selected_actions:
+      github_owned_allowed: true
+      verified_allowed: false
+      patterns_allowed: [actions/checkout@*]
+`)
+
+	mb := map[string][]byte{"/tmp/test.yaml": yamlData}
+	_, err := DiffRepository(DiffInput{
+		Repos:         []*manifest.RepositoryDocument{doc},
+		Imported:      &imported,
+		ManifestBytes: mb,
+	})
+	if err != nil {
+		t.Fatalf("DiffRepository error: %v", err)
+	}
+
+	updated := string(mb["/tmp/test.yaml"])
+	if !strings.Contains(updated, "github_owned_allowed: false") {
+		t.Fatalf("expected github_owned_allowed to be updated:\n%s", updated)
+	}
+	if !strings.Contains(updated, "verified_allowed: true") {
+		t.Fatalf("expected verified_allowed to be updated:\n%s", updated)
+	}
+	if !strings.Contains(updated, "patterns_allowed:") {
+		t.Fatalf("expected selected_actions patterns to be updated:\n%s", updated)
+	}
+	if !strings.Contains(updated, "- actions/setup-go@*") {
+		t.Fatalf("expected selected_actions patterns to include new entry:\n%s", updated)
+	}
+	if !strings.Contains(updated, "enabled: true") {
+		t.Fatalf("expected untouched actions.enabled to remain:\n%s", updated)
+	}
+}
+
+func TestDiffRepository_CollectionDeletionDescriptorPatch(t *testing.T) {
+	local := manifest.RepositorySpec{
+		Variables: []manifest.Variable{
+			{Name: "ENV", Value: "prod"},
+		},
+	}
+	imported := manifest.Repository{
+		Spec: manifest.RepositorySpec{
+			Variables: nil,
+		},
+	}
+
+	doc := &manifest.RepositoryDocument{
+		Resource:   &manifest.Repository{Spec: local},
+		SourcePath: "/tmp/test.yaml",
+		DocIndex:   0,
+	}
+
+	yamlData := []byte(`apiVersion: gh-infra/v1
+kind: Repository
+metadata:
+  name: test
+  owner: org
+spec:
+  description: hello
+  variables:
+    - name: ENV
+      value: prod
+`)
+
+	mb := map[string][]byte{"/tmp/test.yaml": yamlData}
+	_, err := DiffRepository(DiffInput{
+		Repos:         []*manifest.RepositoryDocument{doc},
+		Imported:      &imported,
+		ManifestBytes: mb,
+	})
+	if err != nil {
+		t.Fatalf("DiffRepository error: %v", err)
+	}
+
+	updated := string(mb["/tmp/test.yaml"])
+	if strings.Contains(updated, "variables:") {
+		t.Fatalf("expected variables collection to be deleted:\n%s", updated)
+	}
+	if !strings.Contains(updated, "description: hello") {
+		t.Fatalf("expected unrelated root fields to remain:\n%s", updated)
+	}
+}
+
 func TestMinimalOverride_AllSameAsDefaults(t *testing.T) {
 	defaults := manifest.RepositorySpec{
 		Visibility: manifest.Ptr("private"),
@@ -577,6 +698,83 @@ repositories:
 	}
 	if !found["description"] {
 		t.Error("expected diff for description")
+	}
+}
+
+func TestDiffRepositorySet_SelectedActionsOverridePatch(t *testing.T) {
+	defaults := &manifest.RepositorySetDefaults{
+		Spec: manifest.RepositorySpec{
+			Actions: &manifest.Actions{
+				Enabled: manifest.Ptr(true),
+			},
+		},
+	}
+	originalEntry := &manifest.RepositorySpec{}
+
+	doc := &manifest.RepositoryDocument{
+		Resource: &manifest.Repository{
+			Metadata: manifest.RepositoryMetadata{Name: "repo", Owner: "org"},
+			Spec: manifest.RepositorySpec{
+				Actions: &manifest.Actions{
+					Enabled: manifest.Ptr(true),
+				},
+			},
+		},
+		SourcePath:        "/tmp/set.yaml",
+		DocIndex:          0,
+		FromSet:           true,
+		SetEntryIndex:     0,
+		DefaultsSpec:      defaults,
+		OriginalEntrySpec: originalEntry,
+	}
+
+	yamlData := []byte(`apiVersion: gh-infra/v1
+kind: RepositorySet
+metadata:
+  owner: org
+defaults:
+  spec:
+    actions:
+      enabled: true
+repositories:
+  - name: repo
+    spec: {}
+`)
+
+	imported := &manifest.Repository{
+		Spec: manifest.RepositorySpec{
+			Actions: &manifest.Actions{
+				Enabled: manifest.Ptr(true),
+				SelectedActions: &manifest.SelectedActions{
+					GithubOwnedAllowed: manifest.Ptr(true),
+					PatternsAllowed:    []string{"actions/checkout@*"},
+				},
+			},
+		},
+	}
+
+	mb := map[string][]byte{"/tmp/set.yaml": yamlData}
+	_, err := DiffRepositorySet(DiffInput{
+		Repos:         []*manifest.RepositoryDocument{doc},
+		Imported:      imported,
+		ManifestBytes: mb,
+	})
+	if err != nil {
+		t.Fatalf("DiffRepositorySet error: %v", err)
+	}
+
+	updated := string(mb["/tmp/set.yaml"])
+	if !strings.Contains(updated, "selected_actions:") {
+		t.Fatalf("expected selected_actions override to be added:\n%s", updated)
+	}
+	if !strings.Contains(updated, "github_owned_allowed: true") {
+		t.Fatalf("expected selected_actions override fields to be written:\n%s", updated)
+	}
+	if !strings.Contains(updated, "patterns_allowed:") {
+		t.Fatalf("expected patterns_allowed override to be written:\n%s", updated)
+	}
+	if !strings.Contains(updated, "- actions/checkout@*") {
+		t.Fatalf("expected patterns_allowed override item to be written:\n%s", updated)
 	}
 }
 
