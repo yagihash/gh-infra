@@ -32,7 +32,7 @@ func (d *ImportDiff) HasChanges() bool {
 }
 
 // DiffEntries returns file-level diff entries for the interactive diff viewer.
-// WriteSkip entries are excluded (shown in the console plan only).
+// Skip-only entries are excluded (shown in the console plan only).
 func (d *ImportDiff) DiffEntries() []ui.DiffEntry {
 	if d.Plan == nil {
 		return nil
@@ -40,17 +40,25 @@ func (d *ImportDiff) DiffEntries() []ui.DiffEntry {
 
 	var entries []ui.DiffEntry
 	for _, c := range d.Plan.FileChanges {
-		if c.WriteMode == importer.WriteSkip {
+		if isSkipOnlyChange(c) {
 			continue
 		}
 		switch c.Type {
 		case "update":
 			entry := ui.DiffEntry{
-				Path:    localPath(c),
-				Target:  c.Target,
-				Icon:    ui.IconChange,
-				Current: c.Current,
-				Desired: c.Desired,
+				Path:           c.DisplayPath(c.SelectedAction),
+				RepoPath:       c.Path,
+				Target:         c.Target,
+				Icon:           ui.IconChange,
+				Current:        c.CurrentForAction(c.SelectedAction),
+				WriteCurrent:   c.CurrentForAction(importer.ActionWrite),
+				PatchCurrent:   c.CurrentForAction(importer.ActionPatch),
+				Desired:        c.Desired,
+				Action:         c.SelectedAction,
+				DefaultAction:  importer.DefaultAction(c.SuggestedWriteMode),
+				AllowedActions: append([]importer.ImportAction(nil), c.AllowedActions...),
+				WriteTarget:    c.DisplayPath(importer.ActionWrite),
+				PatchTarget:    c.DisplayPath(importer.ActionPatch),
 			}
 			for _, w := range c.Warnings {
 				entry.Icon = ui.IconWarning
@@ -64,22 +72,61 @@ func (d *ImportDiff) DiffEntries() []ui.DiffEntry {
 	return entries
 }
 
-// MarkSkips writes skip selections from the diff viewer back to the plan,
-// setting skipped entries to NoOp so they are not imported.
-func (d *ImportDiff) MarkSkips(entries []ui.DiffEntry) {
+// ApplySelections writes action selections from the diff viewer back to the plan.
+func (d *ImportDiff) ApplySelections(entries []ui.DiffEntry) {
 	type key struct{ target, path string }
-	skipped := make(map[key]bool, len(entries))
+	selected := make(map[key]importer.ImportAction, len(entries))
 	for _, e := range entries {
-		if e.Skip {
-			skipped[key{e.Target, e.Path}] = true
+		repoPath := e.RepoPath
+		if repoPath == "" {
+			repoPath = e.Path
 		}
+		action := e.Action
+		if action == "" {
+			if e.Skip {
+				action = importer.ActionSkip
+			} else if e.DefaultAction != "" {
+				action = e.DefaultAction
+			} else {
+				action = importer.ActionWrite
+			}
+		}
+		selected[key{e.Target, repoPath}] = action
 	}
 	for i := range d.Plan.FileChanges {
 		c := &d.Plan.FileChanges[i]
-		if skipped[key{c.Target, localPath(*c)}] {
-			c.Type = fileset.ChangeNoOp
+		action, ok := selected[key{c.Target, c.Path}]
+		if !ok {
+			action, ok = selected[key{c.Target, localPath(*c)}]
+		}
+		if !ok {
+			continue
+		}
+		c.SelectedAction = action
+		c.Current = c.CurrentForAction(action)
+		c.UpdateTypeForAction()
+	}
+}
+
+// MarkSkips is a compatibility wrapper for the previous skip/apply viewer model.
+func (d *ImportDiff) MarkSkips(entries []ui.DiffEntry) {
+	for i := range entries {
+		if entries[i].Skip {
+			entries[i].Action = importer.ActionSkip
+		} else if entries[i].Action == "" {
+			entries[i].Action = importer.ActionWrite
+		}
+		if entries[i].DefaultAction == "" {
+			entries[i].DefaultAction = importer.ActionWrite
+		}
+		if entries[i].AllowedActions == nil {
+			entries[i].AllowedActions = []importer.ImportAction{
+				importer.ActionWrite,
+				importer.ActionSkip,
+			}
 		}
 	}
+	d.ApplySelections(entries)
 }
 
 // Write writes the planned changes to local files.
@@ -165,7 +212,7 @@ func printImportPlan(p ui.Printer, plan *importer.Result) {
 		}
 	}
 	for _, c := range plan.FileChanges {
-		if c.Type == fileset.ChangeNoOp && c.WriteMode != importer.WriteSkip {
+		if c.Type == fileset.ChangeNoOp && !isSkipOnlyChange(c) {
 			continue
 		}
 		if !seen[c.Target] {
@@ -180,7 +227,7 @@ func printImportPlan(p ui.Printer, plan *importer.Result) {
 	}
 	fileChangesByTarget := make(map[string][]importer.Change)
 	for _, c := range plan.FileChanges {
-		if c.Type == fileset.ChangeNoOp && c.WriteMode != importer.WriteSkip {
+		if c.Type == fileset.ChangeNoOp && !isSkipOnlyChange(c) {
 			continue
 		}
 		fileChangesByTarget[c.Target] = append(fileChangesByTarget[c.Target], c)
@@ -230,14 +277,14 @@ func printImportPlan(p ui.Printer, plan *importer.Result) {
 
 			for _, c := range fChanges {
 				item := ui.FileItem{
-					Path: localPath(c),
+					Path: c.DisplayPath(c.SelectedAction),
 				}
-				if c.WriteMode == importer.WriteSkip {
+				if isSkipOnlyChange(c) {
 					item.Icon = ui.IconWarning
 					item.Reason = c.Reason
 				} else {
 					item.Icon = ui.IconChange
-					item.Added, item.Removed = fileset.DiffStat(c.Current, c.Desired)
+					item.Added, item.Removed = fileset.DiffStat(c.CurrentForAction(c.SelectedAction), c.Desired)
 				}
 				p.PrintFileChange(item)
 			}
@@ -249,17 +296,13 @@ func printImportPlan(p ui.Printer, plan *importer.Result) {
 }
 
 // localPath returns the local write-back path for display.
-func localPath(c importer.Change) string {
-	if c.WriteMode == importer.WritePatch && c.ManifestPath != "" {
-		return c.ManifestPath + ":" + c.Path + " (patches)"
+func localPath(c importer.Change) string { return c.DisplayPath(c.SelectedAction) }
+
+func isSkipOnlyChange(c importer.Change) bool {
+	if len(c.AllowedActions) == 1 && c.AllowedActions[0] == importer.ActionSkip {
+		return true
 	}
-	if c.LocalTarget != "" {
-		return c.LocalTarget
-	}
-	if c.ManifestPath != "" {
-		return c.ManifestPath + ":" + c.Path
-	}
-	return c.Path
+	return len(c.AllowedActions) == 0 && c.WriteMode == importer.WriteSkip
 }
 
 // formatImportValue formats a FieldDiff value as YAML text for display.

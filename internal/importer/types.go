@@ -1,9 +1,12 @@
 package importer
 
 import (
+	"fmt"
 	"maps"
+	"strings"
 
 	"github.com/babarot/gh-infra/internal/fileset"
+	"github.com/babarot/gh-infra/internal/importaction"
 	"github.com/babarot/gh-infra/internal/manifest"
 )
 
@@ -102,20 +105,146 @@ const (
 	WriteSkip   WriteMode = "skip"   // skip (not writable)
 )
 
+// ImportAction is the user-facing write-back choice in the interactive viewer.
+type ImportAction = importaction.Action
+
+const (
+	ActionWrite ImportAction = importaction.Write
+	ActionPatch ImportAction = importaction.Patch
+	ActionSkip  ImportAction = importaction.Skip
+)
+
 // Change represents a single file-level import change.
 type Change struct {
-	Target       string             // owner/repo
-	Path         string             // file path in the repository
-	Type         fileset.ChangeType // create/update/noop
-	Current      string             // local content
-	Desired      string             // GitHub content
-	WriteMode    WriteMode
-	LocalTarget  string // write-back path (WriteSource)
-	ManifestPath string // manifest path (WriteInline/WritePatch)
-	DocIndex     int
-	YAMLPath     string              // e.g. $.spec.files[0].content or $.spec.files[0].patches
-	PatchContent string              // generated patch content (WritePatch only)
-	PatchEntry   *manifest.FileEntry // original FileEntry for WritePatch (to reconstruct with patches)
-	Reason       string              // skip reason
-	Warnings     []string
+	Target             string             // owner/repo
+	Path               string             // file path in the repository
+	Type               fileset.ChangeType // create/update/noop
+	Current            string             // default current content for the selected action
+	WriteCurrent       string             // current content for write action
+	PatchCurrent       string             // current content for patch action
+	Desired            string             // GitHub content
+	WriteMode          WriteMode          // deprecated compatibility alias of SuggestedWriteMode
+	SuggestedWriteMode WriteMode
+	AllowedActions     []ImportAction
+	SelectedAction     ImportAction
+	LocalTarget        string // write-back path (WriteSource)
+	ManifestPath       string // manifest path (WriteInline/WritePatch)
+	DocIndex           int
+	YAMLPath           string              // write action YAML path, e.g. $.spec.files[0].content
+	PatchYAMLPath      string              // patch action YAML path, e.g. $.spec.files[0]
+	PatchContent       string              // generated patch content (WritePatch only)
+	PatchEntry         *manifest.FileEntry // original FileEntry for WritePatch (to reconstruct with patches)
+	Reason             string              // skip reason
+	Warnings           []string
+}
+
+// CurrentForAction returns the current content shown for the given action.
+func (c Change) CurrentForAction(action ImportAction) string {
+	switch action {
+	case ActionPatch:
+		return c.PatchCurrent
+	case ActionWrite:
+		return c.WriteCurrent
+	default:
+		return c.Current
+	}
+}
+
+// DisplayPath returns the write-back target path shown to the user for an action.
+func (c Change) DisplayPath(action ImportAction) string {
+	if action == "" {
+		action = DefaultAction(c.SuggestedWriteMode)
+		if c.SuggestedWriteMode == "" && c.WriteMode != "" {
+			action = DefaultAction(c.WriteMode)
+		}
+	}
+	if action == ActionPatch && c.ManifestPath != "" {
+		return c.ManifestPath + ":" + c.Path + " (patches)"
+	}
+	if c.LocalTarget != "" {
+		return c.LocalTarget
+	}
+	if c.ManifestPath != "" {
+		return c.ManifestPath + ":" + c.Path
+	}
+	return c.Path
+}
+
+// HasAction reports whether the action is selectable for this change.
+func (c Change) HasAction(action ImportAction) bool {
+	if len(c.AllowedActions) == 0 {
+		return true
+	}
+	for _, allowed := range c.AllowedActions {
+		if allowed == action {
+			return true
+		}
+	}
+	return false
+}
+
+// EffectiveWriteMode resolves the selected action to the internal write mode.
+func (c Change) EffectiveWriteMode() (WriteMode, error) {
+	action := c.SelectedAction
+	if action == "" {
+		action = DefaultAction(c.SuggestedWriteMode)
+		if c.SuggestedWriteMode == "" && c.WriteMode != "" {
+			action = DefaultAction(c.WriteMode)
+		}
+	}
+	if !c.HasAction(action) {
+		return "", fmt.Errorf("action %q is not allowed for %s", action, c.Path)
+	}
+
+	switch action {
+	case ActionSkip:
+		return WriteSkip, nil
+	case ActionPatch:
+		if c.PatchYAMLPath == "" && c.YAMLPath != "" {
+			return WritePatch, nil
+		}
+		if c.PatchYAMLPath == "" || c.PatchEntry == nil {
+			return "", fmt.Errorf("patch action is not available for %s", c.Path)
+		}
+		return WritePatch, nil
+	case ActionWrite:
+		if c.LocalTarget != "" {
+			return WriteSource, nil
+		}
+		if c.YAMLPath != "" {
+			return WriteInline, nil
+		}
+		return "", fmt.Errorf("write action is not available for %s", c.Path)
+	default:
+		return "", fmt.Errorf("unknown import action %q", action)
+	}
+}
+
+// UpdateTypeForAction recomputes the effective change type after action selection.
+func (c *Change) UpdateTypeForAction() {
+	if c.SelectedAction == ActionSkip {
+		c.Type = fileset.ChangeNoOp
+		return
+	}
+	if c.CurrentForAction(c.SelectedAction) == "" && c.Desired == "" {
+		c.Type = fileset.ChangeNoOp
+		return
+	}
+	if strings.TrimRight(c.CurrentForAction(c.SelectedAction), "\n") == strings.TrimRight(c.Desired, "\n") {
+		c.Type = fileset.ChangeNoOp
+		return
+	}
+	c.Type = fileset.ChangeUpdate
+}
+
+// DefaultAction returns the default user-facing action for a suggested mode.
+func DefaultAction(mode WriteMode) ImportAction {
+	switch mode {
+	case WritePatch:
+		return ActionPatch
+	case WriteSkip:
+		return ActionSkip
+	default:
+		return ActionWrite
+	}
 }
