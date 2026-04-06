@@ -2,6 +2,7 @@ package importer
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/babarot/gh-infra/internal/fileset"
@@ -209,5 +210,40 @@ func TestPlanImportEntry_NoDiff(t *testing.T) {
 
 	if change.Type != fileset.ChangeNoOp {
 		t.Errorf("Type = %q, want %q", change.Type, fileset.ChangeNoOp)
+	}
+}
+
+func TestDiffFiles_ReportsPerFileStatus(t *testing.T) {
+	doc := &manifest.FileDocument{
+		Resource: &manifest.FileSet{
+			Metadata: manifest.FileSetMetadata{Owner: "org"},
+			Spec: manifest.FileSetSpec{
+				Repositories: []manifest.FileSetRepository{{Name: "repo"}},
+				Files: []manifest.FileEntry{
+					{Path: "a.txt", Content: "a"},
+					{Path: "b.txt", Content: "b"},
+				},
+			},
+		},
+	}
+
+	var statuses []string
+	_, err := DiffFiles(context.TODO(), nil, []*manifest.FileDocument{doc}, "org/repo", map[string]int{}, func(status string) {
+		statuses = append(statuses, status)
+	})
+	if err != nil {
+		t.Fatalf("DiffFiles error: %v", err)
+	}
+	if len(statuses) != 2 {
+		t.Fatalf("expected 2 statuses, got %d: %v", len(statuses), statuses)
+	}
+	if statuses[0] != "fetching file a.txt..." {
+		t.Fatalf("first status = %q, want %q", statuses[0], "fetching file a.txt...")
+	}
+	if statuses[1] != "fetching file b.txt..." {
+		t.Fatalf("second status = %q, want %q", statuses[1], "fetching file b.txt...")
+	}
+	if strings.Contains(strings.Join(statuses, "\n"), "comparing files") {
+		t.Fatalf("unexpected coarse status in statuses: %v", statuses)
 	}
 }
