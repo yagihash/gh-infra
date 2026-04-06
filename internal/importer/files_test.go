@@ -114,8 +114,8 @@ func TestPlanImportEntry_SkipVars(t *testing.T) {
 	if change.WriteMode != WriteSkip {
 		t.Errorf("WriteMode = %q, want %q", change.WriteMode, WriteSkip)
 	}
-	if change.Reason != "uses templates" {
-		t.Errorf("Reason = %q, want 'uses templates'", change.Reason)
+	if change.Reason != "uses template variables/syntax" {
+		t.Errorf("Reason = %q, want 'uses template variables/syntax'", change.Reason)
 	}
 }
 

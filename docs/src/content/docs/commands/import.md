@@ -106,6 +106,13 @@ This is especially useful for shared source files:
 - the safe default is `patch`, so one repo's drift does not immediately rewrite the shared source
 - but if you intentionally want to update the shared source/template itself, switch that entry to `write`
 
+There are two kinds of skip behavior:
+
+- hard skip: the file cannot be written back safely, so it is shown only in the plan with a skip reason
+- default skip: the file is skipped by default, but you can press `Tab` in the diff viewer to switch to `write` or `patch`
+
+For example, files with `reconcile: create_only` default to `skip`, while files using template variables or `<% ... %>` syntax are hard-skipped.
+
 ### What Gets Imported
 
 | Resource | Behavior |
@@ -120,7 +127,7 @@ This is especially useful for shared source files:
 
 | Source | Reason |
 |--------|--------|
-| Templated files (`vars:`, `{{ ... }}`, `<% ... %>`, etc.) | Rendered content cannot be safely reverse-transformed back into the original template |
+| Files using template variables or `<% ... %>` syntax | Rendered content cannot be safely reverse-transformed back into the original template |
 | Files from GitHub source (`source: github://...`) | No local file to write back to |
 | Secrets | GitHub API does not return secret values; local values are preserved |
 

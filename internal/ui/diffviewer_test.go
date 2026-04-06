@@ -124,3 +124,41 @@ func TestBuildRightPane_NotSkipped(t *testing.T) {
 		t.Error("non-skipped entry should show unified diff")
 	}
 }
+
+func TestDiffEntry_CycleAction(t *testing.T) {
+	entry := DiffEntry{
+		Path:           "VERSION",
+		Target:         "org/repo",
+		Action:         "skip",
+		DefaultAction:  "skip",
+		AllowedActions: []string{"write", "patch", "skip"},
+		Current:        "skip-current\n",
+		SkipCurrent:    "skip-current\n",
+		WriteCurrent:   "write-current\n",
+		PatchCurrent:   "patch-current\n",
+	}
+
+	entry.cycleAction()
+	if entry.Action != "write" {
+		t.Fatalf("Action after first cycle = %q, want write", entry.Action)
+	}
+	if entry.Current != "write-current\n" {
+		t.Fatalf("Current after first cycle = %q, want write-current", entry.Current)
+	}
+
+	entry.cycleAction()
+	if entry.Action != "patch" {
+		t.Fatalf("Action after second cycle = %q, want patch", entry.Action)
+	}
+	if entry.Current != "patch-current\n" {
+		t.Fatalf("Current after second cycle = %q, want patch-current", entry.Current)
+	}
+
+	entry.cycleAction()
+	if entry.Action != "skip" {
+		t.Fatalf("Action after third cycle = %q, want skip", entry.Action)
+	}
+	if entry.Current != "skip-current\n" {
+		t.Fatalf("Current after third cycle = %q, want skip-current", entry.Current)
+	}
+}
