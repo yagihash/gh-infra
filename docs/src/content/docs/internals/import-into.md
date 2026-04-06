@@ -116,9 +116,9 @@ A local file may contain placeholders such as:
 
 but GitHub only stores the rendered result, for example:
 
-- `gomi`
+- `my-project`
 - `babarot`
-- `babarot/gomi`
+- `babarot/my-project`
 
 So import cannot simply copy the remote file back into the local template source. Doing that would destroy the placeholders.
 
