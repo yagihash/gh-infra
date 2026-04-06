@@ -61,9 +61,11 @@ func buildSourceRefCount(fileSets []*manifest.FileDocument) map[string]int {
 // is referenced by multiple file entries.
 func planImportEntry(ctx context.Context, runner gh.Runner, fullName string, file manifest.FileEntry, doc *manifest.FileDocument, repoIdx int, repo manifest.FileSetRepository, repoCount int, shared bool) Change {
 	change := Change{
-		Target: fullName,
-		Path:   file.Path,
-		Type:   fileset.ChangeNoOp,
+		Target:             fullName,
+		Path:               file.Path,
+		Type:               fileset.ChangeNoOp,
+		CreateOnly:         file.Reconcile == manifest.ReconcileCreateOnly,
+		HasExistingPatches: len(file.Patches) > 0,
 	}
 
 	sourceBacked := file.OriginalSource != "" && !strings.HasPrefix(file.Source, "github://")
@@ -89,7 +91,7 @@ func planImportEntry(ctx context.Context, runner gh.Runner, fullName string, fil
 	// Templates: skip (reverse transformation is impossible)
 	if fileset.HasTemplate(file.Content, file.Vars) {
 		setWriteMetadata(&change, WriteSkip)
-		change.Reason = "uses templates"
+		change.Reason = "uses template variables/syntax"
 		return change
 	}
 

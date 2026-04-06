@@ -124,6 +124,8 @@ type Change struct {
 	PatchYAMLPath      string              // patch action YAML path, e.g. $.spec.files[0]
 	PatchContent       string              // generated patch content (WritePatch only)
 	PatchEntry         *manifest.FileEntry // original FileEntry for WritePatch (to reconstruct with patches)
+	CreateOnly         bool                // true when reconcile/create_only is set on the file entry
+	HasExistingPatches bool                // true when the manifest entry already had patches
 	Reason             string              // skip reason
 	Warnings           []string
 }

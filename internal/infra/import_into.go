@@ -52,17 +52,20 @@ func (d *ImportDiff) DiffEntries() []ui.DiffEntry {
 		}
 		switch c.Type {
 		case "update":
+			defaultAction := defaultActionForChange(c)
+			defaultMode := writeModeForAction(c, defaultAction)
 			entry := ui.DiffEntry{
-				Path:           c.DisplayPathForMode(c.EffectiveWriteMode()),
+				Path:           c.DisplayPathForMode(defaultMode),
 				RepoPath:       c.Path,
 				Target:         c.Target,
 				Icon:           ui.IconChange,
-				Current:        c.CurrentForMode(c.EffectiveWriteMode()),
+				Current:        c.CurrentForMode(defaultMode),
+				SkipCurrent:    c.CurrentForMode(defaultMode),
 				WriteCurrent:   c.CurrentForMode(writeModeForAction(c, importActionWrite)),
 				PatchCurrent:   c.CurrentForMode(importer.WritePatch),
 				Desired:        c.Desired,
-				Action:         defaultActionForChange(c),
-				DefaultAction:  defaultActionForChange(c),
+				Action:         defaultAction,
+				DefaultAction:  defaultAction,
 				AllowedActions: allowedActionsForChange(c),
 				WriteTarget:    c.DisplayPathForMode(writeModeForAction(c, importActionWrite)),
 				PatchTarget:    c.DisplayPathForMode(importer.WritePatch),
@@ -272,8 +275,8 @@ func printImportPlan(p ui.Printer, plan *importer.Result) {
 		if len(fChanges) > 0 {
 			w := 0
 			for _, c := range fChanges {
-				if len(localPath(c)) > w {
-					w = len(localPath(c))
+				if len(displayPathForPlan(c)) > w {
+					w = len(displayPathForPlan(c))
 				}
 			}
 			p.SetColumnWidth(w)
@@ -286,15 +289,19 @@ func printImportPlan(p ui.Printer, plan *importer.Result) {
 			p.SubGroupHeader(ui.IconChange, fmt.Sprintf("FileSet: %s", ui.Bold.Render(label)))
 
 			for _, c := range fChanges {
+				defaultMode := defaultModeForChange(c)
 				item := ui.FileItem{
-					Path: c.DisplayPathForMode(c.EffectiveWriteMode()),
+					Path: c.DisplayPathForMode(defaultMode),
 				}
 				if isSkipOnlyChange(c) {
 					item.Icon = ui.IconWarning
-					item.Reason = c.Reason
+					item.Reason = planSkipReason(c)
+				} else if defaultMode == importer.WriteSkip {
+					item.Icon = ui.IconWarning
+					item.Reason = planSkipReason(c)
 				} else {
 					item.Icon = ui.IconChange
-					item.Added, item.Removed = fileset.DiffStat(c.CurrentForMode(c.EffectiveWriteMode()), c.Desired)
+					item.Added, item.Removed = fileset.DiffStat(c.CurrentForMode(defaultMode), c.Desired)
 				}
 				p.PrintFileChange(item)
 			}
@@ -307,6 +314,10 @@ func printImportPlan(p ui.Printer, plan *importer.Result) {
 
 // localPath returns the local write-back path for display.
 func localPath(c importer.Change) string { return c.DisplayPathForMode(c.EffectiveWriteMode()) }
+
+func displayPathForPlan(c importer.Change) string {
+	return c.DisplayPathForMode(defaultModeForChange(c))
+}
 
 func isSkipOnlyChange(c importer.Change) bool {
 	return len(allowedActionsForChange(c)) == 0
@@ -328,6 +339,13 @@ func allowedActionsForChange(c importer.Change) []string {
 }
 
 func defaultActionForChange(c importer.Change) string {
+	if c.CreateOnly {
+		if c.HasExistingPatches && c.SupportsMode(importer.WritePatch) {
+			return importActionPatch
+		}
+		return importActionSkip
+	}
+
 	switch c.SuggestedWriteMode {
 	case importer.WritePatch:
 		return importActionPatch
@@ -336,6 +354,20 @@ func defaultActionForChange(c importer.Change) string {
 	default:
 		return importActionWrite
 	}
+}
+
+func defaultModeForChange(c importer.Change) importer.WriteMode {
+	return writeModeForAction(c, defaultActionForChange(c))
+}
+
+func planSkipReason(c importer.Change) string {
+	if c.Reason != "" {
+		return "skip: " + c.Reason
+	}
+	if c.CreateOnly && !c.HasExistingPatches {
+		return "skip: reconcile:create_only (Tab to change)"
+	}
+	return "skip"
 }
 
 func writeModeForAction(c importer.Change, action string) importer.WriteMode {

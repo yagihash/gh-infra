@@ -17,6 +17,7 @@ type DiffEntry struct {
 	Target         string   // repo full name, e.g. "owner/repo"
 	Icon           string   // "+", "~", "-", "⚠"
 	Current        string   // current file content for selected action
+	SkipCurrent    string   // current content shown when action is skip
 	WriteCurrent   string   // current content for write action
 	PatchCurrent   string   // current content for patch action
 	Desired        string   // desired file content
@@ -366,6 +367,9 @@ func (e DiffEntry) currentForAction(action string) string {
 	case "write":
 		return e.WriteCurrent
 	default:
+		if e.SkipCurrent != "" {
+			return e.SkipCurrent
+		}
 		return e.Current
 	}
 }

@@ -1,6 +1,8 @@
 package infra
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/babarot/gh-infra/internal/fileset"
@@ -217,6 +219,73 @@ func TestImportDiff_DiffEntries_NilPlan(t *testing.T) {
 	}
 }
 
+func TestImportDiff_DiffEntries_CreateOnlyDefaultsToSkip(t *testing.T) {
+	diff := &ImportDiff{
+		Plan: &importer.Result{
+			ManifestEdits: make(map[string][]byte),
+			FileChanges: []importer.Change{
+				{
+					Target:             "org/repo",
+					Path:               "VERSION",
+					Type:               fileset.ChangeUpdate,
+					WriteMode:          importer.WriteSource,
+					SuggestedWriteMode: importer.WriteSource,
+					AvailableModes:     []importer.WriteMode{importer.WriteSource, importer.WritePatch},
+					LocalTarget:        "/tmp/VERSION",
+					Current:            "0.1.0\n",
+					WriteCurrent:       "0.1.0\n",
+					PatchCurrent:       "0.1.0\n",
+					Desired:            "v1.2.6\n",
+					CreateOnly:         true,
+				},
+			},
+		},
+	}
+
+	entries := diff.DiffEntries()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0].Action != "skip" {
+		t.Fatalf("Action = %q, want skip", entries[0].Action)
+	}
+}
+
+func TestImportDiff_DiffEntries_CreateOnlyWithExistingPatchDefaultsToPatch(t *testing.T) {
+	diff := &ImportDiff{
+		Plan: &importer.Result{
+			ManifestEdits: make(map[string][]byte),
+			FileChanges: []importer.Change{
+				{
+					Target:             "org/repo",
+					Path:               "VERSION",
+					Type:               fileset.ChangeUpdate,
+					WriteMode:          importer.WritePatch,
+					SuggestedWriteMode: importer.WritePatch,
+					AvailableModes:     []importer.WriteMode{importer.WriteSource, importer.WritePatch},
+					LocalTarget:        "/tmp/VERSION",
+					ManifestPath:       "/tmp/gist.yaml",
+					PatchYAMLPath:      "$.spec.files[0]",
+					Current:            "0.1.0\n",
+					WriteCurrent:       "0.1.0\n",
+					PatchCurrent:       "v1.2.5\n",
+					Desired:            "v1.2.6\n",
+					CreateOnly:         true,
+					HasExistingPatches: true,
+				},
+			},
+		},
+	}
+
+	entries := diff.DiffEntries()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0].Action != "patch" {
+		t.Fatalf("Action = %q, want patch", entries[0].Action)
+	}
+}
+
 // --- ImportDiff.MarkSkips tests ---
 
 func TestImportDiff_MarkSkips(t *testing.T) {
@@ -287,5 +356,87 @@ func TestImportDiff_HasChanges_NilPlan(t *testing.T) {
 	diff := &ImportDiff{Plan: nil}
 	if diff.HasChanges() {
 		t.Error("expected HasChanges to be false with nil Plan")
+	}
+}
+
+func TestPrintImportPlan_CreateOnlyDefaultSkipReason(t *testing.T) {
+	var buf bytes.Buffer
+	p := ui.NewStandardPrinterWith(&buf, &buf)
+
+	printImportPlan(p, &importer.Result{
+		ManifestEdits: make(map[string][]byte),
+		FileChanges: []importer.Change{
+			{
+				Target:             "org/repo",
+				Path:               "VERSION",
+				Type:               fileset.ChangeUpdate,
+				WriteMode:          importer.WriteSource,
+				SuggestedWriteMode: importer.WriteSource,
+				AvailableModes:     []importer.WriteMode{importer.WriteSource, importer.WritePatch},
+				LocalTarget:        "templates/common/VERSION",
+				Current:            "0.1.0\n",
+				WriteCurrent:       "0.1.0\n",
+				PatchCurrent:       "0.1.0\n",
+				Desired:            "v1.2.6\n",
+				CreateOnly:         true,
+			},
+		},
+	})
+
+	out := buf.String()
+	if !strings.Contains(out, "skip: reconcile:create_only (Tab to change)") {
+		t.Fatalf("expected create_only skip reason in output:\n%s", out)
+	}
+}
+
+func TestPrintImportPlan_TemplateSkipReason(t *testing.T) {
+	var buf bytes.Buffer
+	p := ui.NewStandardPrinterWith(&buf, &buf)
+
+	printImportPlan(p, &importer.Result{
+		ManifestEdits: make(map[string][]byte),
+		FileChanges: []importer.Change{
+			{
+				Target:             "org/repo",
+				Path:               ".gitignore",
+				Type:               fileset.ChangeNoOp,
+				WriteMode:          importer.WriteSkip,
+				SuggestedWriteMode: importer.WriteSkip,
+				Reason:             "uses template variables/syntax",
+			},
+		},
+	})
+
+	out := buf.String()
+	if !strings.Contains(out, "skip: uses template variables/syntax") {
+		t.Fatalf("expected template skip reason in output:\n%s", out)
+	}
+}
+
+func TestPrintImportPlan_TemplateSkipReasonOverridesCreateOnly(t *testing.T) {
+	var buf bytes.Buffer
+	p := ui.NewStandardPrinterWith(&buf, &buf)
+
+	printImportPlan(p, &importer.Result{
+		ManifestEdits: make(map[string][]byte),
+		FileChanges: []importer.Change{
+			{
+				Target:             "org/repo",
+				Path:               "templates/go/Makefile",
+				Type:               fileset.ChangeNoOp,
+				WriteMode:          importer.WriteSkip,
+				SuggestedWriteMode: importer.WriteSkip,
+				CreateOnly:         true,
+				Reason:             "uses template variables/syntax",
+			},
+		},
+	})
+
+	out := buf.String()
+	if !strings.Contains(out, "skip: uses template variables/syntax") {
+		t.Fatalf("expected template skip reason in output:\n%s", out)
+	}
+	if strings.Contains(out, "reconcile:create_only") {
+		t.Fatalf("did not expect create_only to override template skip reason:\n%s", out)
 	}
 }
