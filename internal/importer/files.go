@@ -14,7 +14,7 @@ import (
 
 // DiffFiles computes file-level import changes for all matched FileSets.
 // It fetches current content from GitHub and compares against local content.
-func DiffFiles(ctx context.Context, runner gh.Runner, fileSets []*manifest.FileDocument, filterRepo string, sourceRefCount map[string]int) ([]Change, error) {
+func DiffFiles(ctx context.Context, runner gh.Runner, fileSets []*manifest.FileDocument, filterRepo string, sourceRefCount map[string]int, onStatus func(string)) ([]Change, error) {
 	var changes []Change
 
 	for _, doc := range fileSets {
@@ -31,6 +31,9 @@ func DiffFiles(ctx context.Context, runner gh.Runner, fileSets []*manifest.FileD
 			files := fileset.ResolveFiles(fs, repo)
 
 			for _, file := range files {
+				if onStatus != nil {
+					onStatus("fetching file " + file.Path + "...")
+				}
 				shared := file.OriginalSource != "" && sourceRefCount[file.OriginalSource] > 1
 				change := planImportEntry(ctx, runner, fullName, file, doc, repoIdx, repo, repoCount, shared)
 				changes = append(changes, change)

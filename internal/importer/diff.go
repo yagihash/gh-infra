@@ -108,8 +108,9 @@ func Diff(ctx context.Context, targets []TargetMatches, runner gh.Runner, printe
 
 		// Plan FileSet matches.
 		if len(tm.Matches.FileSets) > 0 {
-			tracker.UpdateStatus(fullName, "comparing files...")
-			fileChanges, err := DiffFiles(ctx, runner, tm.Matches.FileSets, fullName, sourceRefCount)
+			fileChanges, err := DiffFiles(ctx, runner, tm.Matches.FileSets, fullName, sourceRefCount, func(status string) {
+				tracker.UpdateStatus(fullName, status)
+			})
 			if err != nil {
 				if errors.Is(err, context.Canceled) {
 					return nil, context.Canceled
