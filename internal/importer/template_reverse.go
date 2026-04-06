@@ -1,51 +1,39 @@
 package importer
 
 import (
-	"regexp"
 	"strings"
-)
 
-var (
-	templateExprPattern = regexp.MustCompile(`^\.(Repo\.(FullName|Owner|Name)|Vars\.[A-Za-z0-9_]+)$`)
+	"github.com/babarot/gh-infra/internal/fileset"
 )
 
 // reverseTemplateContent rebuilds template source from rendered remote content.
-// Supported template lines are treated as anchors: the matching remote line is
-// replaced with the original template line, while the surrounding non-template
-// lines come from the remote content. This lets literal-only drift be imported
-// even when GitHub has added or removed extra lines.
-func reverseTemplateContent(templateContent, remote string) (string, bool) {
-	templateLines := splitKeepNewline(templateContent)
-	remoteLines := splitKeepNewline(remote)
+// Placeholder-rendered spans are used as anchors; remote literal text around them
+// is preserved and placeholder source text is reinserted.
+func reverseTemplateContent(templateContent, repo string, vars map[string]string, remote string) (string, bool) {
+	trace, err := fileset.RenderTemplateWithTrace(templateContent, repo, vars)
+	if err != nil {
+		return "", false
+	}
 
+	remoteLines := splitKeepNewline(remote)
 	var out strings.Builder
 	remoteIdx := 0
-	for _, templateLine := range templateLines {
-		if !strings.Contains(templateLine, "<%") {
+
+	for _, line := range trace.Lines {
+		if !line.HasPlaceholder {
 			continue
 		}
 
-		pattern, ok := compileTemplateLinePattern(templateLine)
+		reconstructed, matchedIdx, ok := reverseTemplateLine(line, remoteLines, remoteIdx)
 		if !ok {
 			return "", false
 		}
 
-		matched := -1
-		for i := remoteIdx; i < len(remoteLines); i++ {
-			if pattern.MatchString(remoteLines[i]) {
-				matched = i
-				break
-			}
-		}
-		if matched < 0 {
-			return "", false
-		}
-
-		for ; remoteIdx < matched; remoteIdx++ {
+		for ; remoteIdx < matchedIdx; remoteIdx++ {
 			out.WriteString(remoteLines[remoteIdx])
 		}
-		out.WriteString(templateLine)
-		remoteIdx = matched + 1
+		out.WriteString(reconstructed)
+		remoteIdx = matchedIdx + 1
 	}
 
 	for ; remoteIdx < len(remoteLines); remoteIdx++ {
@@ -55,57 +43,41 @@ func reverseTemplateContent(templateContent, remote string) (string, bool) {
 	return out.String(), true
 }
 
-func supportsTemplateReverse(templateContent string) bool {
-	for _, line := range splitKeepNewline(templateContent) {
-		if !strings.Contains(line, "<%") {
-			continue
-		}
-		if _, ok := compileTemplateLinePattern(line); !ok {
-			return false
+func reverseTemplateLine(line fileset.RenderedLine, remoteLines []string, start int) (string, int, bool) {
+	for idx := start; idx < len(remoteLines); idx++ {
+		if reconstructed, ok := reconstructLineFromRemote(line, remoteLines[idx]); ok {
+			return reconstructed, idx, true
 		}
 	}
-	return true
+	return "", -1, false
 }
 
-func compileTemplateLinePattern(line string) (*regexp.Regexp, bool) {
-	var pattern strings.Builder
-	pattern.WriteString("^")
+func reconstructLineFromRemote(line fileset.RenderedLine, remote string) (string, bool) {
+	var out strings.Builder
+	pos := 0
 
-	rest := line
-	seenPlaceholder := false
-	for {
-		start := strings.Index(rest, "<%")
-		if start < 0 {
-			pattern.WriteString(regexp.QuoteMeta(rest))
-			break
+	for _, seg := range line.Segments {
+		if seg.Kind != fileset.SegmentPlaceholder {
+			continue
 		}
 
-		pattern.WriteString(regexp.QuoteMeta(rest[:start]))
-		end := strings.Index(rest[start+2:], "%>")
-		if end < 0 {
-			return nil, false
+		idx := strings.Index(remote[pos:], seg.RenderedText)
+		if idx < 0 {
+			return "", false
 		}
-		end += start + 2
-
-		expr := strings.TrimSpace(rest[start+2 : end])
-		if !templateExprPattern.MatchString(expr) {
-			return nil, false
-		}
-		pattern.WriteString(".*?")
-		seenPlaceholder = true
-		rest = rest[end+2:]
+		idx += pos
+		out.WriteString(remote[pos:idx])
+		out.WriteString(seg.SourceText)
+		pos = idx + len(seg.RenderedText)
 	}
 
-	if !seenPlaceholder {
-		return nil, false
-	}
+	out.WriteString(remote[pos:])
+	return out.String(), true
+}
 
-	pattern.WriteString("$")
-	re, err := regexp.Compile(pattern.String())
-	if err != nil {
-		return nil, false
-	}
-	return re, true
+func supportsTemplateReverse(templateContent, repo string, vars map[string]string) bool {
+	_, err := fileset.RenderTemplateWithTrace(templateContent, repo, vars)
+	return err == nil
 }
 
 func splitKeepNewline(s string) []string {

@@ -98,8 +98,8 @@ The default action depends on the file shape:
 | Local source (single-use) | `write` | `write`, `patch`, `skip` |
 | Local source shared by multiple repos | `patch` | `write`, `patch`, `skip` |
 | Existing `patches:` entry | `patch` | `write`, `patch`, `skip` |
-| Simple `<% .Repo.* %>` or `<% .Vars.* %>` substitutions | `write`/`patch`/`skip` based on file shape | shown in viewer |
-| Files using unsupported template syntax | skipped in plan | not shown in viewer |
+| Simple `<% .Repo.* %>` substitutions | `write`/`patch`/`skip` based on file shape | shown in viewer |
+| Files whose remote content cannot be safely written back to the template | skipped in plan | not shown in viewer |
 | `github://` source | skipped in plan | not shown in viewer |
 
 This is especially useful for shared source files:
@@ -112,7 +112,7 @@ There are two kinds of skip behavior:
 - hard skip: the file cannot be written back safely, so it is shown only in the plan with a skip reason
 - default skip: the file is skipped by default, but you can press `Tab` in the diff viewer to switch to `write` or `patch`
 
-For example, files with `reconcile: create_only` default to `skip`, while files using unsupported template syntax are hard-skipped.
+For example, files with `reconcile: create_only` default to `skip`, while files whose remote content cannot be safely written back to the template are hard-skipped.
 
 ### What Gets Imported
 
@@ -128,7 +128,7 @@ For example, files with `reconcile: create_only` default to `skip`, while files 
 
 | Source | Reason |
 |--------|--------|
-| Files using unsupported template syntax | The rendered GitHub content cannot be safely mapped back into the original template source |
+| Files whose remote content cannot be safely written back to the template | The remote content cannot be mapped back to the original template source without risking an incorrect rewrite |
 | Files from GitHub source (`source: github://...`) | No local file to write back to |
 | Secrets | GitHub API does not return secret values; local values are preserved |
 

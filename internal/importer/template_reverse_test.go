@@ -6,7 +6,7 @@ func TestReverseTemplateContent_SimplePlaceholder(t *testing.T) {
 	template := "module github.com/<% .Repo.FullName %>\n\ngo 1.26.0\n"
 	remote := "module github.com/hoge/fuga\n\ngo 1.27.0\n"
 
-	got, ok := reverseTemplateContent(template, remote)
+	got, ok := reverseTemplateContent(template, "hoge/fuga", nil, remote)
 	if !ok {
 		t.Fatal("expected reverseTemplateContent to succeed")
 	}
@@ -21,7 +21,7 @@ func TestReverseTemplateContent_UnsupportedControlSyntax(t *testing.T) {
 	template := "<% if .Repo.Name %>enabled<% end %>\n"
 	remote := "enabled\n"
 
-	if _, ok := reverseTemplateContent(template, remote); ok {
+	if _, ok := reverseTemplateContent(template, "org/repo", nil, remote); ok {
 		t.Fatal("expected reverseTemplateContent to reject control syntax")
 	}
 }
@@ -30,7 +30,7 @@ func TestReverseTemplateContent_ConsecutivePlaceholders(t *testing.T) {
 	template := "<% .Repo.Owner %><% .Repo.Name %>\n"
 	remote := "babarotgh-infra\n"
 
-	got, ok := reverseTemplateContent(template, remote)
+	got, ok := reverseTemplateContent(template, "babarot/gh-infra", nil, remote)
 	if !ok {
 		t.Fatal("expected reverseTemplateContent to support consecutive placeholders")
 	}
@@ -39,15 +39,11 @@ func TestReverseTemplateContent_ConsecutivePlaceholders(t *testing.T) {
 	}
 }
 
-func TestReverseTemplateContent_SimpleVarsPlaceholder(t *testing.T) {
+func TestReverseTemplateContent_ChangedVarsPlaceholderRejected(t *testing.T) {
 	template := "GO_VERSION=<% .Vars.go_version %>\n"
 	remote := "GO_VERSION=1.27.3\n"
 
-	got, ok := reverseTemplateContent(template, remote)
-	if !ok {
-		t.Fatal("expected reverseTemplateContent to support .Vars placeholders")
-	}
-	if got != "GO_VERSION=<% .Vars.go_version %>\n" {
-		t.Fatalf("got %q", got)
+	if _, ok := reverseTemplateContent(template, "org/repo", map[string]string{"go_version": "1.26.1"}, remote); ok {
+		t.Fatal("expected reverseTemplateContent to reject changed .Vars placeholders")
 	}
 }

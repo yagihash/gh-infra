@@ -92,9 +92,9 @@ func planImportEntry(ctx context.Context, runner gh.Runner, fullName string, fil
 		}
 	}
 
-	if hasTemplateSyntax && !supportsTemplateReverse(file.Content) {
+	if hasTemplateSyntax && !supportsTemplateReverse(file.Content, fullName, file.Vars) {
 		setWriteMetadata(&change, WriteSkip)
-		change.Reason = "uses template variables/syntax"
+		change.Reason = "cannot safely write back to template"
 		return change
 	}
 
@@ -141,11 +141,11 @@ func planImportEntry(ctx context.Context, runner gh.Runner, fullName string, fil
 
 	desiredContent := githubContent
 	if hasTemplateSyntax {
-		reversed, ok := reverseTemplateContent(file.Content, githubContent)
+		reversed, ok := reverseTemplateContent(file.Content, fullName, file.Vars, githubContent)
 		if !ok {
 			setWriteMetadata(&change, WriteSkip)
 			change.Type = fileset.ChangeNoOp
-			change.Reason = "uses template variables/syntax"
+			change.Reason = "cannot safely write back to template"
 			return change
 		}
 		desiredContent = reversed

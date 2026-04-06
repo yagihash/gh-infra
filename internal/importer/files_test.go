@@ -116,8 +116,8 @@ func TestPlanImportEntry_UnsupportedTemplateSyntaxSkips(t *testing.T) {
 	if change.WriteMode != WriteSkip {
 		t.Errorf("WriteMode = %q, want %q", change.WriteMode, WriteSkip)
 	}
-	if change.Reason != "uses template variables/syntax" {
-		t.Errorf("Reason = %q, want 'uses template variables/syntax'", change.Reason)
+	if change.Reason != "cannot safely write back to template" {
+		t.Errorf("Reason = %q, want 'cannot safely write back to template'", change.Reason)
 	}
 }
 
@@ -286,7 +286,7 @@ func TestPlanImportEntry_TemplateSyntaxImportsLiteralDiff(t *testing.T) {
 	}
 }
 
-func TestPlanImportEntry_TemplateVarsImportsLiteralDiff(t *testing.T) {
+func TestPlanImportEntry_ChangedVarsPlaceholderSkips(t *testing.T) {
 	file := manifest.FileEntry{
 		Path:           "Makefile",
 		Content:        "GO_VERSION=<% .Vars.go_version %>\nTOOL=old\n",
@@ -309,13 +309,43 @@ func TestPlanImportEntry_TemplateVarsImportsLiteralDiff(t *testing.T) {
 
 	change := callPlan(context.TODO(), runner, "org/repo", file, doc, 1)
 
+	if change.WriteMode != WriteSkip {
+		t.Fatalf("WriteMode = %q, want %q", change.WriteMode, WriteSkip)
+	}
+	if change.Reason != "cannot safely write back to template" {
+		t.Fatalf("Reason = %q, want %q", change.Reason, "cannot safely write back to template")
+	}
+}
+
+func TestPlanImportEntry_TemplateLineLiteralChangeAroundPlaceholder(t *testing.T) {
+	file := manifest.FileEntry{
+		Path:           ".gitignore",
+		Content:        "/<% .Repo.Name %>\ncoverage.out\n",
+		OriginalSource: "/tmp/templates/.gitignore",
+	}
+	doc := &manifest.FileDocument{
+		Resource: &manifest.FileSet{
+			Spec: manifest.FileSetSpec{
+				Files: []manifest.FileEntry{{Path: ".gitignore"}},
+			},
+		},
+		SourcePath: "/tmp/manifest.yaml",
+	}
+	runner := &gh.MockRunner{
+		Responses: map[string][]byte{
+			"api repos/org/repo/contents/.gitignore": []byte(`{"content":"` + base64.StdEncoding.EncodeToString([]byte("repo*\ndist\ncoverage.out\n")) + `","encoding":"base64"}`),
+		},
+	}
+
+	change := callPlan(context.TODO(), runner, "org/repo", file, doc, 1)
+
 	if change.WriteMode != WriteSource {
 		t.Fatalf("WriteMode = %q, want %q", change.WriteMode, WriteSource)
 	}
 	if change.Type != fileset.ChangeUpdate {
 		t.Fatalf("Type = %q, want %q", change.Type, fileset.ChangeUpdate)
 	}
-	want := "GO_VERSION=<% .Vars.go_version %>\nTOOL=new\n"
+	want := "<% .Repo.Name %>*\ndist\ncoverage.out\n"
 	if change.Desired != want {
 		t.Fatalf("Desired = %q, want %q", change.Desired, want)
 	}
