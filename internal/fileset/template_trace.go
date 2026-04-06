@@ -138,8 +138,7 @@ func resolveTemplateExpr(expr string, repo RepoContext, vars map[string]string) 
 	case ".Repo.FullName":
 		return repo.FullName, nil
 	default:
-		if strings.HasPrefix(expr, ".Vars.") {
-			key := strings.TrimPrefix(expr, ".Vars.")
+		if key, found := strings.CutPrefix(expr, ".Vars."); found {
 			v, ok := vars[key]
 			if !ok {
 				return "", fmt.Errorf("unsupported template expression: %s", expr)
