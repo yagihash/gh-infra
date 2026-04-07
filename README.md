@@ -100,7 +100,7 @@ gh infra apply
 | Argument | Example | Behavior |
 |----------|---------|----------|
 | *(none)* or `.` | `gh infra plan` | All `*.yaml` / `*.yml` in the current directory |
-| File | `gh infra plan repos/gomi.yaml` | That file only |
+| File | `gh infra plan repos/my-cli.yaml` | That file only |
 | Directory | `gh infra plan repos/` | All `*.yaml` / `*.yml` directly under it (subdirectories are ignored) |
 
 YAML files that are not gh-infra manifests (e.g., GitHub Actions workflows, docker-compose) are silently skipped. Use `--fail-on-unknown` to treat them as errors instead.

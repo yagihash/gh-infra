@@ -10,6 +10,19 @@ Export existing repository settings as YAML. Useful for bootstrapping gh-infra c
 gh infra import <owner/repo> [owner/repo ...]
 ```
 
+## Arguments
+
+| Argument | Example | Behavior |
+|----------|---------|----------|
+| `<owner/repo>` | `gh infra import babarot/my-project` | Import that repository |
+| Multiple repos | `gh infra import babarot/my-project babarot/my-cli` | Import each repository |
+
+## Flags
+
+| Flag | Description |
+|------|-------------|
+| `--into <path>` | Pull GitHub state into existing local manifests (directory or file path) |
+
 ## Examples
 
 ```bash
@@ -21,6 +34,9 @@ gh infra import babarot/my-project babarot/my-cli
 
 # Import and review
 gh infra import babarot/my-project
+
+# Pull GitHub state into existing manifests
+gh infra import babarot/my-project --into=repos/my-project.yaml
 ```
 
 The output is a complete `Repository` YAML manifest reflecting the current state of the repository on GitHub.
