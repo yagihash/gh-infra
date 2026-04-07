@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"charm.land/huh/v2"
-	goyaml "github.com/goccy/go-yaml"
 	"github.com/charmbracelet/x/term"
+	goyaml "github.com/goccy/go-yaml"
 )
 
 // ChangeItem represents a single field-level change for PrintChange.

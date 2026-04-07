@@ -107,7 +107,6 @@ func TestLocalPath_FallbackToPath(t *testing.T) {
 	}
 }
 
-
 // --- ImportDiff.DiffEntries tests ---
 
 func TestImportDiff_DiffEntries_FiltersSkip(t *testing.T) {

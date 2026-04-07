@@ -380,4 +380,3 @@ func writeModeForAction(c importer.Change, action string) importer.WriteMode {
 		return importer.WriteInline
 	}
 }
-
