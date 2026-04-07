@@ -1,7 +1,7 @@
 # gh-infra demo: interactive diff viewer
 #
 # Shows: FileSet apply with 3 files × 2 repos →
-#        diff viewer navigation, scrolling, skip toggle
+#        diff viewer navigation, scrolling, Tab cycle (apply↔skip)
 #
 # Run with: make demos
 # Requirements: Docker
@@ -42,46 +42,54 @@ Sleep 6s
 Type "d"
 Sleep 1.5s
 
-# 3. CODEOWNERS diff (small, one-line change) — pause to read
+# 3. CODEOWNERS diff — multiple ownership lines changed
 Sleep 1.2s
 
-# 4. Move to ci.yml — bigger diff
+# 4. Move to ci.yml
 Type "j"
 Sleep 1.2s
 
-# 5. Scroll down to see more of the ci.yml diff
+# 5. Scroll ci.yml diff down and back
 Type "d"
-Sleep 1s
-Type "d"
-Sleep 1s
-
-# 6. Scroll back up
+Sleep 800ms
 Type "u"
-Sleep 1s
+Sleep 800ms
 
-# 7. Move to dependabot.yml (new file — all green)
+# 6. Move to dependabot.yml (new file — all green)
 Type "j"
 Sleep 1.2s
 
-# 8. Move to app-web section
-Type "j"
-Sleep 1s
-
-# 9. Move to app-web ci.yml
-Type "j"
-Sleep 1s
-
-# 10. Move to app-web dependabot.yml — skip this one
-Type "j"
-Sleep 1s
+# 7. Tab cycle demo: skip → see it dim
 Tab
 Sleep 1.2s
 
-# 11. Exit diff viewer — shows skipped summary
+# 8. Tab again: back to apply
+Tab
+Sleep 1.2s
+
+# 9. Move to app-web CODEOWNERS
+Type "j"
+Sleep 800ms
+
+# 10. Move to app-web ci.yml
+Type "j"
+Sleep 800ms
+
+# 11. Skip app-web ci.yml
+Tab
+Sleep 1.2s
+
+# 12. Move to app-web dependabot.yml — skip this too
+Type "j"
+Sleep 800ms
+Tab
+Sleep 1.2s
+
+# 13. Exit diff viewer — shows skipped summary
 Escape
 Sleep 1.5s
 
-# 12. Confirm apply
+# 14. Confirm apply
 Type "y"
 Enter
 Sleep 5s

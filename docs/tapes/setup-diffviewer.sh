@@ -41,30 +41,29 @@ for repo in app-api app-web; do
 }
 JSON
 
-  # Old CODEOWNERS
-  echo -n '* @old-owner' > "$dir/contents/.github/CODEOWNERS"
+  # Old CODEOWNERS (multiple owners → will be reorganized)
+  cat > "$dir/contents/.github/CODEOWNERS" << 'OWNERS'
+# Team ownership
+* @old-owner
+/docs/ @old-owner
+OWNERS
 
-  # Old CI workflow (checkout v3, push only, no lint, no coverage)
+  # Old CI workflow (checkout v3, push only, no lint)
   cat > "$dir/contents/.github/workflows/ci.yml" << 'CI'
 name: CI
 on: [push]
-
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
+      - uses: actions/setup-go@v4
         with:
           go-version-file: go.mod
-
-      - name: Test
-        run: make test
+      - run: make test
 CI
 
-  # dependabot.yml does NOT exist on GitHub (404 → new file)
+  # dependabot.yml does NOT exist on GitHub → new file
 done
 
 mkdir -p /tmp/demo
@@ -83,7 +82,10 @@ spec:
   files:
     - path: .github/CODEOWNERS
       content: |
+        # Team ownership
         * @babarot @team-platform
+        /docs/ @babarot @team-docs
+        /api/ @babarot @team-backend
 
     - path: .github/workflows/ci.yml
       content: |
@@ -92,36 +94,16 @@ spec:
           push:
             branches: [main]
           pull_request:
-
         jobs:
-          lint:
-            runs-on: ubuntu-latest
-            steps:
-              - uses: actions/checkout@v4
-
-              - name: Setup Go
-                uses: actions/setup-go@v5
-                with:
-                  go-version-file: go.mod
-
-              - name: Lint
-                uses: golangci/golangci-lint-action@v6
-
           test:
             runs-on: ubuntu-latest
             steps:
               - uses: actions/checkout@v4
-
-              - name: Setup Go
-                uses: actions/setup-go@v5
+              - uses: actions/setup-go@v5
                 with:
                   go-version-file: go.mod
-
-              - name: Test
-                run: make test
-
-              - name: Upload coverage
-                uses: codecov/codecov-action@v4
+              - run: make lint
+              - run: make test
 
     - path: .github/dependabot.yml
       content: |
