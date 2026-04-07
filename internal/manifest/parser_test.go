@@ -1384,3 +1384,90 @@ repositories:
 		t.Errorf("expected custom-label, got %q", repos[1].Spec.Labels[0].Name)
 	}
 }
+
+func TestRepositorySet_LabelSyncMerge(t *testing.T) {
+	dir := t.TempDir()
+	content := `
+apiVersion: v1
+kind: RepositorySet
+metadata:
+  owner: org
+defaults:
+  spec:
+    label_sync: mirror
+    labels:
+      - name: kind/bug
+        color: d73a4a
+repositories:
+  - name: inherits-sync
+    spec:
+      description: "inherits label_sync from defaults"
+  - name: overrides-sync
+    spec:
+      label_sync: additive
+`
+	path := filepath.Join(dir, "sync.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	repos, err := ParsePath(path)
+	if err != nil {
+		t.Fatalf("ParsePath error: %v", err)
+	}
+	if len(repos) != 2 {
+		t.Fatalf("expected 2 repos, got %d", len(repos))
+	}
+
+	// First repo inherits mirror from defaults
+	if repos[0].Spec.LabelSync == nil || *repos[0].Spec.LabelSync != LabelSyncMirror {
+		t.Errorf("inherits-sync: expected mirror, got %v", repos[0].Spec.LabelSync)
+	}
+
+	// Second repo overrides to additive
+	if repos[1].Spec.LabelSync == nil || *repos[1].Spec.LabelSync != LabelSyncAdditive {
+		t.Errorf("overrides-sync: expected additive, got %v", repos[1].Spec.LabelSync)
+	}
+}
+
+func TestLabelSyncMode(t *testing.T) {
+	tests := []struct {
+		name  string
+		input *string
+		want  string
+	}{
+		{"nil defaults to additive", nil, LabelSyncAdditive},
+		{"explicit additive", Ptr(LabelSyncAdditive), LabelSyncAdditive},
+		{"explicit mirror", Ptr(LabelSyncMirror), LabelSyncMirror},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := LabelSyncMode(tt.input)
+			if got != tt.want {
+				t.Errorf("LabelSyncMode() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLabelSyncValidation(t *testing.T) {
+	dir := t.TempDir()
+	content := `
+apiVersion: v1
+kind: Repository
+metadata:
+  owner: org
+  name: repo
+spec:
+  label_sync: invalid
+`
+	path := filepath.Join(dir, "invalid.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := ParsePath(path)
+	if err == nil {
+		t.Fatal("expected validation error for invalid label_sync value")
+	}
+}

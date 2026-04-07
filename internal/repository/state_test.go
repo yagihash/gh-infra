@@ -6,6 +6,7 @@ import (
 	"maps"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/babarot/gh-infra/internal/gh"
 )
@@ -426,5 +427,26 @@ func TestFetchActionsSettings(t *testing.T) {
 	}
 	if actions.ForkPRApproval != "first_time_contributors" {
 		t.Errorf("ForkPRApproval = %q, want first_time_contributors", actions.ForkPRApproval)
+	}
+}
+
+func TestFormatTimeAgo(t *testing.T) {
+	tests := []struct {
+		name string
+		t    time.Time
+		want string
+	}{
+		{"zero", time.Time{}, "unknown"},
+		{"minutes ago", time.Now().Add(-30 * time.Minute), "30m ago"},
+		{"hours ago", time.Now().Add(-5 * time.Hour), "5h ago"},
+		{"days ago", time.Now().Add(-3 * 24 * time.Hour), "3d ago"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatTimeAgo(tt.t)
+			if got != tt.want {
+				t.Errorf("formatTimeAgo() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
