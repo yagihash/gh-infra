@@ -1429,3 +1429,45 @@ repositories:
 		t.Errorf("overrides-sync: expected additive, got %v", repos[1].Spec.LabelSync)
 	}
 }
+
+func TestLabelSyncMode(t *testing.T) {
+	tests := []struct {
+		name  string
+		input *string
+		want  string
+	}{
+		{"nil defaults to additive", nil, LabelSyncAdditive},
+		{"explicit additive", Ptr(LabelSyncAdditive), LabelSyncAdditive},
+		{"explicit mirror", Ptr(LabelSyncMirror), LabelSyncMirror},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := LabelSyncMode(tt.input)
+			if got != tt.want {
+				t.Errorf("LabelSyncMode() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLabelSyncValidation(t *testing.T) {
+	dir := t.TempDir()
+	content := `
+apiVersion: v1
+kind: Repository
+metadata:
+  owner: org
+  name: repo
+spec:
+  label_sync: invalid
+`
+	path := filepath.Join(dir, "invalid.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := ParsePath(path)
+	if err == nil {
+		t.Fatal("expected validation error for invalid label_sync value")
+	}
+}

@@ -901,6 +901,26 @@ func TestDiff_Labels_Mirror(t *testing.T) {
 	})
 }
 
+func TestLabelSummary(t *testing.T) {
+	tests := []struct {
+		name        string
+		color       string
+		description string
+		want        string
+	}{
+		{"color only", "d73a4a", "", "#d73a4a"},
+		{"color and description", "425df5", "A feature", `#425df5 "A feature"`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := labelSummary(tt.color, tt.description)
+			if got != tt.want {
+				t.Errorf("labelSummary(%q, %q) = %q, want %q", tt.color, tt.description, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestDiff_FullIntegration(t *testing.T) {
 	t.Run("multiple changes across categories", func(t *testing.T) {
 		d := baseDesired()
