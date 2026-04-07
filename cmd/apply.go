@@ -87,7 +87,7 @@ func applySkipSelections(changes []fileset.Change, entries []ui.DiffEntry) {
 	type key struct{ target, path string }
 	skipped := make(map[key]bool, len(entries))
 	for _, e := range entries {
-		if e.Skip {
+		if e.Action == "skip" {
 			skipped[key{e.Target, e.Path}] = true
 		}
 	}
@@ -113,11 +113,14 @@ func buildDiffEntries(changes []fileset.Change) []ui.DiffEntry {
 			continue
 		}
 		entries = append(entries, ui.DiffEntry{
-			Path:    c.Path,
-			Target:  c.Target,
-			Icon:    icon,
-			Current: c.Current,
-			Desired: c.Desired,
+			Path:           c.Path,
+			Target:         c.Target,
+			Icon:           icon,
+			Current:        c.Current,
+			Desired:        c.Desired,
+			Action:         "apply",
+			DefaultAction:  "apply",
+			AllowedActions: []string{"apply", "skip"},
 		})
 	}
 	return entries
