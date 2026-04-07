@@ -15,15 +15,13 @@ exec /data/mock-gh "$@"
 WRAPPER
 chmod +x /usr/local/bin/gh
 
-# Prepare mock data: 2 repos with old file contents.
-# YAML wants updated content → plan shows file diffs.
 export MOCK_DIR=/tmp/mock-data
 
 for repo in app-api app-web; do
   dir="$MOCK_DIR/babarot/${repo}"
   mkdir -p "$dir" "$dir/contents/.github/workflows"
 
-  # Repo settings (needed for plan to not error)
+  # Repo settings (no changes — just needed so plan doesn't error)
   cat > "$dir/view.json" << 'JSON'
 {
   "description": "",
@@ -43,10 +41,14 @@ for repo in app-api app-web; do
 }
 JSON
 
-  # Old CODEOWNERS (differs from desired)
-  echo -n '* @old-owner' > "$dir/contents/.github/CODEOWNERS"
+  # Old CODEOWNERS (multiple owners → will be reorganized)
+  cat > "$dir/contents/.github/CODEOWNERS" << 'OWNERS'
+# Team ownership
+* @old-owner
+/docs/ @old-owner
+OWNERS
 
-  # Old CI workflow (differs from desired)
+  # Old CI workflow (checkout v3, push only, no lint)
   cat > "$dir/contents/.github/workflows/ci.yml" << 'CI'
 name: CI
 on: [push]
@@ -55,8 +57,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
       - run: make test
 CI
+
+  # dependabot.yml does NOT exist on GitHub → new file
 done
 
 mkdir -p /tmp/demo
@@ -75,19 +82,41 @@ spec:
   files:
     - path: .github/CODEOWNERS
       content: |
+        # Team ownership
         * @babarot @team-platform
+        /docs/ @babarot @team-docs
+        /api/ @babarot @team-backend
 
     - path: .github/workflows/ci.yml
       content: |
         name: CI
-        on: [push, pull_request]
+        on:
+          push:
+            branches: [main]
+          pull_request:
         jobs:
           test:
             runs-on: ubuntu-latest
             steps:
               - uses: actions/checkout@v4
+              - uses: actions/setup-go@v5
+                with:
+                  go-version-file: go.mod
               - run: make lint
               - run: make test
+
+    - path: .github/dependabot.yml
+      content: |
+        version: 2
+        updates:
+          - package-ecosystem: gomod
+            directory: /
+            schedule:
+              interval: weekly
+          - package-ecosystem: github-actions
+            directory: /
+            schedule:
+              interval: weekly
 
   via: push
 YAML
