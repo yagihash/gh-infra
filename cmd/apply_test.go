@@ -49,7 +49,7 @@ func TestApplySkipSelections_NoSkip(t *testing.T) {
 		{Path: "a.txt", Target: "org/repo", Type: fileset.ChangeUpdate},
 	}
 	entries := []ui.DiffEntry{
-		{Path: "a.txt", Target: "org/repo", Skip: false},
+		{Path: "a.txt", Target: "org/repo", Action: "apply"},
 	}
 
 	applySkipSelections(changes, entries)
@@ -65,8 +65,8 @@ func TestApplySkipSelections_SkipMarked(t *testing.T) {
 		{Path: "b.txt", Target: "org/repo", Type: fileset.ChangeCreate},
 	}
 	entries := []ui.DiffEntry{
-		{Path: "a.txt", Target: "org/repo", Skip: true},
-		{Path: "b.txt", Target: "org/repo", Skip: false},
+		{Path: "a.txt", Target: "org/repo", Action: "skip"},
+		{Path: "b.txt", Target: "org/repo", Action: "apply"},
 	}
 
 	applySkipSelections(changes, entries)
@@ -85,8 +85,8 @@ func TestApplySkipSelections_DifferentTargets(t *testing.T) {
 		{Path: "a.txt", Target: "org/repo-b", Type: fileset.ChangeUpdate},
 	}
 	entries := []ui.DiffEntry{
-		{Path: "a.txt", Target: "org/repo-a", Skip: true},
-		{Path: "a.txt", Target: "org/repo-b", Skip: false},
+		{Path: "a.txt", Target: "org/repo-a", Action: "skip"},
+		{Path: "a.txt", Target: "org/repo-b", Action: "apply"},
 	}
 
 	applySkipSelections(changes, entries)
