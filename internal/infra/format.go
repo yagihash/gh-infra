@@ -241,9 +241,9 @@ func printApplyResults(p ui.Printer, repoResults []repository.ApplyResult, fileR
 			p.SubGroupHeader(ui.IconSuccess, strings.ToLower(resource)+"s")
 			for _, r := range groupedResults[resource] {
 				if r.Err != nil {
-					p.PrintResult(ui.ResultItem{Icon: ui.IconError, Field: r.Change.Field, Detail: r.Err.Error()})
+					p.PrintResult(ui.ResultItem{Icon: ui.IconError, Field: r.Change.Field, Detail: r.Err.Error(), Sub: true})
 				} else {
-					p.PrintResult(ui.ResultItem{Icon: ui.IconSuccess, Field: r.Change.Field, Detail: fmt.Sprintf("%sd", r.Change.Type)})
+					p.PrintResult(ui.ResultItem{Icon: ui.IconSuccess, Field: r.Change.Field, Detail: fmt.Sprintf("%sd", r.Change.Type), Sub: true})
 				}
 			}
 		}
