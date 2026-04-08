@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/term"
 	goyaml "github.com/goccy/go-yaml"
 )
@@ -202,11 +203,13 @@ func (p *StandardPrinter) Legend(creates, updates, deletes bool) {
 }
 
 func (p *StandardPrinter) ActionHeader(name, action string) {
-	fmt.Fprintf(p.out, "%s%s %s %s\n", Indent(IndentRoot), Dim.Render("#"), Bold.Render(name), Dim.Render(action))
+	display := repoStyle(name).Render(name)
+	fmt.Fprintf(p.out, "%s%s %s %s\n", Indent(IndentRoot), Dim.Render("#"), display, Dim.Render(action))
 }
 
 func (p *StandardPrinter) GroupHeader(icon, name string) {
-	fmt.Fprintf(p.out, "%s%s %s\n", Indent(IndentRoot), renderIcon(icon), Bold.Render(name))
+	display := repoStyle(name).Render(name)
+	fmt.Fprintf(p.out, "%s%s %s\n", Indent(IndentRoot), renderIcon(icon), display)
 }
 
 func (p *StandardPrinter) GroupEnd() {
@@ -327,6 +330,15 @@ func formatDiffStat(added, removed int) string {
 		parts = append(parts, Red.Render(fmt.Sprintf("-%d", removed)))
 	}
 	return " " + strings.Join(parts, " ")
+}
+
+// repoStyle returns a bold style with an OSC 8 hyperlink to the GitHub repo.
+// If name does not contain a slash, returns plain Bold.
+func repoStyle(name string) lipgloss.Style {
+	if !strings.Contains(name, "/") {
+		return Bold
+	}
+	return Bold.Hyperlink("https://github.com/" + name)
 }
 
 func renderIcon(icon string) string {

@@ -449,6 +449,28 @@ func TestWarning(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// repoStyle
+// ---------------------------------------------------------------------------
+
+func TestRepoStyle(t *testing.T) {
+	t.Run("owner/repo includes hyperlink URL", func(t *testing.T) {
+		s := repoStyle("babarot/gh-test")
+		link, _ := s.GetHyperlink()
+		if link != "https://github.com/babarot/gh-test" {
+			t.Errorf("expected hyperlink URL, got %q", link)
+		}
+	})
+
+	t.Run("no slash returns plain Bold", func(t *testing.T) {
+		s := repoStyle("noslash")
+		link, _ := s.GetHyperlink()
+		if link != "" {
+			t.Errorf("expected no hyperlink, got %q", link)
+		}
+	})
+}
+
 func TestSetColumnWidth(t *testing.T) {
 	p := NewStandardPrinterWith(&bytes.Buffer{}, &bytes.Buffer{})
 	p.SetColumnWidth(20)
