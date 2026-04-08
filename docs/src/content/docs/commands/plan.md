@@ -7,16 +7,21 @@ sidebar:
 Show diff between YAML and current GitHub state. No mutations are made.
 
 ```bash
-gh infra plan [path]
+gh infra plan [path...]
 ```
 
 ## Path
+
+One or more paths can be given. When multiple paths are provided, manifests from all paths are collected and planned together.
 
 | Argument | Example | Behavior |
 |----------|---------|----------|
 | *(none)* or `.` | `gh infra plan` | All `*.yaml` / `*.yml` in the current directory |
 | File | `gh infra plan repos/my-cli.yaml` | That file only |
 | Directory | `gh infra plan repos/` | All `*.yaml` / `*.yml` directly under it (subdirectories are ignored) |
+| Multiple | `gh infra plan repos/ files/` | Manifests from all listed paths combined |
+
+Overlapping paths (e.g., `.` and `./repos/`) are rejected to prevent duplicate processing.
 
 YAML files that are not gh-infra manifests are silently skipped. Use `--fail-on-unknown` to treat them as errors.
 
@@ -33,6 +38,9 @@ YAML files that are not gh-infra manifests are silently skipped. Use `--fail-on-
 ```bash
 # Plan all YAML files in a directory
 gh infra plan ./repos/
+
+# Plan multiple directories at once
+gh infra plan ./repos/ ./files/
 
 # Plan a single file
 gh infra plan ./repos/my-cli.yaml

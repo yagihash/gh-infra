@@ -20,15 +20,10 @@ func newApplyCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply [path]",
+		Use:   "apply [path...]",
 		Short: "Apply desired state to GitHub",
-		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path := "."
-			if len(args) > 0 {
-				path = args[0]
-			}
-			return runApply(path, repo, autoApprove, forceSecrets, failOnUnknown)
+			return runApply(args, repo, autoApprove, forceSecrets, failOnUnknown)
 		},
 	}
 
@@ -40,9 +35,9 @@ func newApplyCmd() *cobra.Command {
 	return cmd
 }
 
-func runApply(path, filterRepo string, autoApprove, forceSecrets, failOnUnknown bool) error {
+func runApply(paths []string, filterRepo string, autoApprove, forceSecrets, failOnUnknown bool) error {
 	result, err := infra.Plan(infra.PlanOptions{
-		Path:          path,
+		Paths:         paths,
 		FilterRepo:    filterRepo,
 		FailOnUnknown: failOnUnknown,
 		ForceSecrets:  forceSecrets,

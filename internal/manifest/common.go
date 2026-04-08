@@ -48,6 +48,15 @@ type FileDocument struct {
 	Files      []FileEntry // source-resolved files (OriginalSource set); use for import comparisons
 }
 
+// Merge appends all resources from other into r.
+func (r *ParseResult) Merge(other *ParseResult) {
+	r.Repositories = append(r.Repositories, other.Repositories...)
+	r.FileSets = append(r.FileSets, other.FileSets...)
+	r.RepositoryDocs = append(r.RepositoryDocs, other.RepositoryDocs...)
+	r.FileDocs = append(r.FileDocs, other.FileDocs...)
+	r.Warnings = append(r.Warnings, other.Warnings...)
+}
+
 // Ptr returns a pointer to the given value.
 //
 //go:fix inline

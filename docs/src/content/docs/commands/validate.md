@@ -7,16 +7,21 @@ sidebar:
 Check YAML syntax and schema without contacting GitHub.
 
 ```bash
-gh infra validate [path]
+gh infra validate [path...]
 ```
 
 ## Path
+
+One or more paths can be given. When multiple paths are provided, manifests from all paths are validated together.
 
 | Argument | Example | Behavior |
 |----------|---------|----------|
 | *(none)* or `.` | `gh infra validate` | All `*.yaml` / `*.yml` in the current directory |
 | File | `gh infra validate repos/my-cli.yaml` | That file only |
 | Directory | `gh infra validate repos/` | All `*.yaml` / `*.yml` directly under it (subdirectories are ignored) |
+| Multiple | `gh infra validate repos/ files/` | Manifests from all listed paths combined |
+
+Overlapping paths (e.g., `.` and `./repos/`) are rejected to prevent duplicate processing.
 
 YAML files that are not gh-infra manifests are silently skipped. Use `--fail-on-unknown` to treat them as errors.
 
@@ -31,6 +36,9 @@ YAML files that are not gh-infra manifests are silently skipped. Use `--fail-on-
 ```bash
 # Validate all files in a directory
 gh infra validate ./repos/
+
+# Validate multiple directories at once
+gh infra validate ./repos/ ./files/
 
 # Validate a single file
 gh infra validate ./repos/my-cli.yaml

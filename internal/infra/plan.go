@@ -16,7 +16,7 @@ import (
 
 // PlanOptions configures the plan phase.
 type PlanOptions struct {
-	Path          string
+	Paths         []string
 	FilterRepo    string
 	FailOnUnknown bool
 	ForceSecrets  bool // only meaningful when followed by Apply
@@ -51,9 +51,18 @@ func (r *PlanResult) Printer() ui.Printer {
 func Plan(opts PlanOptions) (*PlanResult, error) {
 	p := ui.NewStandardPrinter()
 
-	parsed, err := manifest.ParseAll(opts.Path, manifest.ParseOptions{FailOnUnknown: opts.FailOnUnknown})
+	paths, err := manifest.ResolvePaths(opts.Paths)
 	if err != nil {
 		return nil, err
+	}
+
+	parsed := &manifest.ParseResult{}
+	for _, path := range paths {
+		result, err := manifest.ParseAll(path, manifest.ParseOptions{FailOnUnknown: opts.FailOnUnknown})
+		if err != nil {
+			return nil, err
+		}
+		parsed.Merge(result)
 	}
 
 	// Print deprecation warnings
@@ -62,7 +71,7 @@ func Plan(opts PlanOptions) (*PlanResult, error) {
 	}
 
 	if len(parsed.Repositories) == 0 && len(parsed.FileSets) == 0 {
-		p.Message("No resources found in " + opts.Path)
+		p.Message("No resources found in " + strings.Join(paths, ", "))
 		return nil, context.Canceled
 	}
 
@@ -80,7 +89,7 @@ func Plan(opts PlanOptions) (*PlanResult, error) {
 
 	eng := newEngine(runner, resolver, p)
 
-	p.Phase(fmt.Sprintf("Reading desired state from %s ...", opts.Path))
+	p.Phase(fmt.Sprintf("Reading desired state from %s ...", strings.Join(paths, ", ")))
 	p.Phase("Fetching current state from GitHub API ...")
 	p.BlankLine()
 
