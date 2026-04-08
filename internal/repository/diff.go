@@ -102,6 +102,7 @@ func Diff(ctx context.Context, desired *manifest.Repository, current *CurrentSta
 	changes = append(changes, diffSecrets(name, desired, current, opt.ForceSecrets)...)
 	changes = append(changes, diffVariables(name, desired, current)...)
 	changes = append(changes, diffLabels(name, desired, current, manifest.LabelSyncMode(desired.Spec.LabelSync))...)
+	changes = append(changes, diffMilestones(name, desired, current)...)
 	changes = append(changes, diffActions(name, desired, current)...)
 
 	return changes
@@ -624,6 +625,78 @@ func labelSummary(color, description string) string {
 		return fmt.Sprintf("#%s %q", color, description)
 	}
 	return "#" + color
+}
+
+func diffMilestones(name string, desired *manifest.Repository, current *CurrentState) []Change {
+	var changes []Change
+
+	for _, dm := range desired.Spec.Milestones {
+		desiredState := manifest.MilestoneState(dm.State)
+		desiredDueOn := ""
+		if dm.DueOn != nil {
+			desiredDueOn = *dm.DueOn
+		}
+
+		cm, exists := current.Milestones[dm.Title]
+		if !exists {
+			changes = append(changes, Change{
+				Type:     ChangeCreate,
+				Resource: manifest.ResourceMilestone,
+				Name:     name,
+				Field:    dm.Title,
+				NewValue: milestoneSummary(desiredState, desiredDueOn, dm.Description),
+			})
+			continue
+		}
+
+		var children []Change
+		if desiredState != cm.State {
+			children = append(children, Change{
+				Type:     ChangeUpdate,
+				Field:    "state",
+				OldValue: cm.State,
+				NewValue: desiredState,
+			})
+		}
+		if dm.Description != cm.Description {
+			children = append(children, Change{
+				Type:     ChangeUpdate,
+				Field:    "description",
+				OldValue: cm.Description,
+				NewValue: dm.Description,
+			})
+		}
+		if desiredDueOn != cm.DueOn {
+			children = append(children, Change{
+				Type:     ChangeUpdate,
+				Field:    "due_on",
+				OldValue: cm.DueOn,
+				NewValue: desiredDueOn,
+			})
+		}
+		if len(children) > 0 {
+			changes = append(changes, Change{
+				Type:     ChangeUpdate,
+				Resource: manifest.ResourceMilestone,
+				Name:     name,
+				Field:    dm.Title,
+				Children: children,
+			})
+		}
+	}
+
+	return changes
+}
+
+func milestoneSummary(state, dueOn, description string) string {
+	s := state
+	if dueOn != "" {
+		s += " due:" + dueOn
+	}
+	if description != "" {
+		s += fmt.Sprintf(" %q", description)
+	}
+	return s
 }
 
 func diffActions(name string, desired *manifest.Repository, current *CurrentState) []Change {

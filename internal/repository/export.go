@@ -136,6 +136,18 @@ func ToManifest(ctx context.Context, r *CurrentState, resolver *manifest.Resolve
 		})
 	}
 
+	for _, ms := range r.Milestones {
+		m := manifest.Milestone{
+			Title:       ms.Title,
+			Description: ms.Description,
+			State:       manifest.Ptr(ms.State),
+		}
+		if ms.DueOn != "" {
+			m.DueOn = manifest.Ptr(ms.DueOn)
+		}
+		repo.Spec.Milestones = append(repo.Spec.Milestones, m)
+	}
+
 	// Actions
 	if r.Actions.Enabled || r.Actions.AllowedActions != "" || r.Actions.SHAPinningRequired {
 		actions := &manifest.Actions{

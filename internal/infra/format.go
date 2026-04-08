@@ -2,8 +2,10 @@ package infra
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/babarot/gh-infra/internal/fileset"
+	"github.com/babarot/gh-infra/internal/manifest"
 	"github.com/babarot/gh-infra/internal/repository"
 	"github.com/babarot/gh-infra/internal/ui"
 )
@@ -79,29 +81,50 @@ func printPlan(p ui.Printer, repoChanges []repository.Change, fileChanges []file
 			p.GroupHeader(ui.IconChange, name)
 		}
 
-		// Print repository changes (aligned by repo field width)
+		// Group consecutive Label/Milestone changes under sub-headers,
+		// preserving the original order relative to other resources.
+		grouped := groupRepoChanges(rChanges)
 		p.SetColumnWidth(repoFieldWidth(rChanges))
-		for _, c := range rChanges {
-			if len(c.Children) > 0 {
-				var icon string
-				switch c.Type {
-				case repository.ChangeCreate:
-					icon = ui.IconAdd
-				case repository.ChangeDelete:
-					icon = ui.IconRemove
-				default:
-					icon = ui.IconChange
-				}
-				header := c.Field
-				if s, ok := c.NewValue.(string); ok && s != "" {
-					header = fmt.Sprintf("%s[%s]", c.Field, s)
-				}
-				p.SubGroupHeader(icon, header)
-				for _, child := range c.Children {
-					p.PrintChange(changeToItem(child, true))
+		for _, g := range grouped {
+			if g.resource != "" {
+				// Grouped sub-resource (labels, milestones)
+				icon := groupIcon(g.changes)
+				p.SubGroupHeader(icon, strings.ToLower(g.resource)+"s")
+				for _, c := range g.changes {
+					if len(c.Children) > 0 {
+						for _, child := range c.Children {
+							item := changeToItem(child, true)
+							item.Field = c.Field + "." + child.Field
+							p.PrintChange(item)
+						}
+					} else {
+						p.PrintChange(changeToItem(c, true))
+					}
 				}
 			} else {
-				p.PrintChange(changeToItem(c, false))
+				// Regular change
+				c := g.changes[0]
+				if len(c.Children) > 0 {
+					var icon string
+					switch c.Type {
+					case repository.ChangeCreate:
+						icon = ui.IconAdd
+					case repository.ChangeDelete:
+						icon = ui.IconRemove
+					default:
+						icon = ui.IconChange
+					}
+					header := c.Field
+					if s, ok := c.NewValue.(string); ok && s != "" {
+						header = fmt.Sprintf("%s[%s]", c.Field, s)
+					}
+					p.SubGroupHeader(icon, header)
+					for _, child := range c.Children {
+						p.PrintChange(changeToItem(child, true))
+					}
+				} else {
+					p.PrintChange(changeToItem(c, false))
+				}
 			}
 		}
 
@@ -193,11 +216,35 @@ func printApplyResults(p ui.Printer, repoResults []repository.ApplyResult, fileR
 		}
 		p.GroupHeader(icon, name)
 
+		// Partition results into regular and groupable (Label, Milestone)
+		var regularResults []repository.ApplyResult
+		groupedResults := make(map[string][]repository.ApplyResult)
+		var groupResultOrder []string
 		for _, r := range repoByName[name] {
+			if r.Change.Resource == manifest.ResourceLabel || r.Change.Resource == manifest.ResourceMilestone {
+				if _, seen := groupedResults[r.Change.Resource]; !seen {
+					groupResultOrder = append(groupResultOrder, r.Change.Resource)
+				}
+				groupedResults[r.Change.Resource] = append(groupedResults[r.Change.Resource], r)
+			} else {
+				regularResults = append(regularResults, r)
+			}
+		}
+		for _, r := range regularResults {
 			if r.Err != nil {
 				p.PrintResult(ui.ResultItem{Icon: ui.IconError, Field: r.Change.Field, Detail: r.Err.Error()})
 			} else {
 				p.PrintResult(ui.ResultItem{Icon: ui.IconSuccess, Field: r.Change.Field, Detail: fmt.Sprintf("%sd", r.Change.Type)})
+			}
+		}
+		for _, resource := range groupResultOrder {
+			p.SubGroupHeader(ui.IconSuccess, strings.ToLower(resource)+"s")
+			for _, r := range groupedResults[resource] {
+				if r.Err != nil {
+					p.PrintResult(ui.ResultItem{Icon: ui.IconError, Field: r.Change.Field, Detail: r.Err.Error()})
+				} else {
+					p.PrintResult(ui.ResultItem{Icon: ui.IconSuccess, Field: r.Change.Field, Detail: fmt.Sprintf("%sd", r.Change.Type)})
+				}
 			}
 		}
 
@@ -228,6 +275,60 @@ func printApplyResults(p ui.Printer, repoResults []repository.ApplyResult, fileR
 	}
 
 	p.SetColumnWidth(0)
+}
+
+// changeGroup represents either a single regular change (resource=="")
+// or a batch of same-resource Label/Milestone changes.
+type changeGroup struct {
+	resource string // "" for regular, "Label"/"Milestone" for grouped
+	changes  []repository.Change
+}
+
+// isGroupableResource returns true for resources that should be grouped
+// under a sub-header (e.g. labels, milestones).
+func isGroupableResource(resource string) bool {
+	return resource == manifest.ResourceLabel || resource == manifest.ResourceMilestone
+}
+
+// groupRepoChanges partitions changes into groups, collapsing consecutive
+// Label or Milestone changes into a single group while preserving order.
+func groupRepoChanges(changes []repository.Change) []changeGroup {
+	var groups []changeGroup
+	for _, c := range changes {
+		if isGroupableResource(c.Resource) {
+			// Append to last group if same resource, else start new group
+			if n := len(groups); n > 0 && groups[n-1].resource == c.Resource {
+				groups[n-1].changes = append(groups[n-1].changes, c)
+			} else {
+				groups = append(groups, changeGroup{resource: c.Resource, changes: []repository.Change{c}})
+			}
+		} else {
+			groups = append(groups, changeGroup{changes: []repository.Change{c}})
+		}
+	}
+	return groups
+}
+
+// groupIcon returns the aggregate icon for a group of changes.
+// If all are creates → "+", all deletes → "-", otherwise "~".
+func groupIcon(changes []repository.Change) string {
+	allCreate, allDelete := true, true
+	for _, c := range changes {
+		if c.Type != repository.ChangeCreate {
+			allCreate = false
+		}
+		if c.Type != repository.ChangeDelete {
+			allDelete = false
+		}
+	}
+	switch {
+	case allCreate:
+		return ui.IconAdd
+	case allDelete:
+		return ui.IconRemove
+	default:
+		return ui.IconChange
+	}
 }
 
 // repoFieldWidth returns the max field width across repo changes (for repo section alignment).

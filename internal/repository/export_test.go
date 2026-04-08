@@ -336,6 +336,47 @@ func assertStringPtr(t *testing.T, name string, got *string, want string) {
 	}
 }
 
+func TestToManifest_Milestones(t *testing.T) {
+	state := &CurrentState{
+		Owner: "org",
+		Name:  "repo",
+		Milestones: map[string]*CurrentMilestone{
+			"v1.0": {Number: 1, Title: "v1.0", Description: "First release", State: "open", DueOn: "2026-06-01"},
+			"v2.0": {Number: 2, Title: "v2.0", Description: "", State: "closed", DueOn: ""},
+		},
+	}
+
+	repo := ToManifest(context.Background(), state, nil)
+
+	if len(repo.Spec.Milestones) != 2 {
+		t.Fatalf("expected 2 milestones, got %d", len(repo.Spec.Milestones))
+	}
+
+	msMap := make(map[string]manifest.Milestone)
+	for _, m := range repo.Spec.Milestones {
+		msMap[m.Title] = m
+	}
+
+	v1, ok := msMap["v1.0"]
+	if !ok {
+		t.Fatal("missing milestone 'v1.0'")
+	}
+	if v1.Description != "First release" {
+		t.Errorf("v1.0.Description = %q, want %q", v1.Description, "First release")
+	}
+	assertStringPtr(t, "v1.0.State", v1.State, "open")
+	assertStringPtr(t, "v1.0.DueOn", v1.DueOn, "2026-06-01")
+
+	v2, ok := msMap["v2.0"]
+	if !ok {
+		t.Fatal("missing milestone 'v2.0'")
+	}
+	assertStringPtr(t, "v2.0.State", v2.State, "closed")
+	if v2.DueOn != nil {
+		t.Errorf("v2.0.DueOn = %v, want nil for empty due_on", v2.DueOn)
+	}
+}
+
 func TestToManifest_Labels(t *testing.T) {
 	state := &CurrentState{
 		Owner: "org",

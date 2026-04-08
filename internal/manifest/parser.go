@@ -389,6 +389,9 @@ func mergeSpecs(defaults *RepositorySetDefaults, override RepositorySpec) Reposi
 	if override.LabelSync != nil {
 		result.LabelSync = override.LabelSync
 	}
+	if len(override.Milestones) > 0 {
+		result.Milestones = override.Milestones
+	}
 
 	return result
 }
