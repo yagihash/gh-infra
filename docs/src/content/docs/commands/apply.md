@@ -7,16 +7,21 @@ sidebar:
 Apply changes to GitHub. By default, requires interactive confirmation before proceeding.
 
 ```bash
-gh infra apply [path]
+gh infra apply [path...]
 ```
 
 ## Path
+
+One or more paths can be given. When multiple paths are provided, manifests from all paths are collected and applied together.
 
 | Argument | Example | Behavior |
 |----------|---------|----------|
 | *(none)* or `.` | `gh infra apply` | All `*.yaml` / `*.yml` in the current directory |
 | File | `gh infra apply repos/my-cli.yaml` | That file only |
 | Directory | `gh infra apply repos/` | All `*.yaml` / `*.yml` directly under it (subdirectories are ignored) |
+| Multiple | `gh infra apply repos/ files/` | Manifests from all listed paths combined |
+
+Overlapping paths (e.g., `.` and `./repos/`) are rejected to prevent duplicate processing.
 
 YAML files that are not gh-infra manifests are silently skipped. Use `--fail-on-unknown` to treat them as errors.
 
@@ -62,6 +67,9 @@ When you return to the confirmation prompt, any skipped files are shown as a sum
 ```bash
 # Apply all changes
 gh infra apply ./repos/
+
+# Apply multiple directories at once
+gh infra apply ./repos/ ./files/
 
 # Apply without confirmation (for CI)
 gh infra apply ./repos/ --auto-approve

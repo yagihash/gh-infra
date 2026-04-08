@@ -19,15 +19,10 @@ func newPlanCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "plan [path]",
+		Use:   "plan [path...]",
 		Short: "Show changes between desired state and current GitHub state",
-		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path := "."
-			if len(args) > 0 {
-				path = args[0]
-			}
-			return runPlan(path, repo, ci, failOnUnknown)
+			return runPlan(args, repo, ci, failOnUnknown)
 		},
 	}
 
@@ -38,9 +33,9 @@ func newPlanCmd() *cobra.Command {
 	return cmd
 }
 
-func runPlan(path, filterRepo string, ci, failOnUnknown bool) error {
+func runPlan(paths []string, filterRepo string, ci, failOnUnknown bool) error {
 	result, err := infra.Plan(infra.PlanOptions{
-		Path:          path,
+		Paths:         paths,
 		FilterRepo:    filterRepo,
 		FailOnUnknown: failOnUnknown,
 		DryRun:        true,

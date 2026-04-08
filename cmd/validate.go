@@ -13,15 +13,10 @@ func newValidateCmd() *cobra.Command {
 	var failOnUnknown bool
 
 	cmd := &cobra.Command{
-		Use:   "validate [path]",
+		Use:   "validate [path...]",
 		Short: "Validate YAML syntax and schema",
-		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path := "."
-			if len(args) > 0 {
-				path = args[0]
-			}
-			return runValidate(path, failOnUnknown)
+			return runValidate(args, failOnUnknown)
 		},
 	}
 
@@ -30,12 +25,21 @@ func newValidateCmd() *cobra.Command {
 	return cmd
 }
 
-func runValidate(path string, failOnUnknown bool) error {
-	p := ui.NewStandardPrinter()
-
-	parsed, err := manifest.ParseAll(path, manifest.ParseOptions{FailOnUnknown: failOnUnknown})
+func runValidate(args []string, failOnUnknown bool) error {
+	paths, err := manifest.ResolvePaths(args)
 	if err != nil {
 		return err
+	}
+
+	p := ui.NewStandardPrinter()
+
+	parsed := &manifest.ParseResult{}
+	for _, path := range paths {
+		result, err := manifest.ParseAll(path, manifest.ParseOptions{FailOnUnknown: failOnUnknown})
+		if err != nil {
+			return err
+		}
+		parsed.Merge(result)
 	}
 
 	// Print deprecation warnings

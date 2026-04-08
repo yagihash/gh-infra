@@ -19,17 +19,18 @@ Use `--into` to pull live GitHub state back into existing manifests and local fi
 ## validate
 
 ```bash
-gh infra validate [path]
+gh infra validate [path...]
 ```
 
 - Checks YAML syntax and schema only
 - Does not contact GitHub
 - Exits nonzero on validation failure
+- Accepts multiple paths: `gh infra validate ./repos/ ./files/`
 
 ## plan
 
 ```bash
-gh infra plan [path]
+gh infra plan [path...]
 ```
 
 Flags:
@@ -41,7 +42,7 @@ Flags:
 ## apply
 
 ```bash
-gh infra apply [path]
+gh infra apply [path...]
 ```
 
 Flags:

@@ -106,7 +106,7 @@ gh infra import <owner/repo>
 Validate syntax and schema without contacting GitHub:
 
 ```bash
-gh infra validate [path]
+gh infra validate [path...]
 ```
 
 ### plan
@@ -114,7 +114,7 @@ gh infra validate [path]
 Show diff against live GitHub state:
 
 ```bash
-gh infra plan [path]
+gh infra plan [path...]
 ```
 
 Use `--ci` for drift-detection workflows.
@@ -124,7 +124,7 @@ Use `--ci` for drift-detection workflows.
 Apply changes to GitHub:
 
 ```bash
-gh infra apply [path]
+gh infra apply [path...]
 ```
 
 Use `--auto-approve` in CI. `--force-secrets` re-sends all declared secrets.
@@ -136,6 +136,8 @@ For `validate`, `plan`, and `apply`:
 - No argument or `.`: read `*.yaml` and `*.yml` in the current directory
 - File path: read that file only
 - Directory path: read top-level `*.yaml` and `*.yml` only
+- Multiple paths: `gh infra plan ./repos/ ./files/` — manifests from all paths are combined
+- Overlapping paths (e.g., `.` and `./repos/`) are rejected
 - Subdirectories are not scanned
 - Unknown YAML kinds are skipped unless `--fail-on-unknown` is set
 
