@@ -14,6 +14,7 @@ const (
 	ResourceRuleset          = "Ruleset"
 	ResourceActions          = "Actions"
 	ResourceLabel            = "Label"
+	ResourceMilestone        = "Milestone"
 
 	// Label sync mode values.
 	LabelSyncAdditive = "additive"
@@ -75,6 +76,7 @@ type RepositorySpec struct {
 	Topics              []string           `yaml:"topics,omitempty"`
 	Labels              []Label            `yaml:"labels,omitempty"            validate:"unique=name"`
 	LabelSync           *string            `yaml:"label_sync,omitempty"        validate:"omitempty,oneof=additive mirror"`
+	Milestones          []Milestone        `yaml:"milestones,omitempty"        validate:"unique=title"`
 	Features            *Features          `yaml:"features,omitempty"`
 	MergeStrategy       *MergeStrategy     `yaml:"merge_strategy,omitempty"`
 	ReleaseImmutability *bool              `yaml:"release_immutability,omitempty"`
@@ -206,6 +208,22 @@ type Label struct {
 func LabelSyncMode(s *string) string {
 	if s == nil {
 		return LabelSyncAdditive
+	}
+	return *s
+}
+
+type Milestone struct {
+	Title       string  `yaml:"title"       validate:"required"`
+	Description string  `yaml:"description,omitempty"`
+	State       *string `yaml:"state,omitempty"  validate:"omitempty,oneof=open closed"`
+	DueOn       *string `yaml:"due_on,omitempty"`
+}
+
+// MilestoneState returns the effective milestone state.
+// nil is treated as "open" (safe default).
+func MilestoneState(s *string) string {
+	if s == nil {
+		return "open"
 	}
 	return *s
 }

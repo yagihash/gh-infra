@@ -84,7 +84,9 @@ func (p *Processor) applyChange(ctx context.Context, c Change, repo *manifest.Re
 	}
 
 	// Generic: if this change has children, expand and apply each child.
-	if len(c.Children) > 0 {
+	// Label and Milestone updates carry children for display (e.g. color, description)
+	// but should be applied as a single API call using the parent's Field (the name/title).
+	if len(c.Children) > 0 && c.Resource != manifest.ResourceLabel && c.Resource != manifest.ResourceMilestone {
 		for _, child := range c.Children {
 			child.Resource = c.Resource
 			child.Name = c.Name
@@ -112,6 +114,8 @@ func (p *Processor) applyChange(ctx context.Context, c Change, repo *manifest.Re
 		err = p.applyVariable(ctx, c, repo)
 	case c.Resource == manifest.ResourceLabel:
 		err = p.applyLabel(ctx, c, repo)
+	case c.Resource == manifest.ResourceMilestone:
+		err = p.applyMilestone(ctx, c, repo)
 	case c.Resource == manifest.ResourceActions:
 		err = p.applyActions(ctx, c, repo)
 	default:
@@ -832,6 +836,90 @@ func (p *Processor) applyLabel(ctx context.Context, c Change, repo *manifest.Rep
 	}
 
 	return nil
+}
+
+func (p *Processor) applyMilestone(ctx context.Context, c Change, repo *manifest.Repository) error {
+	owner := repo.Metadata.Owner
+	name := repo.Metadata.Name
+	fullName := owner + "/" + name
+
+	// Find milestone from desired state
+	var ms *manifest.Milestone
+	for i := range repo.Spec.Milestones {
+		if repo.Spec.Milestones[i].Title == c.Field {
+			ms = &repo.Spec.Milestones[i]
+			break
+		}
+	}
+	if ms == nil {
+		return fmt.Errorf("milestone %q not found in desired state", c.Field)
+	}
+
+	payload := map[string]any{
+		"title":       ms.Title,
+		"description": ms.Description,
+		"state":       manifest.MilestoneState(ms.State),
+	}
+	if ms.DueOn != nil && *ms.DueOn != "" {
+		payload["due_on"] = *ms.DueOn + "T00:00:00Z"
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	switch c.Type {
+	case ChangeCreate:
+		_, err = p.runner.RunWithStdin(ctx, body,
+			"api",
+			fmt.Sprintf("repos/%s/%s/milestones", owner, name),
+			"--method", "POST",
+			"--header", "Content-Type: application/json",
+			"--input", "-",
+		)
+	case ChangeUpdate:
+		// Need milestone number — fetch current milestones to find it
+		number, numErr := p.findMilestoneNumber(ctx, owner, name, c.Field)
+		if numErr != nil {
+			return fmt.Errorf("resolve milestone number for %q: %w", c.Field, numErr)
+		}
+		_, err = p.runner.RunWithStdin(ctx, body,
+			"api",
+			fmt.Sprintf("repos/%s/%s/milestones/%d", owner, name, number),
+			"--method", "PATCH",
+			"--header", "Content-Type: application/json",
+			"--input", "-",
+		)
+	}
+
+	return wrapError(err, fullName, "milestone:"+c.Field)
+}
+
+func (p *Processor) findMilestoneNumber(ctx context.Context, owner, name, title string) (int, error) {
+	out, err := p.runner.Run(ctx,
+		"api",
+		fmt.Sprintf("repos/%s/%s/milestones?state=all&per_page=100", owner, name),
+		"--paginate",
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	var milestones []struct {
+		Number int    `json:"number"`
+		Title  string `json:"title"`
+	}
+	if err := json.Unmarshal(out, &milestones); err != nil {
+		return 0, err
+	}
+
+	for _, m := range milestones {
+		if m.Title == title {
+			return m.Number, nil
+		}
+	}
+	return 0, fmt.Errorf("milestone %q not found", title)
 }
 
 func (p *Processor) applyActions(ctx context.Context, c Change, repo *manifest.Repository) error {

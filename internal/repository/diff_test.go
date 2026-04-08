@@ -28,6 +28,7 @@ func baseState() *CurrentState {
 		Rulesets:         map[string]*CurrentRuleset{},
 		Variables:        map[string]string{},
 		Labels:           map[string]*CurrentLabel{},
+		Milestones:       map[string]*CurrentMilestone{},
 	}
 }
 
@@ -919,6 +920,115 @@ func TestLabelSummary(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMilestoneSummary(t *testing.T) {
+	tests := []struct {
+		name        string
+		state       string
+		dueOn       string
+		description string
+		want        string
+	}{
+		{"state only", "open", "", "", "open"},
+		{"with due date", "open", "2026-06-01", "", "open due:2026-06-01"},
+		{"with description", "open", "", "First release", `open "First release"`},
+		{"all fields", "closed", "2026-12-31", "Final release", `closed due:2026-12-31 "Final release"`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := milestoneSummary(tt.state, tt.dueOn, tt.description)
+			if got != tt.want {
+				t.Errorf("milestoneSummary(%q, %q, %q) = %q, want %q", tt.state, tt.dueOn, tt.description, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDiff_Milestones(t *testing.T) {
+	t.Run("new milestone", func(t *testing.T) {
+		d := baseDesired()
+		d.Spec.Milestones = []manifest.Milestone{
+			{Title: "v1.0", Description: "First release", State: manifest.Ptr("open")},
+		}
+		c := baseState()
+
+		changes := diffMilestones("org/repo", d, c)
+		if len(changes) != 1 {
+			t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
+		}
+		if changes[0].Type != ChangeCreate {
+			t.Errorf("expected create, got %s", changes[0].Type)
+		}
+		if changes[0].Field != "v1.0" {
+			t.Errorf("expected field v1.0, got %s", changes[0].Field)
+		}
+	})
+
+	t.Run("update milestone state", func(t *testing.T) {
+		d := baseDesired()
+		d.Spec.Milestones = []manifest.Milestone{
+			{Title: "v1.0", State: manifest.Ptr("closed")},
+		}
+		c := baseState()
+		c.Milestones["v1.0"] = &CurrentMilestone{Number: 1, Title: "v1.0", State: "open"}
+
+		changes := diffMilestones("org/repo", d, c)
+		if len(changes) != 1 {
+			t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
+		}
+		if changes[0].Type != ChangeUpdate {
+			t.Errorf("expected update, got %s", changes[0].Type)
+		}
+		if len(changes[0].Children) != 1 || changes[0].Children[0].Field != "state" {
+			t.Errorf("expected state child change, got %v", changes[0].Children)
+		}
+	})
+
+	t.Run("update milestone due_on", func(t *testing.T) {
+		d := baseDesired()
+		d.Spec.Milestones = []manifest.Milestone{
+			{Title: "v1.0", State: manifest.Ptr("open"), DueOn: manifest.Ptr("2026-07-01")},
+		}
+		c := baseState()
+		c.Milestones["v1.0"] = &CurrentMilestone{Number: 1, Title: "v1.0", State: "open", DueOn: "2026-06-01"}
+
+		changes := diffMilestones("org/repo", d, c)
+		if len(changes) != 1 {
+			t.Fatalf("expected 1 change, got %d: %v", len(changes), changes)
+		}
+		if len(changes[0].Children) != 1 || changes[0].Children[0].Field != "due_on" {
+			t.Errorf("expected due_on child change, got %v", changes[0].Children)
+		}
+	})
+
+	t.Run("milestone same values no change", func(t *testing.T) {
+		d := baseDesired()
+		d.Spec.Milestones = []manifest.Milestone{
+			{Title: "v1.0", Description: "Desc", State: manifest.Ptr("open"), DueOn: manifest.Ptr("2026-06-01")},
+		}
+		c := baseState()
+		c.Milestones["v1.0"] = &CurrentMilestone{Number: 1, Title: "v1.0", Description: "Desc", State: "open", DueOn: "2026-06-01"}
+
+		changes := diffMilestones("org/repo", d, c)
+		if len(changes) != 0 {
+			t.Errorf("expected no changes, got %d", len(changes))
+		}
+	})
+
+	t.Run("nil state defaults to open", func(t *testing.T) {
+		d := baseDesired()
+		d.Spec.Milestones = []manifest.Milestone{
+			{Title: "v1.0"},
+		}
+		c := baseState()
+		c.Milestones["v1.0"] = &CurrentMilestone{Number: 1, Title: "v1.0", State: "open"}
+
+		changes := diffMilestones("org/repo", d, c)
+		if len(changes) != 0 {
+			t.Errorf("expected no changes (nil state = open), got %d", len(changes))
+		}
+	})
 }
 
 func TestDiff_FullIntegration(t *testing.T) {

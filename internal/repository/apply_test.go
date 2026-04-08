@@ -1231,3 +1231,232 @@ func TestApplyActions_RoutesCorrectly(t *testing.T) {
 		})
 	}
 }
+
+func TestApplyMilestone_Create(t *testing.T) {
+	mock := &gh.MockRunner{}
+	proc := NewProcessor(mock, nil, nil)
+
+	repo := newTestRepo("myorg", "myrepo")
+	repo.Spec.Milestones = []manifest.Milestone{
+		{Title: "v1.0", Description: "First release", State: manifest.Ptr("open"), DueOn: manifest.Ptr("2026-06-01")},
+	}
+
+	changes := []Change{
+		{
+			Type:     ChangeCreate,
+			Resource: manifest.ResourceMilestone,
+			Name:     "myorg/myrepo",
+			Field:    "v1.0",
+		},
+	}
+
+	results := proc.Apply(context.Background(), changes, []*manifest.Repository{repo}, ui.NoopReporter{})
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Err != nil {
+		t.Fatalf("unexpected error: %v", results[0].Err)
+	}
+	if len(mock.Called) != 1 {
+		t.Fatalf("expected 1 call, got %d", len(mock.Called))
+	}
+
+	call := strings.Join(mock.Called[0], " ")
+	if !strings.Contains(call, "repos/myorg/myrepo/milestones") {
+		t.Errorf("expected milestones endpoint, got: %s", call)
+	}
+	if !strings.Contains(call, "--method POST") {
+		t.Errorf("expected POST method, got: %s", call)
+	}
+
+	body := mock.CalledStdin[0]
+	if body == nil {
+		t.Fatal("expected stdin body, got nil")
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("failed to parse payload: %v", err)
+	}
+	if payload["title"] != "v1.0" {
+		t.Errorf("title = %v, want v1.0", payload["title"])
+	}
+	if payload["state"] != "open" {
+		t.Errorf("state = %v, want open", payload["state"])
+	}
+	if payload["due_on"] != "2026-06-01T00:00:00Z" {
+		t.Errorf("due_on = %v, want 2026-06-01T00:00:00Z", payload["due_on"])
+	}
+}
+
+func TestApplyMilestone_Update(t *testing.T) {
+	mock := &gh.MockRunner{
+		Responses: map[string][]byte{
+			"api repos/myorg/myrepo/milestones?state=all&per_page=100 --paginate": []byte(`[{"number":3,"title":"v1.0"}]`),
+		},
+	}
+	proc := NewProcessor(mock, nil, nil)
+
+	repo := newTestRepo("myorg", "myrepo")
+	repo.Spec.Milestones = []manifest.Milestone{
+		{Title: "v1.0", State: manifest.Ptr("closed")},
+	}
+
+	changes := []Change{
+		{
+			Type:     ChangeUpdate,
+			Resource: manifest.ResourceMilestone,
+			Name:     "myorg/myrepo",
+			Field:    "v1.0",
+		},
+	}
+
+	results := proc.Apply(context.Background(), changes, []*manifest.Repository{repo}, ui.NoopReporter{})
+	if results[0].Err != nil {
+		t.Fatalf("unexpected error: %v", results[0].Err)
+	}
+
+	// First call is the findMilestoneNumber lookup, second is the PATCH
+	if len(mock.Called) != 2 {
+		t.Fatalf("expected 2 calls, got %d", len(mock.Called))
+	}
+
+	patchCall := strings.Join(mock.Called[1], " ")
+	if !strings.Contains(patchCall, "repos/myorg/myrepo/milestones/3") {
+		t.Errorf("expected PATCH to milestone 3, got: %s", patchCall)
+	}
+	if !strings.Contains(patchCall, "--method PATCH") {
+		t.Errorf("expected PATCH method, got: %s", patchCall)
+	}
+}
+
+func TestApplyMilestone_NotFoundInDesired(t *testing.T) {
+	mock := &gh.MockRunner{}
+	proc := NewProcessor(mock, nil, nil)
+
+	repo := newTestRepo("myorg", "myrepo")
+	// No milestones in spec
+
+	changes := []Change{
+		{
+			Type:     ChangeCreate,
+			Resource: manifest.ResourceMilestone,
+			Name:     "myorg/myrepo",
+			Field:    "v1.0",
+		},
+	}
+
+	results := proc.Apply(context.Background(), changes, []*manifest.Repository{repo}, ui.NoopReporter{})
+	if results[0].Err == nil {
+		t.Fatal("expected error for missing milestone in desired state")
+	}
+	if !strings.Contains(results[0].Err.Error(), "not found in desired state") {
+		t.Errorf("unexpected error message: %v", results[0].Err)
+	}
+}
+
+func TestFindMilestoneNumber(t *testing.T) {
+	t.Run("found", func(t *testing.T) {
+		mock := &gh.MockRunner{
+			Responses: map[string][]byte{
+				"api repos/myorg/myrepo/milestones?state=all&per_page=100 --paginate": []byte(`[{"number":1,"title":"v0.9"},{"number":5,"title":"v1.0"}]`),
+			},
+		}
+		proc := NewProcessor(mock, nil, nil)
+		num, err := proc.findMilestoneNumber(context.Background(), "myorg", "myrepo", "v1.0")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if num != 5 {
+			t.Errorf("expected 5, got %d", num)
+		}
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mock := &gh.MockRunner{
+			Responses: map[string][]byte{
+				"api repos/myorg/myrepo/milestones?state=all&per_page=100 --paginate": []byte(`[{"number":1,"title":"v0.9"}]`),
+			},
+		}
+		proc := NewProcessor(mock, nil, nil)
+		_, err := proc.findMilestoneNumber(context.Background(), "myorg", "myrepo", "v1.0")
+		if err == nil {
+			t.Fatal("expected error for not found milestone")
+		}
+	})
+}
+
+func TestApplyLabel_UpdateWithChildren(t *testing.T) {
+	mock := &gh.MockRunner{}
+	proc := NewProcessor(mock, nil, nil)
+
+	repo := newTestRepo("myorg", "myrepo")
+	repo.Spec.Labels = []manifest.Label{
+		{Name: "enhancement", Color: "eeeeee", Description: "New feature"},
+	}
+
+	// Label update produces a Change with Children (one per changed field).
+	// The apply logic must NOT expand children individually — it should apply
+	// the parent change as a single "label edit" call.
+	changes := []Change{
+		{
+			Type:     ChangeUpdate,
+			Resource: manifest.ResourceLabel,
+			Name:     "myorg/myrepo",
+			Field:    "enhancement",
+			Children: []Change{
+				{Type: ChangeUpdate, Field: "color", OldValue: "a2eeef", NewValue: "eeeeee"},
+			},
+		},
+	}
+
+	results := proc.Apply(context.Background(), changes, []*manifest.Repository{repo}, ui.NoopReporter{})
+	if results[0].Err != nil {
+		t.Fatalf("unexpected error: %v", results[0].Err)
+	}
+	if len(mock.Called) != 1 {
+		t.Fatalf("expected 1 call, got %d", len(mock.Called))
+	}
+	call := strings.Join(mock.Called[0], " ")
+	if !strings.Contains(call, "label edit enhancement") {
+		t.Errorf("expected 'label edit enhancement', got: %s", call)
+	}
+}
+
+func TestApplyMilestone_UpdateWithChildren(t *testing.T) {
+	mock := &gh.MockRunner{
+		Responses: map[string][]byte{
+			"api repos/myorg/myrepo/milestones?state=all&per_page=100 --paginate": []byte(`[{"number":1,"title":"v1.0"}]`),
+		},
+	}
+	proc := NewProcessor(mock, nil, nil)
+
+	repo := newTestRepo("myorg", "myrepo")
+	repo.Spec.Milestones = []manifest.Milestone{
+		{Title: "v1.0", State: manifest.Ptr("open"), DueOn: manifest.Ptr("2026-06-01")},
+	}
+
+	changes := []Change{
+		{
+			Type:     ChangeUpdate,
+			Resource: manifest.ResourceMilestone,
+			Name:     "myorg/myrepo",
+			Field:    "v1.0",
+			Children: []Change{
+				{Type: ChangeUpdate, Field: "due_on", OldValue: "2026-05-31", NewValue: "2026-06-01"},
+			},
+		},
+	}
+
+	results := proc.Apply(context.Background(), changes, []*manifest.Repository{repo}, ui.NoopReporter{})
+	if results[0].Err != nil {
+		t.Fatalf("unexpected error: %v", results[0].Err)
+	}
+	// First call: findMilestoneNumber, second call: PATCH
+	if len(mock.Called) != 2 {
+		t.Fatalf("expected 2 calls, got %d", len(mock.Called))
+	}
+	patchCall := strings.Join(mock.Called[1], " ")
+	if !strings.Contains(patchCall, "milestones/1") {
+		t.Errorf("expected PATCH to milestone 1, got: %s", patchCall)
+	}
+}

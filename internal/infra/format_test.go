@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/babarot/gh-infra/internal/fileset"
+	"github.com/babarot/gh-infra/internal/manifest"
 	"github.com/babarot/gh-infra/internal/repository"
 	"github.com/babarot/gh-infra/internal/ui"
 )
@@ -345,5 +346,200 @@ func TestFileChangeToItem_Delete(t *testing.T) {
 	}
 	if item.Removed != 20 {
 		t.Errorf("removed = %d, want 20", item.Removed)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// groupRepoChanges
+// ---------------------------------------------------------------------------
+
+func TestGroupRepoChanges_NoGroupable(t *testing.T) {
+	changes := []repository.Change{
+		{Resource: "Repository", Field: "description"},
+		{Resource: "Repository", Field: "topics"},
+	}
+	groups := groupRepoChanges(changes)
+	if len(groups) != 2 {
+		t.Fatalf("expected 2 groups, got %d", len(groups))
+	}
+	for _, g := range groups {
+		if g.resource != "" {
+			t.Errorf("expected empty resource for regular change, got %q", g.resource)
+		}
+	}
+}
+
+func TestGroupRepoChanges_ConsecutiveLabels(t *testing.T) {
+	changes := []repository.Change{
+		{Resource: manifest.ResourceLabel, Field: "bug"},
+		{Resource: manifest.ResourceLabel, Field: "feature"},
+	}
+	groups := groupRepoChanges(changes)
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+	if groups[0].resource != manifest.ResourceLabel {
+		t.Errorf("resource = %q, want %q", groups[0].resource, manifest.ResourceLabel)
+	}
+	if len(groups[0].changes) != 2 {
+		t.Errorf("expected 2 changes in group, got %d", len(groups[0].changes))
+	}
+}
+
+func TestGroupRepoChanges_PreservesOrder(t *testing.T) {
+	changes := []repository.Change{
+		{Resource: "Repository", Field: "description"},
+		{Resource: manifest.ResourceLabel, Field: "bug"},
+		{Resource: manifest.ResourceLabel, Field: "feature"},
+		{Resource: manifest.ResourceMilestone, Field: "v1.0"},
+		{Resource: "Actions", Field: "actions", Children: []repository.Change{{Field: "enabled"}}},
+	}
+	groups := groupRepoChanges(changes)
+	if len(groups) != 4 {
+		t.Fatalf("expected 4 groups, got %d", len(groups))
+	}
+	// Order: regular(description), labels(bug+feature), milestones(v1.0), regular(actions)
+	if groups[0].resource != "" {
+		t.Errorf("group[0] resource = %q, want empty", groups[0].resource)
+	}
+	if groups[1].resource != manifest.ResourceLabel {
+		t.Errorf("group[1] resource = %q, want Label", groups[1].resource)
+	}
+	if len(groups[1].changes) != 2 {
+		t.Errorf("group[1] should have 2 changes, got %d", len(groups[1].changes))
+	}
+	if groups[2].resource != manifest.ResourceMilestone {
+		t.Errorf("group[2] resource = %q, want Milestone", groups[2].resource)
+	}
+	if groups[3].resource != "" {
+		t.Errorf("group[3] resource = %q, want empty", groups[3].resource)
+	}
+}
+
+func TestGroupRepoChanges_NonConsecutiveSameResource(t *testing.T) {
+	changes := []repository.Change{
+		{Resource: manifest.ResourceLabel, Field: "bug"},
+		{Resource: "Repository", Field: "description"},
+		{Resource: manifest.ResourceLabel, Field: "feature"},
+	}
+	groups := groupRepoChanges(changes)
+	// Labels are split into two separate groups because they're not consecutive
+	if len(groups) != 3 {
+		t.Fatalf("expected 3 groups, got %d", len(groups))
+	}
+	if groups[0].resource != manifest.ResourceLabel || groups[0].changes[0].Field != "bug" {
+		t.Errorf("group[0] unexpected: %+v", groups[0])
+	}
+	if groups[1].resource != "" {
+		t.Errorf("group[1] resource = %q, want empty", groups[1].resource)
+	}
+	if groups[2].resource != manifest.ResourceLabel || groups[2].changes[0].Field != "feature" {
+		t.Errorf("group[2] unexpected: %+v", groups[2])
+	}
+}
+
+// ---------------------------------------------------------------------------
+// groupIcon
+// ---------------------------------------------------------------------------
+
+func TestGroupIcon(t *testing.T) {
+	tests := []struct {
+		name    string
+		changes []repository.Change
+		want    string
+	}{
+		{"all creates", []repository.Change{
+			{Type: repository.ChangeCreate},
+			{Type: repository.ChangeCreate},
+		}, ui.IconAdd},
+		{"all deletes", []repository.Change{
+			{Type: repository.ChangeDelete},
+		}, ui.IconRemove},
+		{"mixed", []repository.Change{
+			{Type: repository.ChangeCreate},
+			{Type: repository.ChangeUpdate},
+		}, ui.IconChange},
+		{"single update", []repository.Change{
+			{Type: repository.ChangeUpdate},
+		}, ui.IconChange},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := groupIcon(tt.changes)
+			if got != tt.want {
+				t.Errorf("groupIcon() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// printPlan with grouped resources
+// ---------------------------------------------------------------------------
+
+func TestPrintPlan_GroupedLabelsAndMilestones(t *testing.T) {
+	var buf bytes.Buffer
+	p := ui.NewStandardPrinterWith(&buf, &buf)
+
+	repoChanges := []repository.Change{
+		{Type: repository.ChangeUpdate, Resource: "Repository", Name: "org/repo", Field: "description", OldValue: "old", NewValue: "new"},
+		{Type: repository.ChangeCreate, Resource: manifest.ResourceLabel, Name: "org/repo", Field: "bug", NewValue: `#d73a4a "A bug"`},
+		{Type: repository.ChangeCreate, Resource: manifest.ResourceLabel, Name: "org/repo", Field: "feature", NewValue: `#425df5`},
+		{Type: repository.ChangeCreate, Resource: manifest.ResourceMilestone, Name: "org/repo", Field: "v1.0", NewValue: "open"},
+	}
+
+	printPlan(p, repoChanges, nil)
+	out := buf.String()
+
+	if !strings.Contains(out, "labels") {
+		t.Errorf("expected 'labels' group header, got:\n%s", out)
+	}
+	if !strings.Contains(out, "milestones") {
+		t.Errorf("expected 'milestones' group header, got:\n%s", out)
+	}
+	if !strings.Contains(out, "bug") {
+		t.Errorf("expected label 'bug' in output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "v1.0") {
+		t.Errorf("expected milestone 'v1.0' in output, got:\n%s", out)
+	}
+
+	// Verify order: description before labels before milestones
+	descIdx := strings.Index(out, "description")
+	labelsIdx := strings.Index(out, "labels")
+	msIdx := strings.Index(out, "milestones")
+	if descIdx > labelsIdx {
+		t.Errorf("description should appear before labels")
+	}
+	if labelsIdx > msIdx {
+		t.Errorf("labels should appear before milestones")
+	}
+}
+
+func TestPrintPlan_GroupedLabelUpdate(t *testing.T) {
+	var buf bytes.Buffer
+	p := ui.NewStandardPrinterWith(&buf, &buf)
+
+	repoChanges := []repository.Change{
+		{
+			Type:     repository.ChangeUpdate,
+			Resource: manifest.ResourceLabel,
+			Name:     "org/repo",
+			Field:    "bug",
+			Children: []repository.Change{
+				{Type: repository.ChangeUpdate, Field: "color", OldValue: "d73a4a", NewValue: "FF0000"},
+			},
+		},
+	}
+
+	printPlan(p, repoChanges, nil)
+	out := buf.String()
+
+	if !strings.Contains(out, "labels") {
+		t.Errorf("expected 'labels' group header, got:\n%s", out)
+	}
+	// Children should be flattened with "name.field" prefix
+	if !strings.Contains(out, "bug.color") {
+		t.Errorf("expected 'bug.color' flattened field, got:\n%s", out)
 	}
 }

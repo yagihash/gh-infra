@@ -430,6 +430,90 @@ func TestFetchActionsSettings(t *testing.T) {
 	}
 }
 
+func TestNormalizeDueOn(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"RFC3339 timestamp", "2026-06-01T00:00:00Z", "2026-06-01"},
+		{"RFC3339 with timezone", "2026-12-25T08:00:00+09:00", "2026-12-25"},
+		{"already YYYY-MM-DD", "2026-06-01", "2026-06-01"},
+		{"empty string", "", ""},
+		{"null string", "null", ""},
+		{"unparseable", "not-a-date", "not-a-date"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeDueOn(tt.input)
+			if got != tt.want {
+				t.Errorf("normalizeDueOn(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFetchMilestones(t *testing.T) {
+	t.Run("parses milestones", func(t *testing.T) {
+		mock := &gh.MockRunner{
+			Responses: map[string][]byte{
+				"api repos/myorg/myrepo/milestones?state=all&per_page=100 --paginate": []byte(`[
+					{"number":1,"title":"v1.0","description":"First release","state":"open","due_on":"2026-06-01T00:00:00Z"},
+					{"number":2,"title":"v2.0","description":"","state":"closed","due_on":null}
+				]`),
+			},
+		}
+		p := NewProcessor(mock, nil, nil)
+		milestones, err := p.fetchMilestones(context.Background(), "myorg", "myrepo")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(milestones) != 2 {
+			t.Fatalf("expected 2 milestones, got %d", len(milestones))
+		}
+		m1 := milestones["v1.0"]
+		if m1.Number != 1 || m1.State != "open" || m1.DueOn != "2026-06-01" {
+			t.Errorf("v1.0 = %+v", m1)
+		}
+		m2 := milestones["v2.0"]
+		if m2.Number != 2 || m2.State != "closed" || m2.DueOn != "" {
+			t.Errorf("v2.0 = %+v", m2)
+		}
+	})
+
+	t.Run("error returns nil", func(t *testing.T) {
+		mock := &gh.MockRunner{
+			Errors: map[string]error{
+				"api repos/myorg/myrepo/milestones?state=all&per_page=100 --paginate": fmt.Errorf("forbidden"),
+			},
+		}
+		p := NewProcessor(mock, nil, nil)
+		milestones, err := p.fetchMilestones(context.Background(), "myorg", "myrepo")
+		if err != nil {
+			t.Fatalf("expected nil error, got %v", err)
+		}
+		if milestones != nil {
+			t.Errorf("expected nil milestones on error, got %v", milestones)
+		}
+	})
+
+	t.Run("empty array", func(t *testing.T) {
+		mock := &gh.MockRunner{
+			Responses: map[string][]byte{
+				"api repos/myorg/myrepo/milestones?state=all&per_page=100 --paginate": []byte(`[]`),
+			},
+		}
+		p := NewProcessor(mock, nil, nil)
+		milestones, err := p.fetchMilestones(context.Background(), "myorg", "myrepo")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(milestones) != 0 {
+			t.Errorf("expected 0 milestones, got %d", len(milestones))
+		}
+	})
+}
+
 func TestFormatTimeAgo(t *testing.T) {
 	tests := []struct {
 		name string

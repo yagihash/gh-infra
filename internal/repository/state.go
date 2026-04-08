@@ -93,6 +93,14 @@ func (p *Processor) FetchRepository(ctx context.Context, owner, name string, onS
 		return err
 	})
 
+	var milestones map[string]*CurrentMilestone
+	g.Go(func() error {
+		status("fetching milestones...")
+		var err error
+		milestones, err = p.fetchMilestones(ctx, owner, name)
+		return err
+	})
+
 	var actions CurrentActions
 	g.Go(func() error {
 		status("fetching actions...")
@@ -110,6 +118,7 @@ func (p *Processor) FetchRepository(ctx context.Context, owner, name string, onS
 	repo.Secrets = secrets
 	repo.Variables = vars
 	repo.Labels = labels
+	repo.Milestones = milestones
 	repo.Actions = actions
 
 	return repo, nil
@@ -566,6 +575,54 @@ func (p *Processor) fetchLabels(ctx context.Context, owner, name string) (map[st
 		}
 	}
 	return result, nil
+}
+
+func (p *Processor) fetchMilestones(ctx context.Context, owner, name string) (map[string]*CurrentMilestone, error) {
+	out, err := p.runner.Run(ctx,
+		"api",
+		fmt.Sprintf("repos/%s/%s/milestones?state=all&per_page=100", owner, name),
+		"--paginate",
+	)
+	if err != nil {
+		return nil, nil // milestones might not be accessible
+	}
+
+	var milestones []struct {
+		Number      int    `json:"number"`
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		State       string `json:"state"`
+		DueOn       string `json:"due_on"`
+	}
+	if err := json.Unmarshal(out, &milestones); err != nil {
+		return nil, nil
+	}
+
+	result := make(map[string]*CurrentMilestone)
+	for _, m := range milestones {
+		result[m.Title] = &CurrentMilestone{
+			Number:      m.Number,
+			Title:       m.Title,
+			Description: m.Description,
+			State:       m.State,
+			DueOn:       normalizeDueOn(m.DueOn),
+		}
+	}
+	return result, nil
+}
+
+// normalizeDueOn converts an ISO 8601 timestamp (e.g. "2026-06-01T00:00:00Z")
+// to a YYYY-MM-DD date string for stable comparison with manifest values.
+func normalizeDueOn(raw string) string {
+	if raw == "" || raw == "null" {
+		return ""
+	}
+	t, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		// Already in YYYY-MM-DD or unparseable — return as-is
+		return raw
+	}
+	return t.Format("2006-01-02")
 }
 
 // enrichLabelDeleteInfo fetches usage stats for label delete changes and

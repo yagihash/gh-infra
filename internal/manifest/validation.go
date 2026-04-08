@@ -68,6 +68,12 @@ func (r *Repository) Validate() error {
 			return err
 		}
 	}
+	// Milestones: element tag validation
+	for i, ms := range r.Spec.Milestones {
+		if err := ValidateStruct(fmt.Sprintf("%s: spec.milestones[%d]", name, i), &ms); err != nil {
+			return err
+		}
+	}
 	// Actions: cross-field checks
 	if a := r.Spec.Actions; a != nil {
 		// GitHub API requires "enabled" in every PUT to /actions/permissions.

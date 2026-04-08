@@ -262,6 +262,22 @@ func TestPrintResult_Success(t *testing.T) {
 	}
 }
 
+func TestPrintResult_Sub(t *testing.T) {
+	var buf bytes.Buffer
+	p := NewStandardPrinterWith(&buf, &buf)
+
+	p.PrintResult(ResultItem{Icon: IconSuccess, Field: "bug", Detail: "created", Sub: true})
+	out := buf.String()
+
+	// Sub results use 10-space indent vs 6-space for top-level
+	if !strings.HasPrefix(out, "          ") {
+		t.Errorf("expected 10-space indent for Sub result, got:\n%q", out)
+	}
+	if !strings.Contains(out, "bug") {
+		t.Errorf("expected field, got:\n%s", out)
+	}
+}
+
 func TestPrintResult_Error(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewStandardPrinterWith(&buf, &buf)

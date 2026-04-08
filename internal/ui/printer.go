@@ -37,6 +37,7 @@ type ResultItem struct {
 	Icon   string // IconSuccess, IconError, IconWarning
 	Field  string
 	Detail string
+	Sub    bool // true = sub-level indentation (10 spaces)
 }
 
 // Printer is the interface for all user-facing output.
@@ -267,11 +268,17 @@ func (p *StandardPrinter) PrintFileChange(item FileItem) {
 func (p *StandardPrinter) PrintResult(item ResultItem) {
 	icon := renderIcon(item.Icon)
 	detail := item.Detail
-	if item.Icon == IconError {
-		detail = strings.ReplaceAll(detail, "\n", "\n          ")
+	indent := "      " // 6 spaces
+	width := p.itemWidth()
+	if item.Sub {
+		indent = "          " // 10 spaces
+		width = p.subItemWidth()
 	}
-	fmt.Fprintf(p.out, "      %s %-*s  %s\n",
-		icon, p.itemWidth(), item.Field, detail)
+	if item.Icon == IconError {
+		detail = strings.ReplaceAll(detail, "\n", "\n"+indent+"  ")
+	}
+	fmt.Fprintf(p.out, "%s%s %-*s  %s\n",
+		indent, icon, width, item.Field, detail)
 }
 
 // formatDiffStat formats added/removed line counts like git diff --stat.

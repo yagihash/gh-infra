@@ -1471,3 +1471,78 @@ spec:
 		t.Fatal("expected validation error for invalid label_sync value")
 	}
 }
+
+func TestRepositorySet_MilestonesMerge(t *testing.T) {
+	dir := t.TempDir()
+	content := `
+apiVersion: v1
+kind: RepositorySet
+metadata:
+  owner: org
+defaults:
+  spec:
+    milestones:
+      - title: "v1.0"
+        state: open
+      - title: "v2.0"
+        state: open
+repositories:
+  - name: inherits-milestones
+    spec:
+      description: "inherits default milestones"
+  - name: overrides-milestones
+    spec:
+      milestones:
+        - title: "custom-ms"
+          state: closed
+`
+	path := filepath.Join(dir, "milestones.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	repos, err := ParsePath(path)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if len(repos) != 2 {
+		t.Fatalf("expected 2 repos, got %d", len(repos))
+	}
+
+	// First repo inherits default milestones
+	if len(repos[0].Spec.Milestones) != 2 {
+		t.Errorf("inherits-milestones: expected 2 milestones, got %d", len(repos[0].Spec.Milestones))
+	}
+
+	// Second repo overrides with its own milestones (full replacement)
+	if len(repos[1].Spec.Milestones) != 1 {
+		t.Fatalf("overrides-milestones: expected 1 milestone, got %d", len(repos[1].Spec.Milestones))
+	}
+	if repos[1].Spec.Milestones[0].Title != "custom-ms" {
+		t.Errorf("expected custom-ms, got %q", repos[1].Spec.Milestones[0].Title)
+	}
+}
+
+func TestMilestoneStateValidation(t *testing.T) {
+	dir := t.TempDir()
+	content := `
+apiVersion: v1
+kind: Repository
+metadata:
+  owner: org
+  name: repo
+spec:
+  milestones:
+    - title: "v1.0"
+      state: invalid
+`
+	path := filepath.Join(dir, "invalid.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := ParsePath(path)
+	if err == nil {
+		t.Fatal("expected validation error for invalid milestone state value")
+	}
+}

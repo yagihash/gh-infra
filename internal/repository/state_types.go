@@ -27,6 +27,7 @@ type CurrentState struct {
 	Secrets          []string                            // names only (values are opaque)
 	Variables        map[string]string                   // name → value
 	Labels           map[string]*CurrentLabel            // name → label
+	Milestones       map[string]*CurrentMilestone        // title → milestone
 	Actions          CurrentActions
 }
 
@@ -126,6 +127,14 @@ type CurrentLabel struct {
 	Name        string
 	Description string
 	Color       string
+}
+
+type CurrentMilestone struct {
+	Number      int
+	Title       string
+	Description string
+	State       string
+	DueOn       string // normalized to YYYY-MM-DD or empty
 }
 
 type CurrentActions struct {
