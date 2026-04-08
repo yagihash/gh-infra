@@ -1,7 +1,7 @@
 ---
 title: Branch Protection (Classic)
 sidebar:
-  order: 3
+  order: 4
 ---
 
 :::caution

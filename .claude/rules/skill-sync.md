@@ -16,6 +16,7 @@ When either side changes, check whether the other side needs updating.
 |---|---|---|
 | `resources/repository/general.md` | `repository-manifest` | `references/general.md` |
 | `resources/repository/labels.md` | `repository-manifest` | `references/labels.md` |
+| `resources/repository/milestones.md` | `repository-manifest` | `references/milestones.md` |
 | `resources/repository/actions.md` | `repository-manifest` | `references/actions.md` |
 | `resources/repository/rulesets.md`, `resources/repository/branch-protection.md` | `repository-manifest` | `references/protection.md` |
 | `resources/repository/secrets-variables.md` | `repository-manifest` | `references/secrets-variables.md` |
