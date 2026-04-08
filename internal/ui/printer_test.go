@@ -165,7 +165,7 @@ func TestPrintChange_SubIndent(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewStandardPrinterWith(&buf, &buf)
 
-	p.PrintChange(ChangeItem{Icon: IconAdd, Field: "issues", Value: true, Sub: true})
+	p.PrintChange(ChangeItem{Icon: IconAdd, Field: "issues", Value: true, Level: IndentSub})
 	out := buf.String()
 
 	// Sub-level should have more leading spaces than top-level
@@ -266,7 +266,7 @@ func TestPrintResult_Sub(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewStandardPrinterWith(&buf, &buf)
 
-	p.PrintResult(ResultItem{Icon: IconSuccess, Field: "bug", Detail: "created", Sub: true})
+	p.PrintResult(ResultItem{Icon: IconSuccess, Field: "bug", Detail: "created", Level: IndentSub})
 	out := buf.String()
 
 	// Sub results use 10-space indent vs 6-space for top-level
@@ -311,7 +311,7 @@ func TestPrintResult_ErrorMultilineSub(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewStandardPrinterWith(&buf, &buf)
 
-	p.PrintResult(ResultItem{Icon: IconError, Field: "bug", Detail: "err1\nerr2", Sub: true})
+	p.PrintResult(ResultItem{Icon: IconError, Field: "bug", Detail: "err1\nerr2", Level: IndentSub})
 	out := buf.String()
 
 	// Sub continuation indent should be Indent(IndentSub) + "  " = 12 spaces

@@ -15,12 +15,12 @@ import (
 
 // ChangeItem represents a single field-level change for PrintChange.
 type ChangeItem struct {
-	Icon  string // IconAdd, IconChange, IconRemove
+	Icon  string      // IconAdd, IconChange, IconRemove
 	Field string
-	Value any    // for create/delete: the value; for update: ignored
-	Old   string // for update only
-	New   string // for update only
-	Sub   bool   // true = IndentSub, false = IndentItem
+	Value any         // for create/delete: the value; for update: ignored
+	Old   string      // for update only
+	New   string      // for update only
+	Level IndentLevel // IndentItem (default) or IndentSub
 }
 
 // FileItem represents a file-level change for PrintFileChange.
@@ -34,10 +34,10 @@ type FileItem struct {
 
 // ResultItem represents an apply result for PrintResult.
 type ResultItem struct {
-	Icon   string // IconSuccess, IconError, IconWarning
+	Icon   string      // IconSuccess, IconError, IconWarning
 	Field  string
 	Detail string
-	Sub    bool // true = IndentSub, false = IndentItem
+	Level  IndentLevel // IndentItem (default) or IndentSub
 }
 
 // Printer is the interface for all user-facing output.
@@ -253,9 +253,9 @@ func (p *StandardPrinter) SubGroupHeader(icon, name string) {
 // PrintChange prints a single field-level change (create, update, or delete).
 // The Sub field controls indentation: false = top-level, true = sub-level.
 func (p *StandardPrinter) PrintChange(item ChangeItem) {
-	level := IndentItem
-	if item.Sub {
-		level = IndentSub
+	level := item.Level
+	if level < IndentItem {
+		level = IndentItem
 	}
 	ind := Indent(level)
 	width := p.widthForLevel(level)
@@ -305,9 +305,9 @@ func (p *StandardPrinter) PrintFileChange(item FileItem) {
 
 // PrintResult prints an apply result line.
 func (p *StandardPrinter) PrintResult(item ResultItem) {
-	level := IndentItem
-	if item.Sub {
-		level = IndentSub
+	level := item.Level
+	if level < IndentItem {
+		level = IndentItem
 	}
 	ind := Indent(level)
 	width := p.widthForLevel(level)
