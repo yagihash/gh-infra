@@ -32,10 +32,15 @@ func Set(data []byte, docIndex int, yamlPath string, value any, opts ...goyaml.E
 // SetLiteral replaces the node at yamlPath, rendering multiline strings as a
 // literal block scalar (`|`).
 //
-// goccy/go-yaml's ReplaceWithNode corrupts literal block scalars that contain
-// YAML-special characters (*, !, etc.) at the start of lines. To work around
-// this, if the existing node is already a literal block scalar we replace the
-// content directly in the byte stream, preserving the original indentation.
+// goccy/go-yaml's ReplaceWithNode corrupts literal block scalars because
+// MappingValueNode.Replace adjusts Position.Column via AddColumn but
+// LiteralNode.String() uses the raw Origin text, ignoring Position entirely.
+// This causes characters to be eaten from the beginning of each content line.
+// See https://github.com/goccy/go-yaml/issues/636 for details.
+//
+// A fix has been submitted upstream (https://github.com/goccy/go-yaml/pull/864).
+// Once merged, this workaround (replaceLiteralContent / replaceWithLiteralBlock)
+// can be removed and SetLiteral can delegate to Set with UseLiteralStyleIfMultiline.
 func SetLiteral(data []byte, docIndex int, yamlPath string, content string) ([]byte, error) {
 	ctx, err := newPathContext(data, docIndex, yamlPath)
 	if err != nil {
@@ -64,6 +69,7 @@ func SetLiteral(data []byte, docIndex int, yamlPath string, content string) ([]b
 
 // replaceLiteralContent replaces a literal block scalar's content directly in
 // the byte stream, avoiding goccy/go-yaml's broken ReplaceWithNode for block scalars.
+// TODO: remove once https://github.com/goccy/go-yaml/pull/864 is merged.
 func replaceLiteralContent(data []byte, ln *ast.LiteralNode, newContent string) ([]byte, error) {
 	origin := ln.Value.GetToken().Origin
 	idx := strings.Index(string(data), origin)
@@ -100,6 +106,7 @@ func replaceLiteralContent(data []byte, ln *ast.LiteralNode, newContent string) 
 // replaceWithLiteralBlock replaces any scalar node with a literal block scalar
 // via direct byte replacement. This avoids ReplaceWithNode which corrupts
 // LiteralNode content due to an AddColumn/Origin mismatch in goccy/go-yaml.
+// TODO: remove once https://github.com/goccy/go-yaml/pull/864 is merged.
 func replaceWithLiteralBlock(data []byte, node ast.Node, newContent string) ([]byte, error) {
 	origin := node.GetToken().Origin
 	idx := strings.Index(string(data), origin)
