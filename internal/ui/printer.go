@@ -8,7 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"charm.land/huh/v2"
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/term"
 	goyaml "github.com/goccy/go-yaml"
@@ -400,27 +400,32 @@ func (p *StandardPrinter) ErrorMessage(err error) {
 }
 
 func (p *StandardPrinter) Confirm(title string) (bool, error) {
-	var confirm bool
-	field := huh.NewConfirm().
-		Title(title).
-		Affirmative("Yes").
-		Negative("No").
-		Value(&confirm)
-	form := huh.NewForm(huh.NewGroup(field)).
-		WithShowHelp(false).
-		WithAccessible(true)
-	if err := form.Run(); err != nil {
+	m := &confirmModel{title: title}
+	result, err := tea.NewProgram(m).Run()
+	if err != nil {
 		return false, err
 	}
-	return confirm, nil
+	cm, ok := result.(*confirmModel)
+	if !ok {
+		return false, fmt.Errorf("unexpected model type: %T", result)
+	}
+	return cm.confirmed, nil
 }
 
 func (p *StandardPrinter) ConfirmWithDiff(title string, diffEntries []DiffEntry) (bool, error) {
-	confirmed, err := RunConfirmWithDiff(title, diffEntries)
-	if ErrFallback(err) {
+	if len(diffEntries) == 0 || !term.IsTerminal(os.Stdin.Fd()) {
 		return p.Confirm(title)
 	}
-	return confirmed, err
+	m := newConfirmDiffModel(title, diffEntries)
+	result, err := tea.NewProgram(&m).Run()
+	if err != nil {
+		return false, err
+	}
+	cm, ok := result.(*confirmDiffModel)
+	if !ok {
+		return false, fmt.Errorf("unexpected model type: %T", result)
+	}
+	return cm.confirmed, nil
 }
 
 // --- Package-level utilities ---
