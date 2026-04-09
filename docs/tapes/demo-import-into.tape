@@ -44,9 +44,8 @@ Sleep 350ms
 Enter
 Sleep 6s
 
-# 3. Confirm (huh prompt expects y then Enter)
+# 3. Confirm (single keypress, no Enter needed)
 Type "y"
-Enter
 Sleep 2s
 
 # 4. Show the updated YAML (fields have been patched in place)

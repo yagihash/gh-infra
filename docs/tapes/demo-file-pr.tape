@@ -66,9 +66,8 @@ Sleep 1s
 Escape
 Sleep 1.5s
 
-# 6. Confirm — apply creates PR
+# 6. Confirm — apply creates PR (single keypress, no Enter needed)
 Type "y"
-Enter
 Sleep 6s
 
 # 7. View the created PR (human-readable)
