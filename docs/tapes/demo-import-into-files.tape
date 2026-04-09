@@ -78,9 +78,8 @@ Sleep 1s
 Escape
 Sleep 1.5s
 
-# 9. Confirm
+# 9. Confirm (single keypress, no Enter needed)
 Type "y"
-Enter
 Sleep 3s
 
 # 10. Show the updated YAML

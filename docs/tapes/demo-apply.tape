@@ -43,9 +43,8 @@ Sleep 350ms
 Enter
 Sleep 6s
 
-# 3. Confirm with 'y' (huh prompt expects Enter after y)
+# 3. Confirm with 'y' (single keypress, no Enter needed)
 Type "y"
-Enter
 Sleep 6s
 
 # End

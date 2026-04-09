@@ -89,9 +89,8 @@ Sleep 1.2s
 Escape
 Sleep 1.5s
 
-# 14. Confirm apply
+# 14. Confirm apply (single keypress, no Enter needed)
 Type "y"
-Enter
 Sleep 5s
 
 # End

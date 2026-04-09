@@ -39,7 +39,7 @@ YAML files that are not gh-infra manifests are silently skipped. Use `--fail-on-
 After the plan is displayed, the confirmation prompt offers three options:
 
 ```
-> Do you want to apply these changes? (yes / no / diff)
+> Do you want to apply these changes? (y)es / (n)o / (d)iff
 ```
 
 Press `d` to open a full-screen diff viewer before deciding:
@@ -59,7 +59,7 @@ When you return to the confirmation prompt, any skipped files are shown as a sum
   Skipped files (this run only):
     go.mod
 
-> Do you want to apply these changes? (yes / no / diff)
+> Do you want to apply these changes? (y)es / (n)o / (d)iff
 ```
 
 ## Examples

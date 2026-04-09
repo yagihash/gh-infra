@@ -79,7 +79,7 @@ gh infra import babarot/my-project babarot/my-cli --into=repos/
 After the plan is displayed, the confirmation prompt offers three options:
 
 ```
-> Apply import changes? (yes / no / diff)
+> Apply import changes? (y)es / (n)o / (d)iff
 ```
 
 Press `d` to open a full-screen diff viewer for file-level changes:

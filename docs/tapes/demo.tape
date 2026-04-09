@@ -80,9 +80,8 @@ Sleep 350ms
 Enter
 Sleep 6s
 
-# 9. Confirm
+# 9. Confirm (single keypress, no Enter needed)
 Type "y"
-Enter
 Sleep 6s
 
 # End
