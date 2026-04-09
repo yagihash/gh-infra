@@ -47,6 +47,7 @@ flowchart TD
     importer --> gh
     importer --> manifest
     importer --> repository
+    importer --> fileset
     importer --> yamledit[internal/yamledit]
 
     ui --> logger[internal/logger]
