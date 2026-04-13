@@ -20,8 +20,6 @@ spec:
 | `automated_security_fixes` | bool | Enable Dependabot security updates (auto-PRs that fix vulnerabilities). Requires `vulnerability_alerts: true` on GitHub side |
 | `private_vulnerability_reporting` | bool | Allow security researchers to privately report vulnerabilities |
 
-Each field is optional and uses a dedicated GitHub REST API endpoint (PUT to enable, DELETE to disable).
-
 ### Field dependencies
 
 `automated_security_fixes` requires `vulnerability_alerts` to be effectively enabled (per GitHub's API). gh-infra evaluates this at `plan` time using both the manifest and the current GitHub state, and rejects the plan if the dependency cannot be satisfied:
@@ -42,7 +40,7 @@ spec:
     vulnerability_alerts: true
 ```
 
-Endpoint: `/repos/{owner}/{repo}/vulnerability-alerts`. Required for features like Renovate's `osvVulnerabilityAlerts` that integrate with Dependabot. The API signals state via HTTP status: `204 No Content` when enabled, `404 Not Found` when disabled.
+Required for tools like Renovate's `osvVulnerabilityAlerts` that integrate with Dependabot.
 
 ## Automated Security Fixes
 
@@ -54,7 +52,7 @@ spec:
     automated_security_fixes: true
 ```
 
-Endpoint: `/repos/{owner}/{repo}/automated-security-fixes`. Requires `vulnerability_alerts` to be effectively enabled — see [Field dependencies](#field-dependencies) above.
+Requires `vulnerability_alerts` to be effectively enabled — see [Field dependencies](#field-dependencies) above.
 
 ## Private Vulnerability Reporting
 
@@ -65,5 +63,3 @@ spec:
   security:
     private_vulnerability_reporting: true
 ```
-
-Endpoint: `/repos/{owner}/{repo}/private-vulnerability-reporting`.

@@ -100,5 +100,3 @@ spec:
 | Field | Type | Description |
 |-------|------|-------------|
 | `release_immutability` | bool | `true` to lock releases after publishing. Once enabled, release assets and metadata cannot be edited or deleted |
-
-This setting uses a dedicated GitHub API endpoint (`/repos/{owner}/{repo}/immutable-releases`) rather than the standard repository settings endpoint.
