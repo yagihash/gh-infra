@@ -185,9 +185,61 @@ func TestApplyFeatureToggle(t *testing.T) {
 	}
 }
 
+func TestApplySecurityFields(t *testing.T) {
+	tests := []struct {
+		name         string
+		field        string
+		wantEndpoint string
+	}{
+		{"vulnerability_alerts", "vulnerability_alerts", "repos/myorg/myrepo/vulnerability-alerts"},
+		{"automated_security_fixes", "automated_security_fixes", "repos/myorg/myrepo/automated-security-fixes"},
+		{"private_vulnerability_reporting", "private_vulnerability_reporting", "repos/myorg/myrepo/private-vulnerability-reporting"},
+	}
+
+	for _, tt := range tests {
+		for _, sub := range []struct {
+			name       string
+			newValue   bool
+			wantMethod string
+		}{
+			{"enable", true, "PUT"},
+			{"disable", false, "DELETE"},
+		} {
+			t.Run(tt.name+"/"+sub.name, func(t *testing.T) {
+				mock := &gh.MockRunner{}
+				proc := NewProcessor(mock, nil, nil)
+
+				repo := newTestRepo("myorg", "myrepo")
+				changes := []Change{
+					{
+						Type:     ChangeUpdate,
+						Resource: "Repository",
+						Name:     "myorg/myrepo",
+						Field:    tt.field,
+						NewValue: sub.newValue,
+					},
+				}
+
+				results := proc.Apply(context.Background(), changes, []*manifest.Repository{repo}, ui.NoopReporter{})
+				if results[0].Err != nil {
+					t.Fatalf("unexpected error: %v", results[0].Err)
+				}
+				args := mock.Called[0]
+				expected := []string{"api", tt.wantEndpoint, "--method", sub.wantMethod}
+				if strings.Join(args, " ") != strings.Join(expected, " ") {
+					t.Errorf("args: got %v, want %v", args, expected)
+				}
+			})
+		}
+	}
+}
+
 func TestApplyRepoSetting_BoolTypeAssertionError(t *testing.T) {
 	boolFields := []string{
 		"release_immutability",
+		"vulnerability_alerts",
+		"automated_security_fixes",
+		"private_vulnerability_reporting",
 		"issues",
 		"projects",
 		"wiki",

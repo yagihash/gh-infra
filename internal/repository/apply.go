@@ -195,6 +195,25 @@ func (p *Processor) applyAllSettings(ctx context.Context, repo *manifest.Reposit
 		}
 	}
 
+	// Security (Advanced Security)
+	if s := repo.Spec.Security; s != nil {
+		if s.VulnerabilityAlerts != nil {
+			if err := p.applyVulnerabilityAlerts(ctx, owner, name, *s.VulnerabilityAlerts); err != nil {
+				return err
+			}
+		}
+		if s.AutomatedSecurityFixes != nil {
+			if err := p.applyAutomatedSecurityFixes(ctx, owner, name, *s.AutomatedSecurityFixes); err != nil {
+				return err
+			}
+		}
+		if s.PrivateVulnerabilityReporting != nil {
+			if err := p.applyPrivateVulnerabilityReporting(ctx, owner, name, *s.PrivateVulnerabilityReporting); err != nil {
+				return err
+			}
+		}
+	}
+
 	// Actions (permissions, workflow defaults, selected actions, fork PR)
 	if a := repo.Spec.Actions; a != nil && a.Enabled != nil {
 		if err := p.applyActionsPermissions(ctx, owner, name, a); err != nil {
@@ -352,6 +371,27 @@ func (p *Processor) applyRepoSetting(ctx context.Context, c Change, repo *manife
 		}
 		return p.applyReleaseImmutability(ctx, owner, name, enabled)
 
+	case "vulnerability_alerts":
+		enabled, ok := c.NewValue.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type for %s: %T", c.Field, c.NewValue)
+		}
+		return p.applyVulnerabilityAlerts(ctx, owner, name, enabled)
+
+	case "automated_security_fixes":
+		enabled, ok := c.NewValue.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type for %s: %T", c.Field, c.NewValue)
+		}
+		return p.applyAutomatedSecurityFixes(ctx, owner, name, enabled)
+
+	case "private_vulnerability_reporting":
+		enabled, ok := c.NewValue.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type for %s: %T", c.Field, c.NewValue)
+		}
+		return p.applyPrivateVulnerabilityReporting(ctx, owner, name, enabled)
+
 	case "issues":
 		v, ok := c.NewValue.(bool)
 		if !ok {
@@ -472,6 +512,39 @@ func (p *Processor) applyReleaseImmutability(ctx context.Context, owner, name st
 	}
 	_, err := p.runner.Run(ctx, "api", endpoint, "--method", "DELETE")
 	return wrapError(err, fullName, "release_immutability")
+}
+
+func (p *Processor) applyVulnerabilityAlerts(ctx context.Context, owner, name string, enable bool) error {
+	endpoint := fmt.Sprintf("repos/%s/%s/vulnerability-alerts", owner, name)
+	fullName := owner + "/" + name
+	if enable {
+		_, err := p.runner.Run(ctx, "api", endpoint, "--method", "PUT")
+		return wrapError(err, fullName, "vulnerability_alerts")
+	}
+	_, err := p.runner.Run(ctx, "api", endpoint, "--method", "DELETE")
+	return wrapError(err, fullName, "vulnerability_alerts")
+}
+
+func (p *Processor) applyAutomatedSecurityFixes(ctx context.Context, owner, name string, enable bool) error {
+	endpoint := fmt.Sprintf("repos/%s/%s/automated-security-fixes", owner, name)
+	fullName := owner + "/" + name
+	if enable {
+		_, err := p.runner.Run(ctx, "api", endpoint, "--method", "PUT")
+		return wrapError(err, fullName, "automated_security_fixes")
+	}
+	_, err := p.runner.Run(ctx, "api", endpoint, "--method", "DELETE")
+	return wrapError(err, fullName, "automated_security_fixes")
+}
+
+func (p *Processor) applyPrivateVulnerabilityReporting(ctx context.Context, owner, name string, enable bool) error {
+	endpoint := fmt.Sprintf("repos/%s/%s/private-vulnerability-reporting", owner, name)
+	fullName := owner + "/" + name
+	if enable {
+		_, err := p.runner.Run(ctx, "api", endpoint, "--method", "PUT")
+		return wrapError(err, fullName, "private_vulnerability_reporting")
+	}
+	_, err := p.runner.Run(ctx, "api", endpoint, "--method", "DELETE")
+	return wrapError(err, fullName, "private_vulnerability_reporting")
 }
 
 func (p *Processor) applyBranchProtection(ctx context.Context, c Change, repo *manifest.Repository) error {

@@ -110,6 +110,57 @@ func (p *Processor) FetchRepository(ctx context.Context, owner, name string, onS
 		return err
 	})
 
+	var (
+		vulnerabilityAlerts           bool
+		automatedSecurityFixes        bool
+		privateVulnerabilityReporting bool
+	)
+
+	// Fetch vulnerability alerts (Dependabot) setting via dedicated REST API endpoint.
+	// 404 is the documented "disabled" response and is handled inside the fetcher;
+	// 403 is ignored gracefully (e.g. GHES without support); other errors propagate.
+	g.Go(func() error {
+		status("fetching vulnerability alerts...")
+		v, err := p.fetchVulnerabilityAlerts(ctx, owner, name)
+		if err != nil {
+			if errors.Is(err, gh.ErrForbidden) {
+				return nil
+			}
+			return fmt.Errorf("fetch vulnerability alerts for %s/%s: %w", owner, name, err)
+		}
+		vulnerabilityAlerts = v
+		return nil
+	})
+
+	// Fetch Dependabot security updates (automated security fixes) via dedicated endpoint.
+	// 404 may also indicate the feature is unavailable on the repo; treat as disabled.
+	g.Go(func() error {
+		status("fetching automated security fixes...")
+		v, err := p.fetchAutomatedSecurityFixes(ctx, owner, name)
+		if err != nil {
+			if errors.Is(err, gh.ErrForbidden) {
+				return nil
+			}
+			return fmt.Errorf("fetch automated security fixes for %s/%s: %w", owner, name, err)
+		}
+		automatedSecurityFixes = v
+		return nil
+	})
+
+	// Fetch private vulnerability reporting setting via dedicated endpoint.
+	g.Go(func() error {
+		status("fetching private vulnerability reporting...")
+		v, err := p.fetchPrivateVulnerabilityReporting(ctx, owner, name)
+		if err != nil {
+			if errors.Is(err, gh.ErrForbidden) {
+				return nil
+			}
+			return fmt.Errorf("fetch private vulnerability reporting for %s/%s: %w", owner, name, err)
+		}
+		privateVulnerabilityReporting = v
+		return nil
+	})
+
 	if err := g.Wait(); err != nil {
 		return nil, err
 	}
@@ -121,6 +172,11 @@ func (p *Processor) FetchRepository(ctx context.Context, owner, name string, onS
 	repo.Labels = labels
 	repo.Milestones = milestones
 	repo.Actions = actions
+	repo.Security = CurrentSecurity{
+		VulnerabilityAlerts:           vulnerabilityAlerts,
+		AutomatedSecurityFixes:        automatedSecurityFixes,
+		PrivateVulnerabilityReporting: privateVulnerabilityReporting,
+	}
 
 	return repo, nil
 }
@@ -258,6 +314,66 @@ func (p *Processor) fetchReleaseImmutability(ctx context.Context, owner, name st
 		return false, err
 	}
 
+	var raw struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.Unmarshal(out, &raw); err != nil {
+		return false, err
+	}
+	return raw.Enabled, nil
+}
+
+// fetchVulnerabilityAlerts returns whether Dependabot vulnerability alerts are
+// enabled on the repository. The GitHub API signals state via HTTP status:
+// 204 No Content when enabled, 404 Not Found when disabled.
+func (p *Processor) fetchVulnerabilityAlerts(ctx context.Context, owner, name string) (bool, error) {
+	_, err := p.runner.Run(ctx,
+		"api", fmt.Sprintf("repos/%s/%s/vulnerability-alerts", owner, name),
+	)
+	if err != nil {
+		if errors.Is(err, gh.ErrNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+// fetchAutomatedSecurityFixes returns whether Dependabot security updates
+// (automated security fixes) are enabled on the repository.
+// The endpoint may return 404 when the feature is unavailable on the repo
+// (e.g. vulnerability alerts disabled); treat that as disabled.
+func (p *Processor) fetchAutomatedSecurityFixes(ctx context.Context, owner, name string) (bool, error) {
+	out, err := p.runner.Run(ctx,
+		"api", fmt.Sprintf("repos/%s/%s/automated-security-fixes", owner, name),
+	)
+	if err != nil {
+		if errors.Is(err, gh.ErrNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	var raw struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.Unmarshal(out, &raw); err != nil {
+		return false, err
+	}
+	return raw.Enabled, nil
+}
+
+// fetchPrivateVulnerabilityReporting returns whether private vulnerability
+// reporting is enabled on the repository.
+func (p *Processor) fetchPrivateVulnerabilityReporting(ctx context.Context, owner, name string) (bool, error) {
+	out, err := p.runner.Run(ctx,
+		"api", fmt.Sprintf("repos/%s/%s/private-vulnerability-reporting", owner, name),
+	)
+	if err != nil {
+		if errors.Is(err, gh.ErrNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
 	var raw struct {
 		Enabled bool `json:"enabled"`
 	}
