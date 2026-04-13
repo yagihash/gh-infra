@@ -391,7 +391,16 @@ func (t *RefreshTracker) Errors() []TaskError {
 	return out
 }
 
-// PrintErrors prints detailed errors to stderr, grouped by task name.
+// PrintErrors prints detailed errors to stderr, grouped by task name,
+// as multi-line per-target blocks separated by blank lines:
+//
+//	owner/repo-1:
+//	  error line 1
+//	  error line 2
+//
+//	owner/repo-2:
+//	  error line 1
+//
 // Call after Wait() to display the full error messages that were truncated
 // in the spinner view. Returns true if any errors were printed.
 func (t *RefreshTracker) PrintErrors() bool {
@@ -400,9 +409,9 @@ func (t *RefreshTracker) PrintErrors() bool {
 		return false
 	}
 	p := DefaultPrinter
-	p.BlankLine()
 	for _, te := range errors {
-		p.Error(te.Name, te.Err.Error())
+		p.BlankLine()
+		p.ErrorReport(te.Name, te.Err.Error())
 	}
 	return true
 }

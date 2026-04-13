@@ -17,7 +17,7 @@ type engine struct {
 
 func newEngine(runner gh.Runner, resolver *manifest.Resolver, printer ui.Printer) *engine {
 	return &engine{
-		repo:    repository.NewProcessor(runner, resolver, printer),
+		repo:    repository.NewProcessor(runner, resolver),
 		file:    fileset.NewProcessor(runner, printer),
 		printer: printer,
 	}

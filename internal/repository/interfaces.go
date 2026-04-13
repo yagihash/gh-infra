@@ -18,12 +18,6 @@ type RefreshTracker interface {
 	Error(name string, err error)
 }
 
-// DiagnosticReporter prints plan-time warnings and errors.
-type DiagnosticReporter interface {
-	Error(name, detail string)
-	Warning(name, detail string)
-}
-
 type noopProgressReporter struct{}
 
 func (noopProgressReporter) Start(string, []string)             {}
@@ -37,8 +31,3 @@ type noopRefreshTracker struct{}
 func (noopRefreshTracker) UpdateStatus(string, string) {}
 func (noopRefreshTracker) Done(string)                 {}
 func (noopRefreshTracker) Error(string, error)         {}
-
-type noopDiagnosticReporter struct{}
-
-func (noopDiagnosticReporter) Error(string, string)   {}
-func (noopDiagnosticReporter) Warning(string, string) {}

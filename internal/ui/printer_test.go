@@ -471,6 +471,60 @@ func TestRepoStyle(t *testing.T) {
 	})
 }
 
+func TestWrapByWords(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		width int
+		want  []string
+	}{
+		{
+			name:  "empty input",
+			input: "",
+			width: 20,
+			want:  []string{""},
+		},
+		{
+			name:  "zero width returns as-is",
+			input: "a b c d",
+			width: 0,
+			want:  []string{"a b c d"},
+		},
+		{
+			name:  "short line no wrap",
+			input: "hello world",
+			width: 20,
+			want:  []string{"hello world"},
+		},
+		{
+			name:  "wrap at boundary",
+			input: "the quick brown fox jumps over the lazy dog",
+			width: 15,
+			want:  []string{"the quick brown", "fox jumps over", "the lazy dog"},
+		},
+		{
+			name:  "single word longer than width kept on own line",
+			input: "supercalifragilistic expialidocious yes",
+			width: 10,
+			want:  []string{"supercalifragilistic", "expialidocious", "yes"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := wrapByWords(tt.input, tt.width)
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %d segments, want %d: %q", len(got), len(tt.want), got)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("segment[%d] = %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
 func TestSetColumnWidth(t *testing.T) {
 	p := NewStandardPrinterWith(&bytes.Buffer{}, &bytes.Buffer{})
 	p.SetColumnWidth(20)

@@ -49,7 +49,7 @@ func Diff(ctx context.Context, opts DiffOptions) (*Result, error) {
 		resolverOwner = opts.Targets[0].Target.Owner
 	}
 	resolver := manifest.NewResolver(opts.Runner, resolverOwner)
-	proc := repository.NewProcessor(opts.Runner, resolver, printer)
+	proc := repository.NewProcessor(opts.Runner, resolver)
 
 	for _, tm := range opts.Targets {
 		if ctx.Err() != nil {

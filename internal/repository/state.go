@@ -20,14 +20,10 @@ import (
 type Processor struct {
 	runner   gh.Runner
 	resolver *manifest.Resolver
-	diagnose DiagnosticReporter
 }
 
-func NewProcessor(runner gh.Runner, resolver *manifest.Resolver, diagnose DiagnosticReporter) *Processor {
-	if diagnose == nil {
-		diagnose = noopDiagnosticReporter{}
-	}
-	return &Processor{runner: runner, resolver: resolver, diagnose: diagnose}
+func NewProcessor(runner gh.Runner, resolver *manifest.Resolver) *Processor {
+	return &Processor{runner: runner, resolver: resolver}
 }
 
 // FetchRepository fetches the current state of a single repository.

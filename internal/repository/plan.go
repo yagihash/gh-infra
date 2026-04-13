@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/babarot/gh-infra/internal/logger"
 	"github.com/babarot/gh-infra/internal/manifest"
@@ -93,28 +92,23 @@ func (p *Processor) Plan(ctx context.Context, repos []*manifest.Repository, opts
 
 	var allChanges []Change
 	var targetRepos []*manifest.Repository
-	var errors int
+	var skipped int
 	for _, res := range results {
 		if res.err != nil {
-			p.diagnose.Error(res.repo.Metadata.FullName(), res.err.Error())
-			errors++
+			// Fetch/validate errors are already surfaced via the tracker
+			// (live inline on the spinner, then collected for post-spinner
+			// reporting in RefreshTracker.PrintErrors). Skip the failed repo
+			// so the remaining plan can proceed.
+			skipped++
 			continue
 		}
 		allChanges = append(allChanges, res.changes...)
 		targetRepos = append(targetRepos, res.repo)
 	}
 
-	if errors > 0 {
-		label := "error"
-		if errors > 1 {
-			label = "errors"
-		}
-		p.diagnose.Warning("", fmt.Sprintf("%d %s occurred during refresh. Affected repositories were skipped.", errors, label))
-	}
-
 	// Enrich label delete changes with usage stats (issue/PR count, last used)
 	p.enrichLabelDeleteInfo(ctx, allChanges)
 
-	logger.Info("plan complete", "total_changes", len(allChanges), "errors", errors)
+	logger.Info("plan complete", "total_changes", len(allChanges), "skipped", skipped)
 	return allChanges, targetRepos, nil
 }
