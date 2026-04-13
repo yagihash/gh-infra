@@ -56,7 +56,11 @@ func runImportInto(args []string, intoPath string) error {
 	}
 
 	if !diff.HasChanges() {
-		diff.Printer().Message("\nNo changes detected")
+		if diff.Skipped > 0 {
+			diff.Printer().Message("\nNo changes detected. Some repositories were skipped due to errors above.")
+		} else {
+			diff.Printer().Message("\nNo changes detected")
+		}
 		return nil
 	}
 

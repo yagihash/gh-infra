@@ -62,36 +62,35 @@ func Import(args []string) error {
 		}
 		current, err := eng.repo.FetchRepository(ctx, t.Target.Owner, t.Target.Name, onStatus)
 		if err != nil {
-			tracker.Fail(fullName)
+			tracker.Error(fullName, fmt.Errorf("fetch failed: %w", err))
 			return fetchResult{err: err}
 		}
 		if current.IsNew {
-			tracker.Fail(fullName)
+			tracker.Error(fullName, fmt.Errorf("repository not found on GitHub"))
 			return fetchResult{err: fmt.Errorf("repository %s not found on GitHub", fullName)}
 		}
 		m := repository.ToManifest(ctx, current, resolver)
 		data, err := goyaml.Marshal(m)
 		if err != nil {
-			tracker.Fail(fullName)
+			tracker.Error(fullName, fmt.Errorf("marshal: %w", err))
 		} else {
 			tracker.Done(fullName)
 		}
 		return fetchResult{data: data, err: err}
 	})
 	tracker.Wait()
+	tracker.PrintErrors()
 
 	if ctx.Err() != nil {
 		return context.Canceled
 	}
 
-	// Collect and display
+	// Collect YAML docs for successful targets; failures are already reported
+	// by tracker.PrintErrors above.
 	var yamlDocs [][]byte
-	exportErrors := make(map[string]error)
 	var succeeded, failed int
-	for i, r := range results {
-		fullName := names[i]
+	for _, r := range results {
 		if r.err != nil {
-			exportErrors[fullName] = r.err
 			failed++
 		} else {
 			yamlDocs = append(yamlDocs, r.data)
@@ -107,10 +106,6 @@ func Import(args []string) error {
 			fmt.Fprintln(out, "---")
 		}
 		fmt.Fprint(out, string(doc))
-	}
-
-	for name, err := range exportErrors {
-		p.Warning(name, fmt.Sprintf("skipping: %v", err))
 	}
 
 	summaryMsg := fmt.Sprintf("Import complete! %s exported", ui.Bold.Render(fmt.Sprintf("%d", succeeded)))

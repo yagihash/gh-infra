@@ -15,7 +15,6 @@ import (
 type DiffOptions struct {
 	Targets     []TargetMatches
 	Runner      gh.Runner
-	Printer     DiagnosticPrinter
 	Tracker     RefreshTracker
 	AllFileDocs []*manifest.FileDocument
 }
@@ -24,10 +23,6 @@ type DiffOptions struct {
 // manifestBytes is shared across targets so patches accumulate correctly.
 // Targets are processed sequentially (same file may be patched by multiple targets).
 func Diff(ctx context.Context, opts DiffOptions) (*Result, error) {
-	printer := opts.Printer
-	if printer == nil {
-		printer = noopDiagnosticPrinter{}
-	}
 	tracker := opts.Tracker
 	if tracker == nil {
 		tracker = noopRefreshTracker{}
@@ -73,13 +68,13 @@ func Diff(ctx context.Context, opts DiffOptions) (*Result, error) {
 				return nil, fmt.Errorf("fetch %s: %w", fullName, err)
 			}
 			// Other errors (network, 404, etc.) — skip this target.
-			printer.Warning(fullName, fmt.Sprintf("fetch failed: %v", err))
-			tracker.Fail(fullName)
+			// Buffer via tracker.Error so the detail is rendered after the
+			// spinner finishes (consistent with plan / apply).
+			tracker.Error(fullName, fmt.Errorf("fetch failed: %w", err))
 			continue
 		}
 		if current.IsNew {
-			printer.Warning(fullName, "repository not found on GitHub")
-			tracker.Fail(fullName)
+			tracker.Error(fullName, fmt.Errorf("repository not found on GitHub"))
 			continue
 		}
 
