@@ -73,6 +73,22 @@ if !result.HasChanges {
 
 Use `internal/infra.tildePath` for any user-facing display of manifest paths (phase messages, summaries, errors). Never expose the raw `/Users/<user>/…` form — it's noisy and leaks the developer's home directory.
 
+## Error detail wrapping
+
+Any rendering of a long error detail string must go through `wrapDetail` in
+`internal/ui/printer.go`. `wrapDetail` splits on `\n`, soft-wraps each line at
+word boundaries, and returns a slice of display segments the caller can prefix
+however it likes. The terminal-width budget for wrapping is
+`termWidth * errorReportWidthRatio / 100` (currently 85%), leaving a right margin.
+
+Both `Printer.ErrorReport` (block form for plan/import/import --into) and
+`Printer.PrintResult` with `IconError` (tabular form for apply) route through
+this primitive. Any new rendering path that emits error detail must do the
+same — do not open-code a `strings.ReplaceAll(detail, "\n", ...)` or call
+`wrapByWords` directly. That is how the apply command silently shipped
+un-wrapped error output for long API messages until a round-trip audit caught
+it.
+
 ## Printer output methods — quick reference
 
 | Method | Destination | Used for |

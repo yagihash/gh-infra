@@ -327,7 +327,15 @@ func (p *StandardPrinter) PrintResult(item ResultItem) {
 	icon := renderIcon(item.Icon)
 	detail := item.Detail
 	if item.Icon == IconError {
-		detail = strings.ReplaceAll(detail, "\n", "\n"+continuation(level))
+		// Continuation indent aligns with the detail column: indent + icon(1)
+		// + space(1) + padded field(width) + gap(2). Continuation lines carry
+		// the same width budget as ErrorReport (errorReportWidthRatio of the
+		// terminal width) so long error detail soft-wraps instead of
+		// overflowing the terminal edge.
+		contPrefix := strings.Repeat(" ", len(ind)+width+4)
+		avail := p.termWidth()*errorReportWidthRatio/100 - len(contPrefix)
+		segments := wrapDetail(detail, avail)
+		detail = strings.Join(segments, "\n"+contPrefix)
 	}
 	fmt.Fprintf(p.out, "%s%s %-*s  %s\n",
 		ind, icon, width, item.Field, detail)
@@ -399,15 +407,30 @@ func (p *StandardPrinter) ErrorReport(name, detail string) {
 	avail := p.errTermWidth()*errorReportWidthRatio/100 - len(indent)
 
 	fmt.Fprintf(p.err, "%s%s:\n", Indent(IndentRoot), Bold.Render(name))
+	for _, seg := range wrapDetail(detail, avail) {
+		fmt.Fprintf(p.err, "%s%s\n", indent, Dim.Render(seg))
+	}
+}
+
+// wrapDetail splits detail into a sequence of display segments, soft-wrapping
+// each embedded line at width columns on word boundaries. Single words longer
+// than width are not broken. If width <= 0, existing \n separators are kept
+// but no wrapping is applied.
+//
+// This is the shared primitive for rendering multi-line error detail consistently
+// across block output (ErrorReport) and tabular output (PrintResult).
+// Callers are responsible for prepending any continuation indent to each
+// segment before emitting.
+func wrapDetail(detail string, width int) []string {
+	var segments []string
 	for line := range strings.SplitSeq(detail, "\n") {
-		if avail <= 0 || utf8.RuneCountInString(line) <= avail {
-			fmt.Fprintf(p.err, "%s%s\n", indent, Dim.Render(line))
+		if width <= 0 || utf8.RuneCountInString(line) <= width {
+			segments = append(segments, line)
 			continue
 		}
-		for _, seg := range wrapByWords(line, avail) {
-			fmt.Fprintf(p.err, "%s%s\n", indent, Dim.Render(seg))
-		}
+		segments = append(segments, wrapByWords(line, width)...)
 	}
+	return segments
 }
 
 // wrapByWords wraps s into lines of at most width columns on word boundaries.
