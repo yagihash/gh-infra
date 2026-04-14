@@ -425,7 +425,7 @@ func (p *Processor) toggleFeature(ctx context.Context, repo, flag string, enable
 
 func (p *Processor) applyTopics(ctx context.Context, fullName string, repo *manifest.Repository) error {
 	// Get current topics
-	out, err := p.runner.Run(ctx, "repo", "view", fullName, "--json", "repositoryTopics", "--jq", ".repositoryTopics[].name")
+	out, err := p.runner.Run(ctx, "repo", "view", fullName, "--json", "repositoryTopics", "--jq", ".repositoryTopics // [] | .[].name")
 	if err != nil {
 		return wrapError(err, fullName, "topics")
 	}
