@@ -61,7 +61,8 @@ type Printer interface {
 	PrintResult(item ResultItem)
 	Success(name, detail string)
 	Error(name, detail string)
-	Warning(name, detail string) // stderr
+	ErrorReport(name, detail string) // multi-line per-target block (stderr)
+	Warning(name, detail string)     // stderr
 	Detail(msg string)
 	StreamStart(name, detail string)
 	StreamDone(name, detail string)
@@ -114,6 +115,21 @@ func (p *StandardPrinter) isOutTerminal() bool {
 // termWidth returns the terminal width, or 0 if unavailable.
 func (p *StandardPrinter) termWidth() int {
 	f, ok := p.out.(*os.File)
+	if !ok {
+		return 0
+	}
+	w, _, err := term.GetSize(f.Fd())
+	if err != nil {
+		return 0
+	}
+	return w
+}
+
+// errTermWidth returns the terminal width of the stderr writer, or 0 if
+// unavailable. Used for wrapping error reports that are written to stderr;
+// stderr may still be a TTY even when stdout has been redirected.
+func (p *StandardPrinter) errTermWidth() int {
+	f, ok := p.err.(*os.File)
 	if !ok {
 		return 0
 	}
@@ -311,7 +327,15 @@ func (p *StandardPrinter) PrintResult(item ResultItem) {
 	icon := renderIcon(item.Icon)
 	detail := item.Detail
 	if item.Icon == IconError {
-		detail = strings.ReplaceAll(detail, "\n", "\n"+continuation(level))
+		// Continuation indent aligns with the detail column: indent + icon(1)
+		// + space(1) + padded field(width) + gap(2). Continuation lines carry
+		// the same width budget as ErrorReport (errorReportWidthRatio of the
+		// terminal width) so long error detail soft-wraps instead of
+		// overflowing the terminal edge.
+		contPrefix := strings.Repeat(" ", len(ind)+width+4)
+		avail := p.termWidth()*errorReportWidthRatio/100 - len(contPrefix)
+		segments := wrapDetail(detail, avail)
+		detail = strings.Join(segments, "\n"+contPrefix)
 	}
 	fmt.Fprintf(p.out, "%s%s %-*s  %s\n",
 		ind, icon, width, item.Field, detail)
@@ -359,6 +383,93 @@ func (p *StandardPrinter) Success(name, detail string) {
 func (p *StandardPrinter) Error(name, detail string) {
 	detail = strings.ReplaceAll(detail, "\n", "\n"+continuation(IndentRoot))
 	fmt.Fprintf(p.out, "%s%s %s  %s\n", Indent(IndentRoot), Red.Render(IconError), Bold.Render(name), detail)
+}
+
+// errorReportWidthRatio is the fraction of the terminal width that
+// ErrorReport wraps its detail lines at. A value below 100 leaves a visible
+// right margin that improves readability and avoids lines touching the
+// terminal edge.
+const errorReportWidthRatio = 99
+
+// ErrorReport renders a multi-line error block for one target. Used by
+// RefreshTracker.PrintErrors to surface per-repository fetch/validate errors
+// after the spinner has finished, using consistent indentation:
+//
+//	<name>:
+//	  <detail line 1>
+//	  <detail line 2>
+//
+// Detail lines are soft-wrapped at word boundaries to
+// errorReportWidthRatio percent of the terminal width, and continuation
+// lines retain the same indent.
+func (p *StandardPrinter) ErrorReport(name, detail string) {
+	indent := continuation(IndentRoot)
+	avail := p.errTermWidth()*errorReportWidthRatio/100 - len(indent)
+
+	fmt.Fprintf(p.err, "%s%s:\n", Indent(IndentRoot), Bold.Render(name))
+	for _, seg := range wrapDetail(detail, avail) {
+		fmt.Fprintf(p.err, "%s%s\n", indent, Dim.Render(seg))
+	}
+}
+
+// wrapDetail splits detail into a sequence of display segments, soft-wrapping
+// each embedded line at width columns on word boundaries. Single words longer
+// than width are not broken. If width <= 0, existing \n separators are kept
+// but no wrapping is applied.
+//
+// This is the shared primitive for rendering multi-line error detail consistently
+// across block output (ErrorReport) and tabular output (PrintResult).
+// Callers are responsible for prepending any continuation indent to each
+// segment before emitting.
+func wrapDetail(detail string, width int) []string {
+	var segments []string
+	for line := range strings.SplitSeq(detail, "\n") {
+		if width <= 0 || utf8.RuneCountInString(line) <= width {
+			segments = append(segments, line)
+			continue
+		}
+		segments = append(segments, wrapByWords(line, width)...)
+	}
+	return segments
+}
+
+// wrapByWords wraps s into lines of at most width columns on word boundaries.
+// Single words longer than width are emitted on their own line without being
+// broken. If width <= 0 or s has no content, the original string is returned
+// unchanged as a single segment.
+func wrapByWords(s string, width int) []string {
+	if width <= 0 {
+		return []string{s}
+	}
+	words := strings.Fields(s)
+	if len(words) == 0 {
+		return []string{s}
+	}
+	var lines []string
+	var cur strings.Builder
+	curLen := 0
+	for _, w := range words {
+		wLen := utf8.RuneCountInString(w)
+		if curLen == 0 {
+			cur.WriteString(w)
+			curLen = wLen
+			continue
+		}
+		if curLen+1+wLen > width {
+			lines = append(lines, cur.String())
+			cur.Reset()
+			cur.WriteString(w)
+			curLen = wLen
+			continue
+		}
+		cur.WriteByte(' ')
+		cur.WriteString(w)
+		curLen += 1 + wLen
+	}
+	if cur.Len() > 0 {
+		lines = append(lines, cur.String())
+	}
+	return lines
 }
 
 func (p *StandardPrinter) Warning(name, detail string) {

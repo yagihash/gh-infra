@@ -3,6 +3,7 @@ package ui
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -350,6 +351,55 @@ func TestRefreshTracker_ErrorsCollected(t *testing.T) {
 	}
 	if errors[1].Name != "repo/b" || errors[1].Err.Error() != "err2" {
 		t.Errorf("errors[1] = {%q, %q}, want {repo/b, err2}", errors[1].Name, errors[1].Err)
+	}
+}
+
+// stripANSIForTest removes ANSI escape codes to make output assertions
+// resilient to color rendering (Bold, Dim, etc.).
+var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+func stripANSIForTest(s string) string { return ansiRe.ReplaceAllString(s, "") }
+
+func TestRefreshTracker_PrintErrors_NoErrors(t *testing.T) {
+	tracker := &RefreshTracker{fallback: true, done: closedChan()}
+
+	oldPrinter := DefaultPrinter
+	var buf bytes.Buffer
+	DefaultPrinter = NewStandardPrinterWith(&buf, &buf)
+	defer func() { DefaultPrinter = oldPrinter }()
+
+	if printed := tracker.PrintErrors(); printed {
+		t.Errorf("PrintErrors() = true on empty tracker, want false")
+	}
+	if buf.Len() != 0 {
+		t.Errorf("PrintErrors() emitted output on empty tracker: %q", buf.String())
+	}
+}
+
+func TestRefreshTracker_PrintErrors_BlockFormat(t *testing.T) {
+	tracker := &RefreshTracker{fallback: true, done: closedChan()}
+
+	oldPrinter := DefaultPrinter
+	var collectBuf bytes.Buffer
+	DefaultPrinter = NewStandardPrinterWith(&collectBuf, &collectBuf)
+	defer func() { DefaultPrinter = oldPrinter }()
+
+	// Append errors directly to avoid the fallback-path inline print from
+	// tracker.Error(). We want to inspect only the PrintErrors() output.
+	tracker.errors = []TaskError{
+		{Name: "org/repo1", Err: fmt.Errorf("line-one\nline-two")},
+		{Name: "org/repo2", Err: fmt.Errorf("single line error")},
+	}
+
+	collectBuf.Reset()
+	if printed := tracker.PrintErrors(); !printed {
+		t.Fatalf("PrintErrors() = false on tracker with errors, want true")
+	}
+
+	got := stripANSIForTest(collectBuf.String())
+	want := "\n  org/repo1:\n    line-one\n    line-two\n\n  org/repo2:\n    single line error\n"
+	if got != want {
+		t.Errorf("PrintErrors output mismatch.\n got: %q\nwant: %q", got, want)
 	}
 }
 

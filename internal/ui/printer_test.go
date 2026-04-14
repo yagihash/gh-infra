@@ -300,8 +300,9 @@ func TestPrintResult_ErrorMultiline(t *testing.T) {
 	p.PrintResult(ResultItem{Icon: IconError, Field: "desc", Detail: "line1\nline2\nline3"})
 	out := buf.String()
 
-	// Continuation indent should be Indent(IndentItem) + "  " = 8 spaces
-	cont := Indent(IndentItem) + "  "
+	// Continuation indent should align with the detail column:
+	// Indent(IndentItem)=6 + itemWidth()=30 + icon(1) + space(1) + gap(2) = 40.
+	cont := strings.Repeat(" ", len(Indent(IndentItem))+30+4)
 	if !strings.Contains(out, "line1\n"+cont+"line2\n"+cont+"line3") {
 		t.Errorf("expected continuation indent %q between lines, got:\n%q", cont, out)
 	}
@@ -314,8 +315,9 @@ func TestPrintResult_ErrorMultilineSub(t *testing.T) {
 	p.PrintResult(ResultItem{Icon: IconError, Field: "bug", Detail: "err1\nerr2", Level: IndentSub})
 	out := buf.String()
 
-	// Sub continuation indent should be Indent(IndentSub) + "  " = 12 spaces
-	cont := Indent(IndentSub) + "  "
+	// At IndentSub level, the detail column also lands at 40:
+	// Indent(IndentSub)=10 + subItemWidth()=26 + 4.
+	cont := strings.Repeat(" ", len(Indent(IndentSub))+26+4)
 	if !strings.Contains(out, "err1\n"+cont+"err2") {
 		t.Errorf("expected sub continuation indent %q, got:\n%q", cont, out)
 	}
@@ -469,6 +471,113 @@ func TestRepoStyle(t *testing.T) {
 			t.Errorf("expected no hyperlink, got %q", link)
 		}
 	})
+}
+
+func TestWrapDetail(t *testing.T) {
+	tests := []struct {
+		name   string
+		detail string
+		width  int
+		want   []string
+	}{
+		{
+			name:   "single short line",
+			detail: "hello world",
+			width:  20,
+			want:   []string{"hello world"},
+		},
+		{
+			name:   "embedded newlines preserved",
+			detail: "first line\nsecond line",
+			width:  20,
+			want:   []string{"first line", "second line"},
+		},
+		{
+			name:   "long line word-wrapped",
+			detail: "the quick brown fox jumps over the lazy dog",
+			width:  15,
+			want:   []string{"the quick brown", "fox jumps over", "the lazy dog"},
+		},
+		{
+			name:   "multiline with wrap on first line only",
+			detail: "this is a very long first line that needs wrap\nshort",
+			width:  20,
+			want:   []string{"this is a very long", "first line that", "needs wrap", "short"},
+		},
+		{
+			name:   "zero width preserves newlines without wrapping",
+			detail: "line1\nline2",
+			width:  0,
+			want:   []string{"line1", "line2"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := wrapDetail(tt.detail, tt.width)
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %d segments, want %d: %q", len(got), len(tt.want), got)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("segment[%d] = %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestWrapByWords(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		width int
+		want  []string
+	}{
+		{
+			name:  "empty input",
+			input: "",
+			width: 20,
+			want:  []string{""},
+		},
+		{
+			name:  "zero width returns as-is",
+			input: "a b c d",
+			width: 0,
+			want:  []string{"a b c d"},
+		},
+		{
+			name:  "short line no wrap",
+			input: "hello world",
+			width: 20,
+			want:  []string{"hello world"},
+		},
+		{
+			name:  "wrap at boundary",
+			input: "the quick brown fox jumps over the lazy dog",
+			width: 15,
+			want:  []string{"the quick brown", "fox jumps over", "the lazy dog"},
+		},
+		{
+			name:  "single word longer than width kept on own line",
+			input: "supercalifragilistic expialidocious yes",
+			width: 10,
+			want:  []string{"supercalifragilistic", "expialidocious", "yes"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := wrapByWords(tt.input, tt.width)
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %d segments, want %d: %q", len(got), len(tt.want), got)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("segment[%d] = %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
 }
 
 func TestSetColumnWidth(t *testing.T) {

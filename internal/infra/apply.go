@@ -138,7 +138,9 @@ func Apply(result *PlanResult, opts ApplyOptions) error {
 
 		_ = g.Wait()
 		tracker.Wait()
-		tracker.PrintErrors()
+		// Apply-time errors are rendered in full detail by printApplyResults
+		// below (per field / per target). Calling tracker.PrintErrors here
+		// would repeat the same message in a separate block.
 
 		if ctx.Err() != nil {
 			return context.Canceled

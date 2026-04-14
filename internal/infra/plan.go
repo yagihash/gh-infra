@@ -95,7 +95,11 @@ func Plan(opts PlanOptions) (*PlanResult, error) {
 
 	eng := newEngine(runner, resolver, p)
 
-	p.Phase(fmt.Sprintf("Reading desired state from %s ...", strings.Join(paths, ", ")))
+	displayPaths := make([]string, len(paths))
+	for i, path := range paths {
+		displayPaths[i] = tildePath(path)
+	}
+	p.Phase(fmt.Sprintf("Reading desired state from %s ...", strings.Join(displayPaths, ", ")))
 	p.Phase("Fetching current state from GitHub API ...")
 	p.BlankLine()
 
@@ -183,7 +187,11 @@ func Plan(opts PlanOptions) (*PlanResult, error) {
 	}
 
 	if !result.HasChanges {
-		p.Message("\nNo changes. Infrastructure is up-to-date.")
+		if len(tracker.Errors()) > 0 {
+			p.Message("\nNo changes computed. Some repositories were skipped due to errors above.")
+		} else {
+			p.Message("\nNo changes. Infrastructure is up-to-date.")
+		}
 		return result, nil
 	}
 

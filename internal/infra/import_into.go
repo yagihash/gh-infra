@@ -15,6 +15,7 @@ import (
 type ImportDiff struct {
 	Plan    *importer.Result
 	Matched bool // false when no targets matched any manifest resource
+	Skipped int  // number of targets skipped due to fetch/validation errors
 	printer ui.Printer
 }
 
@@ -185,6 +186,7 @@ func ImportInto(args []string, into string) (*ImportDiff, error) {
 		})
 	}
 
+	printer.Phase(fmt.Sprintf("Reading desired state from %s ...", tildePath(into)))
 	printer.Phase("Fetching current state from GitHub API ...")
 	printer.BlankLine()
 
@@ -195,12 +197,12 @@ func ImportInto(args []string, into string) (*ImportDiff, error) {
 	plan, err := importer.Diff(ctx, importer.DiffOptions{
 		Targets:     matched,
 		Runner:      runner,
-		Printer:     printer,
 		Tracker:     tracker,
 		AllFileDocs: parsed.FileDocs,
 	})
 
 	tracker.Wait()
+	tracker.PrintErrors()
 
 	if ctx.Err() != nil {
 		return nil, context.Canceled
@@ -209,7 +211,12 @@ func ImportInto(args []string, into string) (*ImportDiff, error) {
 		return nil, err
 	}
 
-	result := &ImportDiff{Plan: plan, Matched: true, printer: printer}
+	result := &ImportDiff{
+		Plan:    plan,
+		Matched: true,
+		Skipped: len(tracker.Errors()),
+		printer: printer,
+	}
 
 	if result.HasChanges() {
 		printer.Separator()

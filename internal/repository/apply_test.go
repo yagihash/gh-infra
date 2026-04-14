@@ -23,7 +23,7 @@ func newTestRepo(owner, name string) *manifest.Repository {
 
 func TestApplyRepoDescription(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	changes := []Change{
@@ -56,7 +56,7 @@ func TestApplyRepoDescription(t *testing.T) {
 
 func TestApplyHomepage(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	changes := []Change{
@@ -82,7 +82,7 @@ func TestApplyHomepage(t *testing.T) {
 
 func TestApplyVisibility(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	changes := []Change{
@@ -112,7 +112,7 @@ func TestApplyTopics(t *testing.T) {
 			"repo view myorg/myrepo --json repositoryTopics --jq .repositoryTopics // [] | .[].name": []byte("old-topic\nkeep-topic\n"),
 		},
 	}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	repo.Spec.Topics = []string{"keep-topic", "new-topic"}
@@ -161,7 +161,7 @@ func TestApplyTopics(t *testing.T) {
 
 func TestApplyFeatureToggle(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	changes := []Change{
@@ -207,7 +207,7 @@ func TestApplySecurityFields(t *testing.T) {
 		} {
 			t.Run(tt.name+"/"+sub.name, func(t *testing.T) {
 				mock := &gh.MockRunner{}
-				proc := NewProcessor(mock, nil, nil)
+				proc := NewProcessor(mock, nil)
 
 				repo := newTestRepo("myorg", "myrepo")
 				changes := []Change{
@@ -253,7 +253,7 @@ func TestApplyRepoSetting_BoolTypeAssertionError(t *testing.T) {
 	for _, field := range boolFields {
 		t.Run(field, func(t *testing.T) {
 			mock := &gh.MockRunner{}
-			proc := NewProcessor(mock, nil, nil)
+			proc := NewProcessor(mock, nil)
 
 			repo := newTestRepo("myorg", "myrepo")
 			changes := []Change{
@@ -291,7 +291,7 @@ func TestApplyWithErrNotFound(t *testing.T) {
 			"repo edit myorg/myrepo --description new desc": notFoundErr,
 		},
 	}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	changes := []Change{
@@ -325,7 +325,7 @@ func TestApplyWithErrForbidden(t *testing.T) {
 			"repo edit myorg/myrepo --description new desc": forbiddenErr,
 		},
 	}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	changes := []Change{
@@ -359,7 +359,7 @@ func TestApplyWithErrValidation(t *testing.T) {
 			"repo edit myorg/myrepo --description new desc": validationErr,
 		},
 	}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	changes := []Change{
@@ -384,7 +384,7 @@ func TestApplyWithErrValidation(t *testing.T) {
 
 func TestApplyVariableSet(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	repo.Spec.Variables = []manifest.Variable{
@@ -414,7 +414,7 @@ func TestApplyVariableSet(t *testing.T) {
 
 func TestApplySecretSet(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	repo.Spec.Secrets = []manifest.Secret{
@@ -444,7 +444,7 @@ func TestApplySecretSet(t *testing.T) {
 
 func TestApplySkipsNoOp(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	changes := []Change{
@@ -467,7 +467,7 @@ func TestApplySkipsNoOp(t *testing.T) {
 
 func TestApplyBranchProtection(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	reviews := 2
 	enforceAdmins := true
@@ -598,7 +598,7 @@ func TestBuildBranchProtectionPayload_NilReviews(t *testing.T) {
 
 func TestUpdateRepoField(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	err := proc.updateRepoField(context.Background(), "myorg/myrepo", "merge_commit_title", "PR_TITLE")
 	if err != nil {
@@ -636,7 +636,7 @@ func TestDerefBool(t *testing.T) {
 
 func TestApplyRuleset_Create(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	repo.Spec.Rulesets = []manifest.Ruleset{
@@ -696,7 +696,7 @@ func TestApplyRuleset_Update(t *testing.T) {
 			"api repos/myorg/myrepo/rulesets": []byte(listResp),
 		},
 	}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	repo.Spec.Rulesets = []manifest.Ruleset{
@@ -820,7 +820,7 @@ func TestResolveRulesetID_Ambiguous(t *testing.T) {
 			"api repos/o/r/rulesets": []byte(listResp),
 		},
 	}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	_, err := proc.resolveRulesetID(context.Background(), rulesetLookup{
 		Repo:        "o/r",
@@ -842,7 +842,7 @@ func TestResolveRulesetID_NotFound(t *testing.T) {
 			"api repos/o/r/rulesets": []byte(listResp),
 		},
 	}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	_, err := proc.resolveRulesetID(context.Background(), rulesetLookup{
 		Repo:        "o/r",
@@ -944,7 +944,7 @@ func TestBuildRulesetPayload_WithResolver(t *testing.T) {
 
 func TestApplyRepoPatch_BatchesSettings(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	repo.Spec.Features = &manifest.Features{
@@ -1034,7 +1034,7 @@ func TestApplyRepoPatch_BatchesSettings(t *testing.T) {
 
 func TestApplyRepoPatch_Empty(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	// No features, merge strategy, or homepage set
@@ -1050,7 +1050,7 @@ func TestApplyRepoPatch_Empty(t *testing.T) {
 
 func TestApplyMergeStrategyBatch(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	changes := []Change{
@@ -1106,7 +1106,7 @@ func TestApplyMergeStrategyBatch(t *testing.T) {
 func TestApplyAllSettings_EmptyActions(t *testing.T) {
 	// actions: {} should not panic during new repo creation.
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	repo.Spec.Actions = &manifest.Actions{} // empty — Enabled is nil
@@ -1120,7 +1120,7 @@ func TestApplyAllSettings_EmptyActions(t *testing.T) {
 
 func TestApplyActionsPermissions_WithSHAPinningRequired(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	err := proc.applyActionsPermissions(context.Background(), "myorg", "myrepo", &manifest.Actions{
 		Enabled:            manifest.Ptr(true),
@@ -1163,7 +1163,7 @@ func TestApplyActionsPermissions_WithSHAPinningRequired(t *testing.T) {
 
 func TestApplyActionsWorkflow(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	err := proc.applyActionsWorkflow(context.Background(), "myorg", "myrepo", &manifest.Actions{
 		WorkflowPermissions:    manifest.Ptr("read"),
@@ -1183,7 +1183,7 @@ func TestApplyActionsWorkflow(t *testing.T) {
 
 func TestApplyActionsSelectedActions(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	err := proc.applyActionsSelectedActions(context.Background(), "myorg", "myrepo", &manifest.Actions{
 		SelectedActions: &manifest.SelectedActions{
@@ -1206,7 +1206,7 @@ func TestApplyActionsSelectedActions(t *testing.T) {
 
 func TestApplyActionsSelectedActions_NilSelectedActions(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	err := proc.applyActionsSelectedActions(context.Background(), "myorg", "myrepo", &manifest.Actions{})
 	if err != nil {
@@ -1219,7 +1219,7 @@ func TestApplyActionsSelectedActions_NilSelectedActions(t *testing.T) {
 
 func TestApplyActionsForkPR(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	err := proc.applyActionsForkPR(context.Background(), "myorg", "myrepo", &manifest.Actions{
 		ForkPRApproval: manifest.Ptr("first_time_contributors"),
@@ -1238,7 +1238,7 @@ func TestApplyActionsForkPR(t *testing.T) {
 
 func TestApplyActionsForkPR_Nil(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	err := proc.applyActionsForkPR(context.Background(), "myorg", "myrepo", &manifest.Actions{})
 	if err != nil {
@@ -1265,7 +1265,7 @@ func TestApplyActions_RoutesCorrectly(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := &gh.MockRunner{}
-			proc := NewProcessor(mock, nil, nil)
+			proc := NewProcessor(mock, nil)
 
 			repo := newTestRepo("myorg", "myrepo")
 			repo.Spec.Actions = &manifest.Actions{
@@ -1294,7 +1294,7 @@ func TestApplyActions_RoutesCorrectly(t *testing.T) {
 
 func TestApplyMilestone_Create(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	repo.Spec.Milestones = []manifest.Milestone{
@@ -1354,7 +1354,7 @@ func TestApplyMilestone_Update(t *testing.T) {
 			"api repos/myorg/myrepo/milestones?state=all&per_page=100 --paginate": []byte(`[{"number":3,"title":"v1.0"}]`),
 		},
 	}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	repo.Spec.Milestones = []manifest.Milestone{
@@ -1391,7 +1391,7 @@ func TestApplyMilestone_Update(t *testing.T) {
 
 func TestApplyMilestone_NotFoundInDesired(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	// No milestones in spec
@@ -1421,7 +1421,7 @@ func TestFindMilestoneNumber(t *testing.T) {
 				"api repos/myorg/myrepo/milestones?state=all&per_page=100 --paginate": []byte(`[{"number":1,"title":"v0.9"},{"number":5,"title":"v1.0"}]`),
 			},
 		}
-		proc := NewProcessor(mock, nil, nil)
+		proc := NewProcessor(mock, nil)
 		num, err := proc.findMilestoneNumber(context.Background(), "myorg", "myrepo", "v1.0")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -1437,7 +1437,7 @@ func TestFindMilestoneNumber(t *testing.T) {
 				"api repos/myorg/myrepo/milestones?state=all&per_page=100 --paginate": []byte(`[{"number":1,"title":"v0.9"}]`),
 			},
 		}
-		proc := NewProcessor(mock, nil, nil)
+		proc := NewProcessor(mock, nil)
 		_, err := proc.findMilestoneNumber(context.Background(), "myorg", "myrepo", "v1.0")
 		if err == nil {
 			t.Fatal("expected error for not found milestone")
@@ -1447,7 +1447,7 @@ func TestFindMilestoneNumber(t *testing.T) {
 
 func TestApplyLabel_UpdateWithChildren(t *testing.T) {
 	mock := &gh.MockRunner{}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	repo.Spec.Labels = []manifest.Label{
@@ -1488,7 +1488,7 @@ func TestApplyMilestone_UpdateWithChildren(t *testing.T) {
 			"api repos/myorg/myrepo/milestones?state=all&per_page=100 --paginate": []byte(`[{"number":1,"title":"v1.0"}]`),
 		},
 	}
-	proc := NewProcessor(mock, nil, nil)
+	proc := NewProcessor(mock, nil)
 
 	repo := newTestRepo("myorg", "myrepo")
 	repo.Spec.Milestones = []manifest.Milestone{
