@@ -1,5 +1,15 @@
 # Changelog
 
+## [v0.11.0](https://github.com/babarot/gh-infra/compare/v0.10.0...v0.11.0) - 2026-04-14
+### New Features
+- Add security section for Dependabot/Advanced Security settings by @babarot in https://github.com/babarot/gh-infra/pull/118
+### Bug fixes
+- fix: inherit content/source for per-repo overrides by @nekrassov01 in https://github.com/babarot/gh-infra/pull/121
+- fix: handle null topics as empty array via jq by @nekrassov01 in https://github.com/babarot/gh-infra/pull/122
+- Eliminate triple-printed errors and align plan/apply/import output by @babarot in https://github.com/babarot/gh-infra/pull/123
+### Improvements
+- Parallelize per-repo subresource fetches by @babarot in https://github.com/babarot/gh-infra/pull/120
+
 ## [v0.10.0](https://github.com/babarot/gh-infra/compare/v0.9.1...v0.10.0) - 2026-04-11
 ### New Features
 - Add milestone management and improve plan display grouping by @babarot in https://github.com/babarot/gh-infra/pull/104
