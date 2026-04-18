@@ -81,52 +81,10 @@ func printPlan(p ui.Printer, repoChanges []repository.Change, fileChanges []file
 			p.GroupHeader(ui.IconChange, name)
 		}
 
-		// Group consecutive Label/Milestone changes under sub-headers,
-		// preserving the original order relative to other resources.
-		grouped := groupRepoChanges(rChanges)
-		p.SetColumnWidth(repoFieldWidth(rChanges))
-		for _, g := range grouped {
-			if g.resource != "" {
-				// Grouped sub-resource (labels, milestones)
-				icon := groupIcon(g.changes)
-				p.SubGroupHeader(icon, strings.ToLower(g.resource)+"s")
-				for _, c := range g.changes {
-					if len(c.Children) > 0 {
-						for _, child := range c.Children {
-							item := changeToItem(child, ui.IndentSub)
-							item.Field = c.Field + "." + child.Field
-							p.PrintChange(item)
-						}
-					} else {
-						p.PrintChange(changeToItem(c, ui.IndentSub))
-					}
-				}
-			} else {
-				// Regular change
-				c := g.changes[0]
-				if len(c.Children) > 0 {
-					var icon string
-					switch c.Type {
-					case repository.ChangeCreate:
-						icon = ui.IconAdd
-					case repository.ChangeDelete:
-						icon = ui.IconRemove
-					default:
-						icon = ui.IconChange
-					}
-					header := c.Field
-					if s, ok := c.NewValue.(string); ok && s != "" {
-						header = fmt.Sprintf("%s[%s]", c.Field, s)
-					}
-					p.SubGroupHeader(icon, header)
-					for _, child := range c.Children {
-						p.PrintChange(changeToItem(child, ui.IndentSub))
-					}
-				} else {
-					p.PrintChange(changeToItem(c, ui.IndentItem))
-				}
-			}
-		}
+		// Convert to unified display model and render.
+		diffGroups := repoChangesToDiffGroups(rChanges)
+		p.SetColumnWidth(ui.DiffGroupFieldWidth(diffGroups))
+		ui.RenderDiffGroups(p, diffGroups)
 
 		// Print fileset changes (aligned by file path width, independent of repo fields)
 		if len(fChanges) > 0 {
@@ -328,6 +286,75 @@ func groupIcon(changes []repository.Change) string {
 		return ui.IconRemove
 	default:
 		return ui.IconChange
+	}
+}
+
+// repoChangesToDiffGroups converts repository.Change slice to the unified
+// DiffGroup model for rendering. It reuses the existing groupRepoChanges logic.
+func repoChangesToDiffGroups(changes []repository.Change) []ui.DiffGroup {
+	grouped := groupRepoChanges(changes)
+	var result []ui.DiffGroup
+
+	for _, g := range grouped {
+		if g.resource != "" {
+			// Grouped sub-resource (labels, milestones)
+			dg := ui.DiffGroup{
+				Header: strings.ToLower(g.resource) + "s",
+				Icon:   groupIcon(g.changes),
+			}
+			for _, c := range g.changes {
+				if len(c.Children) > 0 {
+					for _, child := range c.Children {
+						item := changeToDiffItem(child)
+						item.Field = c.Field + "." + child.Field
+						dg.Items = append(dg.Items, item)
+					}
+				} else {
+					dg.Items = append(dg.Items, changeToDiffItem(c))
+				}
+			}
+			result = append(result, dg)
+		} else {
+			c := g.changes[0]
+			if len(c.Children) > 0 {
+				var icon string
+				switch c.Type {
+				case repository.ChangeCreate:
+					icon = ui.IconAdd
+				case repository.ChangeDelete:
+					icon = ui.IconRemove
+				default:
+					icon = ui.IconChange
+				}
+				header := c.Field
+				if s, ok := c.NewValue.(string); ok && s != "" {
+					header = fmt.Sprintf("%s[%s]", c.Field, s)
+				}
+				dg := ui.DiffGroup{Header: header, Icon: icon}
+				for _, child := range c.Children {
+					dg.Items = append(dg.Items, changeToDiffItem(child))
+				}
+				result = append(result, dg)
+			} else {
+				result = append(result, ui.DiffGroup{
+					Items: []ui.DiffItem{changeToDiffItem(c)},
+				})
+			}
+		}
+	}
+	return result
+}
+
+func changeToDiffItem(c repository.Change) ui.DiffItem {
+	switch c.Type {
+	case repository.ChangeCreate:
+		return ui.DiffItem{Icon: ui.IconAdd, Field: c.Field, Value: c.NewValue}
+	case repository.ChangeUpdate:
+		return ui.DiffItem{Icon: ui.IconChange, Field: c.Field, Old: ui.FormatValue(c.OldValue), New: ui.FormatValue(c.NewValue)}
+	case repository.ChangeDelete:
+		return ui.DiffItem{Icon: ui.IconRemove, Field: c.Field, Value: c.OldValue}
+	default:
+		return ui.DiffItem{Field: c.Field}
 	}
 }
 
