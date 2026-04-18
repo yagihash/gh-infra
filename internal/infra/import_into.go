@@ -3,6 +3,7 @@ package infra
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/babarot/gh-infra/internal/fileset"
 	"github.com/babarot/gh-infra/internal/gh"
@@ -277,22 +278,9 @@ func printImportPlan(p ui.Printer, plan *importer.Result) {
 		p.GroupHeader(ui.IconChange, target)
 
 		if len(rDiffs) > 0 {
-			w := 0
-			for _, d := range rDiffs {
-				if len(d.Field) > w {
-					w = len(d.Field)
-				}
-			}
-			p.SetColumnWidth(w)
-
-			for _, d := range rDiffs {
-				p.PrintChange(ui.ChangeItem{
-					Icon:  ui.IconChange,
-					Field: d.Field,
-					Old:   ui.FormatValue(d.Old),
-					New:   ui.FormatValue(d.New),
-				})
-			}
+			groups := fieldDiffsToDiffGroups(rDiffs)
+			p.SetColumnWidth(ui.DiffGroupFieldWidth(groups))
+			ui.RenderDiffGroups(p, groups)
 		}
 
 		if len(fChanges) > 0 {
@@ -391,6 +379,136 @@ func planSkipReason(c importer.Change) string {
 		return "skip: reconcile:create_only (Tab to change)"
 	}
 	return "skip"
+}
+
+// fieldDiffsToDiffGroups converts flat FieldDiff slices into the unified
+// DiffGroup model by parsing dot-notation field names and grouping by prefix.
+func fieldDiffsToDiffGroups(diffs []importer.FieldDiff) []ui.DiffGroup {
+	var result []ui.DiffGroup
+
+	// Prefix classification
+	nestedObject := map[string]bool{
+		"features": true, "merge_strategy": true, "actions": true, "security": true,
+	}
+	keyedCollection := map[string]bool{
+		"branch_protection": true, "rulesets": true,
+	}
+	flatCollection := map[string]bool{
+		"labels": true, "variables": true, "milestones": true,
+	}
+
+	i := 0
+	for i < len(diffs) {
+		d := diffs[i]
+		prefix, rest, hasDot := splitField(d.Field)
+
+		if !hasDot {
+			// Bare field (description, visibility, topics, etc.)
+			result = append(result, ui.DiffGroup{
+				Items: []ui.DiffItem{fieldDiffToItem(d, d.Field)},
+			})
+			i++
+			continue
+		}
+
+		if nestedObject[prefix] {
+			// Collect consecutive diffs with same prefix
+			dg := ui.DiffGroup{Header: prefix, Icon: ui.IconChange}
+			for i < len(diffs) {
+				p, r, ok := splitField(diffs[i].Field)
+				if !ok || p != prefix {
+					break
+				}
+				dg.Items = append(dg.Items, fieldDiffToItem(diffs[i], r))
+				i++
+			}
+			dg.Icon = aggregateIcon(dg.Items)
+			result = append(result, dg)
+			continue
+		}
+
+		if keyedCollection[prefix] {
+			// Each unique key becomes its own group: prefix[key]
+			key := rest
+			header := fmt.Sprintf("%s[%s]", prefix, key)
+			dg := ui.DiffGroup{Header: header}
+			dg.Items = append(dg.Items, fieldDiffToItem(d, key))
+			dg.Icon = aggregateIcon(dg.Items)
+			result = append(result, dg)
+			i++
+			continue
+		}
+
+		if flatCollection[prefix] {
+			// Collect consecutive diffs with same prefix under one header
+			dg := ui.DiffGroup{Header: prefix}
+			for i < len(diffs) {
+				p, r, ok := splitField(diffs[i].Field)
+				if !ok || p != prefix {
+					break
+				}
+				dg.Items = append(dg.Items, fieldDiffToItem(diffs[i], r))
+				i++
+			}
+			dg.Icon = aggregateIcon(dg.Items)
+			result = append(result, dg)
+			continue
+		}
+
+		// Unknown prefix (fallback): group consecutive same-prefix diffs
+		dg := ui.DiffGroup{Header: prefix}
+		for i < len(diffs) {
+			p, r, ok := splitField(diffs[i].Field)
+			if !ok || p != prefix {
+				break
+			}
+			dg.Items = append(dg.Items, fieldDiffToItem(diffs[i], r))
+			i++
+		}
+		dg.Icon = aggregateIcon(dg.Items)
+		result = append(result, dg)
+	}
+
+	return result
+}
+
+func splitField(field string) (prefix, rest string, hasDot bool) {
+	prefix, rest, hasDot = strings.Cut(field, ".")
+	return
+}
+
+func fieldDiffToItem(d importer.FieldDiff, field string) ui.DiffItem {
+	icon := ui.IconChange
+	if d.Old == nil && d.New != nil {
+		icon = ui.IconAdd
+	} else if d.Old != nil && d.New == nil {
+		icon = ui.IconRemove
+	}
+	return ui.DiffItem{
+		Icon:  icon,
+		Field: field,
+		Old:   ui.FormatValue(d.Old),
+		New:   ui.FormatValue(d.New),
+	}
+}
+
+func aggregateIcon(items []ui.DiffItem) string {
+	allAdd, allRemove := true, true
+	for _, item := range items {
+		if item.Icon != ui.IconAdd {
+			allAdd = false
+		}
+		if item.Icon != ui.IconRemove {
+			allRemove = false
+		}
+	}
+	if allAdd {
+		return ui.IconAdd
+	}
+	if allRemove {
+		return ui.IconRemove
+	}
+	return ui.IconChange
 }
 
 // allRepoFullNames returns deduplicated "owner/repo" names from all parsed manifests.

@@ -115,6 +115,161 @@ func TestAllRepoFullNames_Empty(t *testing.T) {
 	}
 }
 
+// --- fieldDiffsToDiffGroups tests ---
+
+func TestFieldDiffsToDiffGroups_BareFields(t *testing.T) {
+	diffs := []importer.FieldDiff{
+		{Field: "description", Old: `""`, New: "My repo"},
+		{Field: "visibility", Old: "private", New: "public"},
+	}
+	groups := fieldDiffsToDiffGroups(diffs)
+	if len(groups) != 2 {
+		t.Fatalf("expected 2 groups, got %d", len(groups))
+	}
+	for _, g := range groups {
+		if g.Header != "" {
+			t.Errorf("bare field should have empty header, got %q", g.Header)
+		}
+	}
+}
+
+func TestFieldDiffsToDiffGroups_NestedObject(t *testing.T) {
+	diffs := []importer.FieldDiff{
+		{Field: "features.issues", Old: false, New: true},
+		{Field: "features.wiki", Old: true, New: false},
+	}
+	groups := fieldDiffsToDiffGroups(diffs)
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+	if groups[0].Header != "features" {
+		t.Errorf("expected header 'features', got %q", groups[0].Header)
+	}
+	if len(groups[0].Items) != 2 {
+		t.Errorf("expected 2 items, got %d", len(groups[0].Items))
+	}
+	if groups[0].Items[0].Field != "issues" {
+		t.Errorf("expected field 'issues', got %q", groups[0].Items[0].Field)
+	}
+}
+
+func TestFieldDiffsToDiffGroups_KeyedCollection(t *testing.T) {
+	diffs := []importer.FieldDiff{
+		{Field: "branch_protection.main", Old: nil, New: "reviews: 1"},
+		{Field: "branch_protection.develop", Old: nil, New: "reviews: 2"},
+	}
+	groups := fieldDiffsToDiffGroups(diffs)
+	if len(groups) != 2 {
+		t.Fatalf("expected 2 groups (one per key), got %d", len(groups))
+	}
+	if groups[0].Header != "branch_protection[main]" {
+		t.Errorf("expected 'branch_protection[main]', got %q", groups[0].Header)
+	}
+	if groups[1].Header != "branch_protection[develop]" {
+		t.Errorf("expected 'branch_protection[develop]', got %q", groups[1].Header)
+	}
+}
+
+func TestFieldDiffsToDiffGroups_FlatCollection(t *testing.T) {
+	diffs := []importer.FieldDiff{
+		{Field: "labels.kind/bug", Old: nil, New: `#d73a4a "A bug"`},
+		{Field: "labels.kind/feature", Old: nil, New: `#425df5 "A feature"`},
+	}
+	groups := fieldDiffsToDiffGroups(diffs)
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+	if groups[0].Header != "labels" {
+		t.Errorf("expected header 'labels', got %q", groups[0].Header)
+	}
+	if len(groups[0].Items) != 2 {
+		t.Errorf("expected 2 items, got %d", len(groups[0].Items))
+	}
+	if groups[0].Items[0].Field != "kind/bug" {
+		t.Errorf("expected field 'kind/bug', got %q", groups[0].Items[0].Field)
+	}
+}
+
+func TestFieldDiffsToDiffGroups_DeepNesting(t *testing.T) {
+	diffs := []importer.FieldDiff{
+		{Field: "actions.enabled", Old: false, New: true},
+		{Field: "actions.selected_actions.github_owned_allowed", Old: false, New: true},
+	}
+	groups := fieldDiffsToDiffGroups(diffs)
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+	if groups[0].Header != "actions" {
+		t.Errorf("expected header 'actions', got %q", groups[0].Header)
+	}
+	if groups[0].Items[1].Field != "selected_actions.github_owned_allowed" {
+		t.Errorf("expected deep field, got %q", groups[0].Items[1].Field)
+	}
+}
+
+func TestFieldDiffsToDiffGroups_Mixed(t *testing.T) {
+	diffs := []importer.FieldDiff{
+		{Field: "description", Old: `""`, New: "test"},
+		{Field: "features.issues", Old: false, New: true},
+		{Field: "branch_protection.main", Old: nil, New: "reviews: 1"},
+		{Field: "labels.bug", Old: nil, New: "#d73a4a"},
+	}
+	groups := fieldDiffsToDiffGroups(diffs)
+	if len(groups) != 4 {
+		t.Fatalf("expected 4 groups, got %d", len(groups))
+	}
+	headers := []string{"", "features", "branch_protection[main]", "labels"}
+	for i, want := range headers {
+		if groups[i].Header != want {
+			t.Errorf("group[%d] header = %q, want %q", i, groups[i].Header, want)
+		}
+	}
+}
+
+func TestFieldDiffsToDiffGroups_UnknownPrefix(t *testing.T) {
+	diffs := []importer.FieldDiff{
+		{Field: "future_resource.field1", Old: nil, New: "value"},
+		{Field: "future_resource.field2", Old: nil, New: "value"},
+	}
+	groups := fieldDiffsToDiffGroups(diffs)
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+	if groups[0].Header != "future_resource" {
+		t.Errorf("expected header 'future_resource', got %q", groups[0].Header)
+	}
+	if len(groups[0].Items) != 2 {
+		t.Errorf("expected 2 items, got %d", len(groups[0].Items))
+	}
+}
+
+func TestFieldDiffsToDiffGroups_Empty(t *testing.T) {
+	groups := fieldDiffsToDiffGroups(nil)
+	if len(groups) != 0 {
+		t.Errorf("expected 0 groups, got %d", len(groups))
+	}
+}
+
+func TestFieldDiffsToDiffGroups_Icons(t *testing.T) {
+	diffs := []importer.FieldDiff{
+		{Field: "labels.new-label", Old: nil, New: "#FF0000"},
+		{Field: "labels.removed", Old: "#00FF00", New: nil},
+	}
+	groups := fieldDiffsToDiffGroups(diffs)
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+	if groups[0].Icon != ui.IconChange {
+		t.Errorf("mixed add/remove should be IconChange, got %q", groups[0].Icon)
+	}
+	if groups[0].Items[0].Icon != ui.IconAdd {
+		t.Errorf("new label should be IconAdd, got %q", groups[0].Items[0].Icon)
+	}
+	if groups[0].Items[1].Icon != ui.IconRemove {
+		t.Errorf("removed label should be IconRemove, got %q", groups[0].Items[1].Icon)
+	}
+}
+
 // --- localPath tests ---
 
 func TestLocalPath_WriteSource(t *testing.T) {
