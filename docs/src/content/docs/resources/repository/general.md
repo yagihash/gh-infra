@@ -51,6 +51,7 @@ spec:
     projects: false
     wiki: false
     discussions: false
+    pull_requests: true
 ```
 
 | Field | Type | Default | Description |
@@ -59,6 +60,30 @@ spec:
 | `projects` | bool | `true` | Enable Projects tab |
 | `wiki` | bool | `true` | Enable Wiki tab |
 | `discussions` | bool | `false` | Enable Discussions tab |
+| `pull_requests` | bool or object | `true` | Enable Pull Requests and optionally restrict creation |
+
+### Pull Request Permissions
+
+The `pull_requests` field accepts either a simple boolean or an object:
+
+```yaml
+# Simple form — enable or disable pull requests
+spec:
+  features:
+    pull_requests: true     # or false to disable
+
+# Object form — restrict who can create PRs
+spec:
+  features:
+    pull_requests:
+      creation: collaborators_only  # all | collaborators_only
+```
+
+Using the object form implicitly enables pull requests — there is no `enabled` field to set.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `creation` | string | `all` | `all` — anyone can create PRs; `collaborators_only` — only collaborators can create PRs |
 
 ## Merge Strategy
 

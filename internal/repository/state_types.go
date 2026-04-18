@@ -43,10 +43,12 @@ type CurrentSecurity struct {
 }
 
 type CurrentFeatures struct {
-	Issues      bool
-	Projects    bool
-	Wiki        bool
-	Discussions bool
+	Issues              bool
+	Projects            bool
+	Wiki                bool
+	Discussions         bool
+	PullRequests        bool
+	PullRequestCreation string // "all" or "collaborators_only"
 }
 
 type CurrentMergeStrategy struct {

@@ -557,6 +557,17 @@ func newRepositoryPatchPlan(basePath string) *repositoryPatchPlan {
 }
 
 func applyRepositoryDescriptor(plan *repositoryPatchPlan, field string, desired manifest.RepositorySpec) {
+	// pull_requests is patched as a whole object to avoid scalar/map type
+	// conflicts (e.g. pull_requests: true → pull_requests: {enabled: true, creation: ...}).
+	if strings.HasPrefix(field, "features.pull_requests") {
+		if desired.Features != nil && desired.Features.PullRequests != nil {
+			if plan.nestedMerges["features"] == nil {
+				plan.nestedMerges["features"] = map[string]any{}
+			}
+			plan.nestedMerges["features"]["pull_requests"] = desired.Features.PullRequests
+		}
+		return
+	}
 	for _, desc := range repositoryFieldDescriptors {
 		if desc.matches(field) {
 			desc.apply(plan, desired)
@@ -857,6 +868,8 @@ func compareFeatures(local, imported *manifest.Features) []FieldDiff {
 	diffs = appendBoolPtrDiff(diffs, "features.projects", l.Projects, i.Projects)
 	diffs = appendBoolPtrDiff(diffs, "features.wiki", l.Wiki, i.Wiki)
 	diffs = appendBoolPtrDiff(diffs, "features.discussions", l.Discussions, i.Discussions)
+	diffs = appendBoolPtrDiff(diffs, "features.pull_requests", l.PullRequests.IsEnabled(), i.PullRequests.IsEnabled())
+	diffs = appendPtrDiff(diffs, "features.pull_requests.creation", l.PullRequests.GetCreation(), i.PullRequests.GetCreation())
 	return diffs
 }
 
@@ -1643,10 +1656,24 @@ func minimalFeatures(defaults, imported *manifest.Features) *manifest.Features {
 		f.Discussions = i.Discussions
 		any = true
 	}
+	if !pullRequestsEqual(d.PullRequests, i.PullRequests) {
+		f.PullRequests = i.PullRequests
+		any = true
+	}
 	if !any {
 		return nil
 	}
 	return &f
+}
+
+func pullRequestsEqual(a, b *manifest.PullRequests) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return boolPtrEqual(a.Enabled, b.Enabled) && ptrEqual(a.Creation, b.Creation)
 }
 
 func minimalMergeStrategy(defaults, imported *manifest.MergeStrategy) *manifest.MergeStrategy {

@@ -305,6 +305,14 @@ func (p *Processor) applyRepoPatch(ctx context.Context, fullName string, repo *m
 		if f.Discussions != nil {
 			payload["has_discussions"] = *f.Discussions
 		}
+		if f.PullRequests != nil {
+			if f.PullRequests.Enabled != nil {
+				payload["has_pull_requests"] = *f.PullRequests.Enabled
+			}
+			if f.PullRequests.Creation != nil {
+				payload["pull_request_creation_policy"] = *f.PullRequests.Creation
+			}
+		}
 	}
 
 	// Merge strategy
@@ -473,6 +481,18 @@ func (p *Processor) applyRepoSetting(ctx context.Context, c Change, repo *manife
 			return fmt.Errorf("unexpected type for %s: %T", c.Field, c.NewValue)
 		}
 		return p.toggleFeature(ctx, fullName, "enable-discussions", v)
+	case "pull_requests":
+		v, ok := c.NewValue.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type for %s: %T", c.Field, c.NewValue)
+		}
+		return p.updateRepoField(ctx, owner+"/"+name, "has_pull_requests", fmt.Sprintf("%t", v))
+	case "pull_requests.creation":
+		v, ok := c.NewValue.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type for %s: %T", c.Field, c.NewValue)
+		}
+		return p.updateRepoField(ctx, owner+"/"+name, "pull_request_creation_policy", v)
 	case "allow_merge_commit":
 		v, ok := c.NewValue.(bool)
 		if !ok {

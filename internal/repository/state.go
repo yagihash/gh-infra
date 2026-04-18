@@ -108,7 +108,12 @@ func (p *Processor) FetchRepository(ctx context.Context, owner, name string, onS
 	})
 
 	var (
-		commitMsgSettings             commitMessageSettings
+		// Initialize with safe defaults so that 403/404 fallback does not
+		// produce a destructive zero-value (e.g. has_pull_requests=false).
+		commitMsgSettings = commitMessageSettings{
+			HasPullRequests:     true,
+			PullRequestCreation: manifest.PullRequestCreationAll,
+		}
 		releaseImmutability           bool
 		vulnerabilityAlerts           bool
 		automatedSecurityFixes        bool
@@ -207,6 +212,8 @@ func (p *Processor) FetchRepository(ctx context.Context, owner, name string, onS
 	repo.MergeStrategy.SquashMergeCommitTitle = commitMsgSettings.SquashMergeCommitTitle
 	repo.MergeStrategy.SquashMergeCommitMessage = commitMsgSettings.SquashMergeCommitMessage
 	repo.MergeStrategy.AllowAutoMerge = commitMsgSettings.AllowAutoMerge
+	repo.Features.PullRequests = commitMsgSettings.HasPullRequests
+	repo.Features.PullRequestCreation = commitMsgSettings.PullRequestCreation
 	repo.Security = CurrentSecurity{
 		VulnerabilityAlerts:           vulnerabilityAlerts,
 		AutomatedSecurityFixes:        automatedSecurityFixes,
@@ -289,23 +296,27 @@ type commitMessageSettings struct {
 	SquashMergeCommitTitle   string
 	SquashMergeCommitMessage string
 	AllowAutoMerge           bool
+	HasPullRequests          bool
+	PullRequestCreation      string
 }
 
 func (p *Processor) fetchCommitMessageSettings(ctx context.Context, owner, name string) (commitMessageSettings, error) {
 	out, err := p.runner.Run(ctx,
 		"api", fmt.Sprintf("repos/%s/%s", owner, name),
-		"--jq", "{squash_merge_commit_title,squash_merge_commit_message,merge_commit_title,merge_commit_message,allow_auto_merge}",
+		"--jq", "{squash_merge_commit_title,squash_merge_commit_message,merge_commit_title,merge_commit_message,allow_auto_merge,has_pull_requests,pull_request_creation_policy}",
 	)
 	if err != nil {
 		return commitMessageSettings{}, err
 	}
 
 	var raw struct {
-		SquashMergeCommitTitle   *string `json:"squash_merge_commit_title"`
-		SquashMergeCommitMessage *string `json:"squash_merge_commit_message"`
-		MergeCommitTitle         *string `json:"merge_commit_title"`
-		MergeCommitMessage       *string `json:"merge_commit_message"`
-		AllowAutoMerge           bool    `json:"allow_auto_merge"`
+		SquashMergeCommitTitle    *string `json:"squash_merge_commit_title"`
+		SquashMergeCommitMessage  *string `json:"squash_merge_commit_message"`
+		MergeCommitTitle          *string `json:"merge_commit_title"`
+		MergeCommitMessage        *string `json:"merge_commit_message"`
+		AllowAutoMerge            bool    `json:"allow_auto_merge"`
+		HasPullRequests           *bool   `json:"has_pull_requests"`
+		PullRequestCreationPolicy *string `json:"pull_request_creation_policy"`
 	}
 	if err := json.Unmarshal(out, &raw); err != nil {
 		return commitMessageSettings{}, err
@@ -318,12 +329,23 @@ func (p *Processor) fetchCommitMessageSettings(ctx context.Context, owner, name 
 		return def
 	}
 
+	hasPR := true
+	if raw.HasPullRequests != nil {
+		hasPR = *raw.HasPullRequests
+	}
+	prCreation := manifest.PullRequestCreationAll
+	if raw.PullRequestCreationPolicy != nil && *raw.PullRequestCreationPolicy != "" {
+		prCreation = *raw.PullRequestCreationPolicy
+	}
+
 	return commitMessageSettings{
 		MergeCommitTitle:         deref(raw.MergeCommitTitle, "MERGE_MESSAGE"),
 		MergeCommitMessage:       deref(raw.MergeCommitMessage, "PR_TITLE"),
 		SquashMergeCommitTitle:   deref(raw.SquashMergeCommitTitle, "COMMIT_OR_PR_TITLE"),
 		SquashMergeCommitMessage: deref(raw.SquashMergeCommitMessage, "COMMIT_MESSAGES"),
 		AllowAutoMerge:           raw.AllowAutoMerge,
+		HasPullRequests:          hasPR,
+		PullRequestCreation:      prCreation,
 	}, nil
 }
 

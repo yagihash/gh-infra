@@ -24,7 +24,21 @@ spec:
     projects: false
     wiki: false
     discussions: false
+    pull_requests: true
 ```
+
+`pull_requests` accepts bool or object:
+
+```yaml
+# Object form with creation restriction (implicitly enables PRs)
+pull_requests:
+  creation: collaborators_only  # "all" (default) or "collaborators_only"
+```
+
+- `pull_requests: true` enables PRs (default behavior)
+- `pull_requests: false` disables the PR feature entirely
+- Object form implicitly enables PRs; there is no `enabled` field
+- In RepositorySet defaults, `pull_requests.creation` is independently overridable
 
 ## Merge Strategy
 

@@ -431,6 +431,26 @@ func mergeFeatures(base, override *Features) *Features {
 	if override.Discussions != nil {
 		result.Discussions = override.Discussions
 	}
+	if override.PullRequests != nil {
+		result.PullRequests = mergePullRequests(result.PullRequests, override.PullRequests)
+	}
+	return &result
+}
+
+func mergePullRequests(base, override *PullRequests) *PullRequests {
+	if base == nil {
+		return override
+	}
+	if override == nil {
+		return base
+	}
+	result := *base
+	if override.Enabled != nil {
+		result.Enabled = override.Enabled
+	}
+	if override.Creation != nil {
+		result.Creation = override.Creation
+	}
 	return &result
 }
 

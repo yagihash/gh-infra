@@ -1658,3 +1658,64 @@ func TestCompareActions_SelectedActions(t *testing.T) {
 		t.Error("expected diff for patterns_allowed")
 	}
 }
+
+func TestCompareFeatures_PullRequests(t *testing.T) {
+	local := &manifest.Features{
+		PullRequests: &manifest.PullRequests{Enabled: manifest.Ptr(true)},
+	}
+	imported := &manifest.Features{
+		PullRequests: &manifest.PullRequests{Enabled: manifest.Ptr(false)},
+	}
+
+	diffs := compareFeatures(local, imported)
+	found := make(map[string]bool)
+	for _, d := range diffs {
+		found[d.Field] = true
+	}
+	if !found["features.pull_requests"] {
+		t.Error("expected diff for features.pull_requests")
+	}
+}
+
+func TestCompareFeatures_PullRequestsCreation(t *testing.T) {
+	local := &manifest.Features{
+		PullRequests: &manifest.PullRequests{
+			Enabled:  manifest.Ptr(true),
+			Creation: manifest.Ptr(manifest.PullRequestCreationAll),
+		},
+	}
+	imported := &manifest.Features{
+		PullRequests: &manifest.PullRequests{
+			Enabled:  manifest.Ptr(true),
+			Creation: manifest.Ptr(manifest.PullRequestCreationCollaboratorsOnly),
+		},
+	}
+
+	diffs := compareFeatures(local, imported)
+	found := make(map[string]bool)
+	for _, d := range diffs {
+		found[d.Field] = true
+	}
+	if !found["features.pull_requests.creation"] {
+		t.Error("expected diff for features.pull_requests.creation")
+	}
+	if found["features.pull_requests"] {
+		t.Error("should not diff features.pull_requests when Enabled is the same")
+	}
+}
+
+func TestCompareFeatures_PullRequestsNoDiff(t *testing.T) {
+	local := &manifest.Features{
+		PullRequests: &manifest.PullRequests{Enabled: manifest.Ptr(true)},
+	}
+	imported := &manifest.Features{
+		PullRequests: &manifest.PullRequests{Enabled: manifest.Ptr(true)},
+	}
+
+	diffs := compareFeatures(local, imported)
+	for _, d := range diffs {
+		if strings.HasPrefix(d.Field, "features.pull_requests") {
+			t.Errorf("unexpected diff: %s", d.Field)
+		}
+	}
+}

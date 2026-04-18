@@ -29,6 +29,7 @@ Examples:
 - `visibility`, `label_sync`: scalar replace
 - `topics`, `labels`, `branch_protection`, `rulesets`, `secrets`, `variables`: list replace
 - `features`, `merge_strategy`, `actions`: map merge by key (individual fields like `enabled`, `allowed_actions` are independently overridable)
+- `features.pull_requests`: map merge by key (`enabled` and `creation` are independently overridable)
 - `actions.selected_actions`: map merge by key
 - `actions.selected_actions.patterns_allowed`: list replace
 

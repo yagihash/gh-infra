@@ -47,6 +47,10 @@ const (
 	MergeCommitMessagePRBody  = "PR_BODY"
 	MergeCommitMessageBlank   = "BLANK"
 
+	// Pull request creation policy values.
+	PullRequestCreationAll               = "all"
+	PullRequestCreationCollaboratorsOnly = "collaborators_only"
+
 	// DefaultMaxRepoList is the maximum number of repos to list in import.
 	DefaultMaxRepoList = "1000"
 )
@@ -98,10 +102,76 @@ type Security struct {
 }
 
 type Features struct {
-	Issues      *bool `yaml:"issues,omitempty"`
-	Projects    *bool `yaml:"projects,omitempty"`
-	Wiki        *bool `yaml:"wiki,omitempty"`
-	Discussions *bool `yaml:"discussions,omitempty"`
+	Issues       *bool         `yaml:"issues,omitempty"`
+	Projects     *bool         `yaml:"projects,omitempty"`
+	Wiki         *bool         `yaml:"wiki,omitempty"`
+	Discussions  *bool         `yaml:"discussions,omitempty"`
+	PullRequests *PullRequests `yaml:"pull_requests,omitempty"`
+}
+
+// PullRequests controls the pull request feature and creation policy.
+// Supports both bool form (pull_requests: true/false) and object form
+// (pull_requests: {creation: collaborators_only}).
+//
+// In bool form, true/false maps directly to has_pull_requests on the API.
+// In object form, pull requests are implicitly enabled and creation controls
+// the pull_request_creation_policy API field.
+//
+// Enabled is an internal field — it is not exposed in YAML.
+type PullRequests struct {
+	Enabled  *bool   `yaml:"-"` // internal; set by UnmarshalYAML
+	Creation *string `yaml:"creation,omitempty" validate:"omitempty,oneof=all collaborators_only"`
+}
+
+// UnmarshalYAML allows PullRequests to be either a bool or a struct.
+// Bool form sets Enabled directly. Object form implies Enabled=true.
+func (pr *PullRequests) UnmarshalYAML(unmarshal func(any) error) error {
+	var b bool
+	if err := unmarshal(&b); err == nil {
+		pr.Enabled = &b
+		return nil
+	}
+	type raw PullRequests
+	var r raw
+	if err := unmarshal(&r); err != nil {
+		return err
+	}
+	*pr = PullRequests(r)
+	// Object form implies enabled=true.
+	t := true
+	pr.Enabled = &t
+	return nil
+}
+
+// MarshalYAML emits a bare bool when Enabled is false or when no Creation
+// is set (simple enable). Only emits the object form when Creation is set.
+func (pr PullRequests) MarshalYAML() (any, error) {
+	if pr.Enabled != nil && !*pr.Enabled {
+		return false, nil
+	}
+	if pr.Creation == nil {
+		return true, nil
+	}
+	// Emit object form with only the creation field.
+	return struct {
+		Creation string `yaml:"creation"`
+	}{Creation: *pr.Creation}, nil
+}
+
+// IsEnabled returns the Enabled pointer, or nil if PullRequests is nil.
+func (pr *PullRequests) IsEnabled() *bool {
+	if pr == nil {
+		return nil
+	}
+	return pr.Enabled
+}
+
+// GetCreation returns the Creation pointer, or nil if PullRequests is nil.
+func (pr *PullRequests) GetCreation() *string {
+	if pr == nil {
+		return nil
+	}
+	return pr.Creation
 }
 
 type MergeStrategy struct {
