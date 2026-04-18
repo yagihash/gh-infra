@@ -204,6 +204,10 @@ func diffFeatures(name string, desired *manifest.Repository, current *CurrentSta
 		appendChildChanged(cc, "projects", f.Projects, current.Features.Projects)
 		appendChildChanged(cc, "wiki", f.Wiki, current.Features.Wiki)
 		appendChildChanged(cc, "discussions", f.Discussions, current.Features.Discussions)
+		appendChildChanged(cc, "pull_requests", f.PullRequests.IsEnabled(), current.Features.PullRequests)
+		if f.PullRequests != nil && f.PullRequests.Creation != nil {
+			appendChildChanged(cc, "pull_requests.creation", f.PullRequests.Creation, current.Features.PullRequestCreation)
+		}
 	})
 }
 

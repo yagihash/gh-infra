@@ -28,12 +28,7 @@ func ToManifest(ctx context.Context, r *CurrentState, resolver *manifest.Resolve
 				AutomatedSecurityFixes:        manifest.Ptr(r.Security.AutomatedSecurityFixes),
 				PrivateVulnerabilityReporting: manifest.Ptr(r.Security.PrivateVulnerabilityReporting),
 			},
-			Features: &manifest.Features{
-				Issues:      manifest.Ptr(r.Features.Issues),
-				Projects:    manifest.Ptr(r.Features.Projects),
-				Wiki:        manifest.Ptr(r.Features.Wiki),
-				Discussions: manifest.Ptr(r.Features.Discussions),
-			},
+			Features: exportFeatures(r),
 			MergeStrategy: &manifest.MergeStrategy{
 				AllowMergeCommit:         manifest.Ptr(r.MergeStrategy.AllowMergeCommit),
 				AllowSquashMerge:         manifest.Ptr(r.MergeStrategy.AllowSquashMerge),
@@ -199,4 +194,20 @@ func ToManifest(ctx context.Context, r *CurrentState, resolver *manifest.Resolve
 	}
 
 	return repo
+}
+
+func exportFeatures(r *CurrentState) *manifest.Features {
+	pr := &manifest.PullRequests{
+		Enabled: manifest.Ptr(r.Features.PullRequests),
+	}
+	if r.Features.PullRequestCreation != "" && r.Features.PullRequestCreation != manifest.PullRequestCreationAll {
+		pr.Creation = manifest.Ptr(r.Features.PullRequestCreation)
+	}
+	return &manifest.Features{
+		Issues:       manifest.Ptr(r.Features.Issues),
+		Projects:     manifest.Ptr(r.Features.Projects),
+		Wiki:         manifest.Ptr(r.Features.Wiki),
+		Discussions:  manifest.Ptr(r.Features.Discussions),
+		PullRequests: pr,
+	}
 }

@@ -576,6 +576,60 @@ func TestDiff_Features_BoolNoChange(t *testing.T) {
 	}
 }
 
+func TestDiff_Features_PullRequests(t *testing.T) {
+	d := baseDesired()
+	d.Spec.Features = &manifest.Features{
+		PullRequests: &manifest.PullRequests{Enabled: manifest.Ptr(false)},
+	}
+	c := baseState()
+	c.Features.PullRequests = true
+
+	changes := diffFeatures("org/repo", d, c)
+	if len(changes) != 1 {
+		t.Fatalf("expected 1 change, got %d", len(changes))
+	}
+	child := changes[0].Children
+	if len(child) != 1 || child[0].Field != "pull_requests" {
+		t.Errorf("expected pull_requests child change, got %+v", child)
+	}
+}
+
+func TestDiff_Features_PullRequestsCreation(t *testing.T) {
+	d := baseDesired()
+	d.Spec.Features = &manifest.Features{
+		PullRequests: &manifest.PullRequests{
+			Enabled:  manifest.Ptr(true),
+			Creation: manifest.Ptr(manifest.PullRequestCreationCollaboratorsOnly),
+		},
+	}
+	c := baseState()
+	c.Features.PullRequests = true
+	c.Features.PullRequestCreation = manifest.PullRequestCreationAll
+
+	changes := diffFeatures("org/repo", d, c)
+	if len(changes) != 1 {
+		t.Fatalf("expected 1 change, got %d", len(changes))
+	}
+	child := changes[0].Children
+	if len(child) != 1 || child[0].Field != "pull_requests.creation" {
+		t.Errorf("expected pull_requests.creation child change, got %+v", child)
+	}
+}
+
+func TestDiff_Features_PullRequestsNoChange(t *testing.T) {
+	d := baseDesired()
+	d.Spec.Features = &manifest.Features{
+		PullRequests: &manifest.PullRequests{Enabled: manifest.Ptr(true)},
+	}
+	c := baseState()
+	c.Features.PullRequests = true
+
+	changes := diffFeatures("org/repo", d, c)
+	if len(changes) != 0 {
+		t.Errorf("expected no changes, got %d", len(changes))
+	}
+}
+
 func TestDiff_MergeStrategy_CommitStrings(t *testing.T) {
 	tests := []struct {
 		name      string

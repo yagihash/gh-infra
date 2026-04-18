@@ -89,7 +89,7 @@ The combination of `owner` and `name` identifies the target repository (`babarot
 | `topics` | GitHub topics for discoverability |
 | `labels` | Repository issue/PR labels — see [Labels](./labels/) |
 | `label_sync` | Label sync mode: `additive` (default) or `mirror` — see [Labels](./labels/#sync-mode) |
-| `features` | Toggle issues, projects, wiki, discussions — see [General Settings](./general/) |
+| `features` | Toggle issues, projects, wiki, discussions, pull requests — see [General Settings](./general/) |
 | `merge_strategy` | Merge commit, squash, rebase options — see [General Settings](./general/) |
 | `branch_protection` | Classic branch protection rules — see [Branch Protection](./branch-protection/) |
 | `rulesets` | Modern rulesets with enforcement modes and bypass actors — see [Rulesets](./rulesets/) |

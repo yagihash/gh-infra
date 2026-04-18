@@ -156,3 +156,20 @@ repositories:
         # issues: true       ← retained from defaults
         # projects: false    ← retained from defaults
 ```
+
+The `pull_requests` field within `features` is also merged at sub-field level when using the object form:
+
+```yaml
+defaults:
+  spec:
+    features:
+      pull_requests:
+        creation: collaborators_only
+
+repositories:
+  - name: open-repo
+    spec:
+      features:
+        pull_requests:
+          creation: all      # overrides creation; PRs stay enabled
+```
