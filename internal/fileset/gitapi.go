@@ -196,14 +196,6 @@ func (p *Processor) getHeadSHA(ctx context.Context, repo string) (sha, branch st
 	return sha, branch, nil
 }
 
-func (p *Processor) updateRef(ctx context.Context, repo, branch, commitSHA string) error {
-	_, err := p.runner.Run(ctx, "api", fmt.Sprintf("repos/%s/git/refs/heads/%s", repo, branch),
-		"--method", "PATCH",
-		"-f", fmt.Sprintf("sha=%s", commitSHA),
-	)
-	return err
-}
-
 // createBranchAt creates or force-updates a branch pointing to the given SHA.
 func (p *Processor) createBranchAt(ctx context.Context, repo, branch, sha string) error {
 	_, err := p.runner.Run(ctx, "api", fmt.Sprintf("repos/%s/git/refs", repo),
