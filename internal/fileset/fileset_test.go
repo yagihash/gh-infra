@@ -236,6 +236,10 @@ func setupGitDataAPIMock(repo string) *WildcardMockRunner {
 				fmt.Sprintf("repo view %s --json defaultBranchRef --jq .defaultBranchRef.name", repo): []byte("main"),
 				// Get HEAD SHA
 				fmt.Sprintf("api repos/%s/git/ref/heads/main --jq .object.sha", repo): []byte("head123"),
+				// Get authenticated user (PAT path; not a bot)
+				`api /user --jq .login+"|"+(.name // .login)`: []byte("testuser|Test User"),
+				// Get primary email
+				`api /user/emails --jq [.[] | select(.primary == true)] | .[0].email`: []byte("test@example.com"),
 			},
 			Errors: map[string]error{},
 		},
@@ -245,9 +249,15 @@ func setupGitDataAPIMock(repo string) *WildcardMockRunner {
 	return mock
 }
 
+// stubSign is a no-op GPG signer for tests.
+func stubSign(_ string) (string, error) {
+	return "-----BEGIN PGP SIGNATURE-----\nstub\n-----END PGP SIGNATURE-----", nil
+}
+
 func TestApply_CreateFile(t *testing.T) {
 	mock := setupGitDataAPIMock("owner/repo")
 	p := NewProcessor(mock, ui.NewStandardPrinterWith(&bytes.Buffer{}, &bytes.Buffer{}))
+	p.sign = stubSign
 
 	changes := []Change{
 		{
@@ -280,6 +290,7 @@ func TestApply_CreateFile(t *testing.T) {
 func TestApply_UpdateFile(t *testing.T) {
 	mock := setupGitDataAPIMock("owner/repo")
 	p := NewProcessor(mock, ui.NewStandardPrinterWith(&bytes.Buffer{}, &bytes.Buffer{}))
+	p.sign = stubSign
 
 	changes := []Change{
 		{

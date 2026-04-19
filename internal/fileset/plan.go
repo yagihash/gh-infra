@@ -17,6 +17,7 @@ import (
 type Processor struct {
 	runner   gh.Runner
 	writer   ProgressWriter
+	sign     func(payload string) (string, error) // defaults to gpgSign
 	userOnce sync.Once
 	userInfo githubUser
 	userErr  error
@@ -26,7 +27,7 @@ func NewProcessor(runner gh.Runner, writer ProgressWriter) *Processor {
 	if writer == nil {
 		writer = noopProgressWriter{}
 	}
-	return &Processor{runner: runner, writer: writer}
+	return &Processor{runner: runner, writer: writer, sign: gpgSign}
 }
 
 // planUnit represents one (fileSet, repository) pair to process.

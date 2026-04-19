@@ -345,7 +345,7 @@ func (p *Processor) createCommit(ctx context.Context, repo, message, treeSHA, pa
 	}
 
 	commitObj := buildCommitObject(message, treeSHA, parentSHA, user.name, user.email, now)
-	sig, err := gpgSign(commitObj)
+	sig, err := p.sign(commitObj)
 	if err != nil {
 		return "", fmt.Errorf("sign commit: %w", err)
 	}
