@@ -1,5 +1,20 @@
 # Changelog
 
+## [v0.12.0](https://github.com/babarot/gh-infra/compare/v0.11.1...v0.12.0) - 2026-04-18
+### New Features
+- Add pull_requests feature field with bool-or-object YAML support by @babarot in https://github.com/babarot/gh-infra/pull/137
+### Bug fixes
+- Fix progress tracker completion and handle missing RepositorySet spec by @babarot in https://github.com/babarot/gh-infra/pull/133
+### Improvements
+- Key-based merge for collection fields in RepositorySet defaults by @babarot in https://github.com/babarot/gh-infra/pull/128
+- Parallelize repository fetch in import --into by @babarot in https://github.com/babarot/gh-infra/pull/130
+- Improve import --into: display fix and optional repo arguments by @babarot in https://github.com/babarot/gh-infra/pull/131
+- Add checkpoint status and done-label to refresh tracker by @babarot in https://github.com/babarot/gh-infra/pull/134
+- Improve plan and import display for rulesets and branch protection by @babarot in https://github.com/babarot/gh-infra/pull/135
+- Reject fork_pr_approval for private repos and fix ruleset condition comparison by @babarot in https://github.com/babarot/gh-infra/pull/136
+### Refactorings
+- Unify plan and import --into display with shared DiffGroup model by @babarot in https://github.com/babarot/gh-infra/pull/132
+
 ## [v0.11.1](https://github.com/babarot/gh-infra/compare/v0.11.0...v0.11.1) - 2026-04-17
 ### Improvements
 - feat: add allow_auto_merge to merge_strategy by @babarot in https://github.com/babarot/gh-infra/pull/125
